@@ -88,8 +88,11 @@ A tracker that turns emails into work you can follow.
 ## Look and feel rules
 
 - No "AI look": no purple gradients, no emoji, no default fonts (Inter / Roboto / Arial / Space Grotesk).
-- Clean, sharp work tool. One distinctive typeface, clear status colours, light and dark mode.
-- Fast to use: drag-drop upload, board / list toggle, keyboard shortcuts, Ctrl+K search, smooth motion.
+- No "bubble" look: no outlined pills or chips everywhere; status is an icon + a word.
+- Calm, not a rat race: soft wording, no red alarm boxes; red appears only as a small dot.
+- Glass panels over an office background. Light mode only for now (dark mode later, if wanted).
+- Neat, clean and smooth: every movement eases (tabs, panels, menus, tour).
+- Fast to use: drag-drop upload, board / list toggle, keyboard shortcuts, Ctrl+K search, a floating tour for new users.
 
 ---
 
@@ -111,7 +114,10 @@ Each step stops for the owner's review.
 - [~] **Step 1** — Clickable design preview of the main screens (`design/preview.html`). **Built, waiting for the owner's review.**
   - Live preview: https://claude.ai/artifact/8wg1CBDtAbgQBDXva8YZnp (private to the owner)
   - Screens: Lead overview, Member overview, Cases list, Board (drag and drop), Case page, Add email (paste / upload / sample → reading → check and edit), Team, Member page, Alerts, search (Ctrl+K)
-  - Look: Archivo (wide for headings) + IBM Plex Mono for IDs, dates and email headers; cool grey paper, ink buttons, highlighter yellow as the one accent
+  - **v2 look (current):** frosted-glass panels over a soft, out-of-focus office background drawn in code; light mode only for now; Onest font; floating glass top bar with sliding tabs; status shown as icon + word (no outlined pills); calm wording ("past due", not "overdue")
+  - **Floating tour:** spotlight walkthrough that moves around the screen (offered on first visit; replay from the help button, the `?` key, or search)
+  - v1 look (rejected by owner): flat grey background, pill "bubbles", number-tile dashboard; felt "AI-made" and pressuring
+  - Owner's reference for the vibe: a "glassy dashboard" reel (frosted glass over a calm scene). We build our own design in that style, not a copy
   - Signature: every Point links back to the sentence in the email it came from (hover lights it up like a highlighter)
   - Email reading in the preview is a simple stand-in; the real app uses the Claude API
 - [ ] **Step 2** — Login, roles, Team page
@@ -146,6 +152,8 @@ Each step stops for the owner's review.
 | 2026-11-03 | Generic role names (not manager / employee) |
 | 2026-11-03 | Stack: Next.js + Vercel + Neon + Claude API + Resend |
 | 2026-11-03 | Step 1 design preview built and published for review |
+| 2026-11-03 | Owner rejected v1 look (bubbles, grey background, pressuring dashboard) |
+| 2026-11-03 | v2: glass style over an office background, light mode only for now, floating tour, smooth motion |
 
 ---
 

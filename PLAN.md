@@ -1,8 +1,8 @@
-# Docket — Plan
+# Agthia Enhancements — Plan
 
 > Living plan and cross-chat memory. Read this first in any new chat.
 > Rule: nothing gets built or changed without the owner's final OK.
-> "Docket" is a working name only.
+> App name: **Agthia Enhancements** (was "Docket" while designing). Name used as plain text only; no Agthia logo or brand colours unless the owner provides them.
 
 ---
 
@@ -25,7 +25,7 @@ A tracker that turns emails into work you can follow.
 | **Member** | Only their own Cases | Add emails, edit what the system extracted, post updates, set deadlines, mark Points done |
 
 - Start: **1 Lead + 1 Member**. The Lead adds more Members from the Team page.
-- Role names are not final. Other options: Owner/Member, Admin/Contributor, Reviewer/Assignee.
+- Role names are final: **Lead** and **Member**.
 
 ---
 
@@ -106,12 +106,31 @@ A tracker that turns emails into work you can follow.
 
 ---
 
+## Where things live
+
+| Thing | Where | Notes |
+|---|---|---|
+| Code | GitHub `Saxqb777/outlook-enhancment-tracker-`, branch `claude/nice-babbage-j31aej` (also the repo's default branch) | Every push to this branch deploys to production |
+| Hosting | Vercel project `agthia-enhancements` (team "saxqb777's projects") | Functions in `fra1` (Frankfurt), Node 22. Vercel login wall only on preview links |
+| Database | Neon project `agthia-enhancements` (`delicate-flower-67324386`), region AWS Frankfurt, Postgres 17, database `agthia` | Free plan. Schema in `db/migrations/` |
+| Secrets | Vercel environment variables `DATABASE_URL`, `SETUP_CODE` (sensitive) | Never commit these. `.env.example` lists the names |
+
+**Running it locally**
+- `npm install`
+- Create `.env.local` with `DATABASE_URL` and `SETUP_CODE` (see `.env.example`)
+- `npm run db:migrate` (applies new files in `db/migrations/`)
+- `npm run dev`
+
+**How sign-in works:** passwords hashed with scrypt; a random session token sits in an httpOnly cookie and only its hash is stored in the `sessions` table (30 days). After 8 wrong passwords in 15 minutes for an email, sign-in for it pauses. Invite links are random tokens; only their hash is stored, so a link is shown once.
+
+---
+
 ## Build order
 
 Each step stops for the owner's review.
 
 - [x] **Step 0** — `PLAN.md` (this file)
-- [~] **Step 1** — Clickable design preview of the main screens (`design/preview.html`). **Built, waiting for the owner's review.**
+- [x] **Step 1** — Clickable design preview of the main screens (`design/preview.html`). **Approved (v2 look).**
   - Live preview: https://claude.ai/artifact/8wg1CBDtAbgQBDXva8YZnp (private to the owner)
   - Screens: Lead overview, Member overview, Cases list, Board (drag and drop), Case page, Add email (paste / upload / sample → reading → check and edit), Team, Member page, Alerts, search (Ctrl+K)
   - **v2 look (current):** frosted-glass panels over a soft, out-of-focus office background drawn in code; light mode only for now; Onest font; floating glass top bar with sliding tabs; status shown as icon + word (no outlined pills); calm wording ("past due", not "overdue")
@@ -120,20 +139,27 @@ Each step stops for the owner's review.
   - Owner's reference for the vibe: a "glassy dashboard" reel (frosted glass over a calm scene). We build our own design in that style, not a copy
   - Signature: every Point links back to the sentence in the email it came from (hover lights it up like a highlighter)
   - Email reading in the preview is a simple stand-in; the real app uses the Claude API
-- [ ] **Step 2** — Login, roles, Team page
+- [~] **Step 2** — Login, roles, Team page. **Built and live, waiting for the owner's review.**
+  - Live app: https://agthia-enhancements.vercel.app
+  - Sign in with email + password; first visit uses `/setup` (needs the one-time setup code) to create the single Lead
+  - Lead: Team page → add a member → copy the invite link (works once, 7 days) → member opens it and picks a password
+  - Lead can make a new link, cancel an invite, turn a member's access off / on (turning off signs them out at once)
+  - Members never see the Team page; Cases and Board are placeholders until Step 3
+  - Tested end to end in a browser (32 checks: setup, sign-in, wrong password, invites, one-use links, roles, access off/on, sign out, phone layout)
 - [ ] **Step 3** — Add email + extraction + edit
 - [ ] **Step 4** — Case page: Points, updates, remarks, deadlines
 - [ ] **Step 5** — Dashboards and analytics
 - [ ] **Step 6** — Alerts (in-app + email)
-- [ ] **Step 7** — Go live on Vercel
+- [ ] **Step 7** — Launch polish (custom domain if wanted, final checks). The app is already live on Vercel from Step 2.
 
 ---
 
 ## Open questions
 
 - [ ] Final Point flow (waiting on the owner's email types)
-- [ ] Final role names
-- [ ] Final app name (working: Docket)
+- [x] Final role names (Lead / Member)
+- [x] Final app name (Agthia Enhancements)
+- [ ] Custom domain (optional, later)
 - [ ] Claude API key (needed by Step 3)
 
 ---
@@ -154,6 +180,9 @@ Each step stops for the owner's review.
 | 2026-11-03 | Step 1 design preview built and published for review |
 | 2026-11-03 | Owner rejected v1 look (bubbles, grey background, pressuring dashboard) |
 | 2026-11-03 | v2: glass style over an office background, light mode only for now, floating tour, smooth motion |
+| 2026-11-03 | v2 look approved; app named **Agthia Enhancements**; keep Lead / Member |
+| 2026-11-03 | Hosting on the owner's paid Vercel; database on Neon (Frankfurt, nearest region to UAE) |
+| 2026-11-03 | Step 2 built and live: login, one Lead via setup code, invite links, Team page |
 
 ---
 

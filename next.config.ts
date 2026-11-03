@@ -1,7 +1,25 @@
 import type { NextConfig } from "next";
 
+// SANDBOX_MODE=1: the home page shows the no-login demo (public/sandbox.html)
+// to anyone who isn't signed in. /login and /setup keep working as normal.
+const sandbox = process.env.SANDBOX_MODE === "1";
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  async rewrites() {
+    if (!sandbox) return [];
+    return {
+      beforeFiles: [
+        {
+          source: "/",
+          missing: [{ type: "cookie", key: "ae_session" }],
+          destination: "/sandbox.html",
+        },
+      ],
+      afterFiles: [],
+      fallback: [],
+    };
+  },
   async headers() {
     return [
       {

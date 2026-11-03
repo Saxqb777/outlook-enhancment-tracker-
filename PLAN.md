@@ -114,6 +114,7 @@ A tracker that turns emails into work you can follow.
 | Hosting | Vercel project `agthia-enhancements` (team "saxqb777's projects") | Functions in `fra1` (Frankfurt), Node 22. Vercel login wall only on preview links |
 | Database | Neon project `agthia-enhancements` (`delicate-flower-67324386`), region AWS Frankfurt, Postgres 17, database `agthia` | Free plan. Schema in `db/migrations/` |
 | Secrets | Vercel environment variables `DATABASE_URL`, `SETUP_CODE` (sensitive) | Never commit these. `.env.example` lists the names |
+| Sandbox mode | Vercel environment variable `SANDBOX_MODE=1` (currently **on**) | Home page shows the no-login demo (`public/sandbox.html`, sample data, Lead / Member switch) to anyone not signed in. `/login` and `/setup` still work. To turn off: delete the variable in Vercel and redeploy. Rebuild the demo from `design/preview.html` with `npm run sandbox:build` |
 
 **Running it locally**
 - `npm install`
@@ -183,6 +184,7 @@ Each step stops for the owner's review.
 | 2026-11-03 | v2 look approved; app named **Agthia Enhancements**; keep Lead / Member |
 | 2026-11-03 | Hosting on the owner's paid Vercel; database on Neon (Frankfurt, nearest region to UAE) |
 | 2026-11-03 | Step 2 built and live: login, one Lead via setup code, invite links, Team page |
+| 2026-11-03 | Owner asked for a no-login sandbox for now: live link shows the demo with sample data and a Lead / Member switch. Real login stays at `/login`. Owner sets up the Lead + Claude key tomorrow |
 
 ---
 

@@ -185,6 +185,9 @@ Each step stops for the owner's review.
 | 2026-11-03 | Hosting on the owner's paid Vercel; database on Neon (Frankfurt, nearest region to UAE) |
 | 2026-11-03 | Step 2 built and live: login, one Lead via setup code, invite links, Team page |
 | 2026-11-03 | Owner asked for a no-login sandbox for now: live link shows the demo with sample data and a Lead / Member switch. Real login stays at `/login`. Owner sets up the Lead + Claude key tomorrow |
+| 2026-11-04 | Sandbox is now a demo for future users: freight sample data (bookings, customs holds, demurrage, rate quotes, rollovers, reefer alarms, delivery orders), a welcome card, a "What's being built" roadmap page (`#roadmap`), and a freight-worded tour. "Foresight" read as "show what's coming" |
+| 2026-11-04 | Phone clean-up: Sandbox controls moved into one top-bar menu (no floating chip or help button), 2 summary cards on phones, lists show 3 + "Show all", notes hidden on phones, Board shows one status at a time, compact case header, shorter intro lines |
+| 2026-11-04 | Sample dates follow today's date; sample case IDs use `AE-` |
 
 ---
 

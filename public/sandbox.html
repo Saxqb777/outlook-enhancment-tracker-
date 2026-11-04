@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<meta name="description" content="Agthia Enhancements sandbox with sample data. Nothing is saved.">
+<meta name="description" content="Agthia Enhancements sandbox with sample freight data. Nothing is saved.">
 <title>Agthia Enhancements · Sandbox</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -556,13 +556,97 @@ body.filedrag::after{content:"Drop the email to add it";position:fixed;inset:14p
   .launch{bottom:calc(148px + env(safe-area-inset-bottom,0px))}
   .toasts{bottom:calc(96px + env(safe-area-inset-bottom,0px))}
 }
-@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 
-[hidden]{display:none!important}
+/* sandbox control, welcome card, roadmap */
 .brand-t{white-space:nowrap}
 .brand-t span{font-weight:500;color:var(--ink-3)}
 @media (max-width:1180px){.brand-t span{display:none}}
-.pv a{color:var(--ink);font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.sb-btn{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 10px;border-radius:11px;background:rgba(255,200,0,.16);color:var(--ink);font-size:12.5px;font-weight:650;white-space:nowrap;transition:background .2s}
+.sb-btn:hover,.sb-btn[aria-expanded="true"]{background:rgba(255,200,0,.28)}
+.sb-dot{width:7px;height:7px;border-radius:50%;background:#D9A300;box-shadow:0 0 0 3px rgba(217,163,0,.18);flex:none}
+.sb-r{color:var(--ink-3);font-weight:550}
+.sb-btn .i{color:var(--ink-3);width:13px;height:13px}
+@media (max-width:1100px){.sb-l{display:none}}
+.sb-role{display:flex;flex-direction:column;gap:6px;padding:4px 10px 8px}
+.sb-role .seg{display:flex}.sb-role .seg button{flex:1;justify-content:center}
+a.mi{color:var(--ink)}
+.mi .i{color:var(--ink-3)}
+.wl-wrap{position:fixed;inset:0;z-index:150;display:grid;place-items:center;padding:16px;background:rgba(14,19,29,.3);animation:fade .3s ease}
+.welcome{width:min(540px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:24px 24px 20px;border-radius:24px;background:var(--glass-3);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--edge);box-shadow:var(--sh-2);animation:rise .5s var(--ease) both}
+.sb-tag{display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 10px;border-radius:9px;background:rgba(255,200,0,.18);font-size:12px;font-weight:650}
+.welcome h2{margin:12px 0 6px;font-size:24px;font-weight:700;letter-spacing:-.03em}
+.wl-lede{margin:0;color:var(--ink-2);font-size:15px;line-height:1.55}
+.wl-steps{list-style:none;margin:18px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
+.wl-steps li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:start;padding:12px;border-radius:14px;background:rgba(255,255,255,.62)}
+.wl-steps .tag{width:26px;height:26px;border-radius:8px;font-size:12px}
+.wl-steps b{display:block;font-weight:650}
+.wl-steps div span{display:block;font-size:13.5px;color:var(--ink-3);margin-top:2px}
+.wl-f{display:flex;align-items:center;gap:8px;margin-top:18px;flex-wrap:wrap}
+.wl-f .sp{flex:1}
+@media (max-width:560px){.wl-wrap{place-items:end center;padding:12px 12px calc(12px + env(safe-area-inset-bottom,0px))}.welcome{padding:20px 18px 16px;border-radius:22px}.welcome h2{font-size:21px}.wl-steps li{padding:10px}.wl-f{flex-direction:column-reverse;align-items:stretch}.wl-f .btn{width:100%}.wl-f .sp{display:none}.wl-f .link-btn{text-align:center;padding:6px}}
+.rm{list-style:none;margin:0;padding:6px 18px 14px}
+.rm-i{display:grid;grid-template-columns:34px minmax(0,1fr);gap:14px;position:relative;padding:10px 0 14px}
+.rm-i::before{content:"";position:absolute;left:16px;top:46px;bottom:-8px;width:2px;border-radius:1px;background:var(--hair-2)}
+.rm-i:last-child::before{display:none}
+.rm-done::before,.rm-live::before{background:rgba(18,147,106,.45)}
+.rm-n{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;font-weight:700;font-size:13px;background:rgba(255,255,255,.7);color:var(--ink-3);position:relative;z-index:1}
+.rm-done .rm-n,.rm-live .rm-n{background:var(--s-done);color:#fff}
+.rm-next .rm-n{background:var(--ink);color:#fff}
+.rm-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-height:34px}
+.rm-h b{font-size:15px;font-weight:650}
+.rm-b p{margin:2px 0 6px;color:var(--ink-2);max-width:62ch;line-height:1.5}
+.rm-tag{font-size:11.5px;font-weight:650;padding:2px 8px;border-radius:7px;background:var(--wash);color:var(--ink-3)}
+.rm-tag.ok{background:rgba(18,147,106,.12);color:#0B6B4C}
+.rm-tag.next{background:var(--ink);color:#fff}
+.rm-plan .rm-h b{color:var(--ink-2)}
+
+/* board: one column at a time on phones and small tablets */
+.board-switch{display:none}
+@media (max-width:899px){
+  .board-switch{display:flex;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;align-self:stretch}
+  .board-switch::-webkit-scrollbar{display:none}
+  .board-switch button{flex:none}
+  .board-wrap{overflow:visible;padding:0}
+  .board{display:block;min-width:0}
+  .board .col{display:none;min-height:0}
+  .board .col-h{display:none}
+  .board .col-b{padding:8px}
+  .board[data-show="todo"] .col[data-col="todo"],.board[data-show="progress"] .col[data-col="progress"],.board[data-show="wait"] .col[data-col="wait"],.board[data-show="done"] .col[data-col="done"],.board[data-show="approved"] .col[data-col="approved"]{display:flex;animation:rise .35s var(--ease)}
+}
+
+/* phones: fewer layers, less text, more air */
+.row-more{display:none}
+@media (max-width:560px){
+  .m-hide{display:none!important}
+  .lede.opt{display:none}
+  .rows.clip>.row:nth-child(n+4),.acts.clip>.act:nth-child(n+4){display:none}
+  .row-more{display:block;width:calc(100% - 12px);margin:0 6px 8px;height:40px;border-radius:11px;font-weight:600;font-size:13px;color:var(--ink-2);background:rgba(255,255,255,.55);text-align:center}
+  .quote{display:none}
+  .row:hover,a.crow:hover,a.trow:hover{background:none}
+  .page{padding-top:16px}
+  .page-in{gap:14px}
+  .h1{font-size:24px}
+  .lede{font-size:14.5px}
+  .panel-h{min-height:46px;padding:12px 14px 8px}
+  .rows,.acts,.rmks,.list{padding:0 6px 6px}
+  .row{padding:11px 8px}
+  .grid2{gap:14px}
+  .filters{flex-wrap:nowrap;overflow-x:auto;margin:0 -16px;padding:0 16px 4px;scrollbar-width:none}
+  .filters::-webkit-scrollbar{display:none}
+  .filters .seg,.filters .chips{flex-wrap:nowrap;flex:none}
+  .filters .find{flex:0 0 230px}
+  .case-meta{background:none;border:0;padding:2px 0 0;margin-top:8px;gap:2px 16px}
+  .case-meta>div:first-child{display:none}
+  .case-meta>div{flex-direction:row;align-items:center}
+  .case-meta dt{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .case-meta dd{min-height:30px;font-size:13px}
+  .case-meta .segbar{width:64px}
+  .tabs-m{align-self:stretch}.tabs-m button{flex:1;justify-content:center}
+  .rm{padding:4px 14px 10px}
+}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+[hidden]{display:none!important}
 </style>
 </head>
 <body>
@@ -573,23 +657,16 @@ body.filedrag::after{content:"Drop the email to add it";position:fixed;inset:14p
     <a class="brand" href="#overview" aria-label="Agthia Enhancements home"><svg class="logo" viewBox="0 0 26 26" aria-hidden="true"><rect x="1" y="1" width="24" height="24" rx="7" fill="#11161F"/><rect x="6.5" y="7" width="13" height="2" rx="1" fill="#FFFFFF" opacity=".5"/><rect x="5.5" y="11.3" width="15" height="4" rx="1.4" fill="#FFD21F"/><rect x="6.8" y="12.6" width="9" height="1.5" rx=".75" fill="#11161F"/><rect x="6.5" y="17.3" width="8.5" height="2" rx="1" fill="#FFFFFF" opacity=".5"/></svg><span class="brand-t">Agthia <span>Enhancements</span></span></a>
     <nav class="tabs" id="tabs" aria-label="Pages"><span class="tab-thumb" id="tab-thumb" aria-hidden="true"></span><span class="tab-links" id="tab-links"></span></nav>
     <div class="top-r">
+      <button class="sb-btn" data-act="sandbox-menu" id="sb-btn" aria-haspopup="menu" aria-expanded="false"></button>
       <button class="search" data-act="palette" id="search-btn"></button>
       <a class="btn btn-primary" href="#add" id="tb-add"></a>
       <button class="icon-btn" data-act="alerts" id="bell" aria-label="Alerts"></button>
       <span id="me-av"></span>
     </div>
   </header>
-  <div class="pv" id="pv" role="region" aria-label="Preview controls">
-    <span><b>Sandbox</b> · sample data, nothing is saved · <a href="/login">Sign in</a></span>
-    <div class="seg seg-pv" role="group" aria-label="View as">
-      <button data-act="role" data-role="lead" aria-pressed="true">Lead · Rhea</button>
-      <button data-act="role" data-role="member" aria-pressed="false">Member · Aisha</button>
-    </div>
-  </div>
   <main id="main" class="page" tabindex="-1"></main>
 </div>
 <nav class="bnav" id="bnav" aria-label="Pages"></nav>
-<button class="help-btn" id="help-btn" data-act="tour" aria-label="Take the tour" title="Take the tour"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.6"/><path d="M9.7 9.4a2.4 2.4 0 0 1 4.7.8c0 1.7-2.4 2.1-2.4 3.6"/><path d="M12 16.9v.1"/></svg></button>
 <div class="toasts" id="toasts" aria-live="polite"></div>
 
 <script>
@@ -603,7 +680,10 @@ const MOD=MAC?"⌘":"Ctrl";
 const pl=(n,w)=>`${n} ${w}${n===1?"":"s"}`;
 
 /* ---------- dates ---------- */
-const TODAY=new Date(2026,10,3);
+const BASE=new Date(2026,10,3);
+const OFF=(()=>{const n=new Date();return Math.round((new Date(n.getFullYear(),n.getMonth(),n.getDate())-BASE)/864e5)})();
+const TODAY=new Date(2026,10,3+OFF);
+const SH=s=>{if(!s)return s;const p=s.slice(0,10).split("-").map(Number);const t=new Date(p[0],p[1]-1,p[2]+OFF);return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}${s.slice(10)}`};
 const WD=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],WDL=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const MO=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],MOL=["January","February","March","April","May","June","July","August","September","October","November","December"];
 const pad=n=>String(n).padStart(2,"0");
@@ -637,7 +717,7 @@ msg:'<path d="M4.5 5.5h15v10h-9l-4.5 4v-4h-1.5z"/>',cal:'<rect x="4" y="5.5" wid
 mail:'<rect x="3.5" y="5.5" width="17" height="13" rx="1.5"/><path d="m4 6.5 8 6 8-6"/>',
 scan:'<path d="M4 8V5.5C4 4.7 4.7 4 5.5 4H8M16 4h2.5c.8 0 1.5.7 1.5 1.5V8M20 16v2.5c0 .8-.7 1.5-1.5 1.5H16M8 20H5.5c-.8 0-1.5-.7-1.5-1.5V16M7.5 12h9"/>',
 edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',more:'<circle cx="6" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18" cy="12" r="1.2"/>',
-dot:'<circle cx="12" cy="12" r="2.2"/>',undo:'<path d="M9 7 4.5 11.5 9 16"/><path d="M5 11.5h9.5a5 5 0 0 1 0 10H11"/>',hash:'<path d="M9 4 7 20M17 4l-2 16M4.5 9h15M3.5 15h15"/>',help:'<circle cx="12" cy="12" r="8.6"/><path d="M9.7 9.4a2.4 2.4 0 0 1 4.7.8c0 1.7-2.4 2.1-2.4 3.6"/><path d="M12 16.9v.1"/>'
+dot:'<circle cx="12" cy="12" r="2.2"/>',undo:'<path d="M9 7 4.5 11.5 9 16"/><path d="M5 11.5h9.5a5 5 0 0 1 0 10H11"/>',hash:'<path d="M9 4 7 20M17 4l-2 16M4.5 9h15M3.5 15h15"/>',help:'<circle cx="12" cy="12" r="8.6"/><path d="M9.7 9.4a2.4 2.4 0 0 1 4.7.8c0 1.7-2.4 2.1-2.4 3.6"/><path d="M12 16.9v.1"/>',road:'<path d="M8 3 5 21M16 3l3 18M12 4.5v2.5M12 10.5v3M12 17v2.5"/>',lock:'<rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/>'
 };
 const ico=(n,c="")=>`<svg class="i ${c}" viewBox="0 0 24 24" aria-hidden="true">${IC[n]||""}</svg>`;
 const glyph=s=>{const c='<circle cx="8" cy="8" r="5.6" fill="none" stroke="currentColor" stroke-width="1.6"';const g={
@@ -650,89 +730,90 @@ const glyph=s=>{const c='<circle cx="8" cy="8" r="5.6" fill="none" stroke="curre
 const spinSvg=()=>`<span class="rs-g"><svg class="spin" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="30 60" stroke-linecap="round"/></svg>${ico("check","ck")}</span>`;
 
 /* ---------- people + sample data ---------- */
-const LEAD={id:"lead",name:"Rhea Kapoor",first:"Rhea",ini:"RK",email:"rhea.kapoor@larkspur.co"};
+const LEAD={id:"lead",name:"Rhea Kapoor",first:"Rhea",ini:"RK",email:"rhea.kapoor@example.com"};
 const U=(by,at,text)=>({t:"update",by,at,text});
 const R=(at,text,unread)=>({t:"remark",by:"lead",at,text,unread:!!unread});
 const St=(by,at,to,reason)=>({t:"status",by,at,to,reason});
 const RAW=[
-{id:"DK-0146",subject:"Shipment MF-20931 held at customs",from:{name:"Ali Hassan",email:"ali.hassan@meridianfreight.com",org:"Meridian Freight"},received:"2026-11-03T08:02",member:"m1",priority:"high",deadline:"2026-11-04",
- summary:"The customs broker is missing paperwork for shipment MF-20931. Meridian needs the commercial invoice and checked HS codes today, and the client should hear about the delay.",
- body:["Hi Aisha,","Your shipment MF-20931 is being held at the port because the customs broker is missing paperwork.","[[1|Please send a copy of the commercial invoice to the broker today so they can resubmit.]] [[2|They also need you to confirm the HS codes for line items 4 to 7, as two of them look wrong.]]","Once it clears, the new ETA is likely Thursday. [[3|Can you let your client know about the delay?]]","Regards,\nAli Hassan\nOperations, Meridian Freight"],
- points:[["Send the commercial invoice copy to the broker","progress","2026-11-03","",[St("m1","2026-11-03T08:40","progress"),U("m1","2026-11-03T09:10","Found the invoice in the October folder. Sending once Finance signs the copy.")]],
-  ["Confirm HS codes for line items 4 to 7","todo","2026-11-03"],["Tell the client about the delay and the new ETA","todo","2026-11-04"]]},
-{id:"DK-0142",subject:"Q4 price revision and updated MSA",from:{name:"Farah Siddiqui",email:"farah.siddiqui@kestrelfoods.co",org:"Kestrel Foods"},received:"2026-11-02T09:14",member:"m1",priority:"high",deadline:"2026-11-09",
- summary:"Kestrel Foods wants four things closed before month end: the revised Q4 price sheet, the December delivery schedule, a countersigned MSA and a forecast call.",
- body:["Hi Aisha,","Thanks for the call on Friday. Following up on what we discussed so we can close this before month end.","[[1|Please send the revised Q4 price sheet with the new freight surcharge by Thursday.]] [[2|We also need written confirmation of the December delivery schedule for both warehouses.]]","[[3|Could you share a countersigned copy of the updated MSA once your legal team has reviewed it?]] Our finance team can't release the PO without it.","[[4|Finally, can we book 30 minutes next week to walk through the volume forecast?]] Tuesday or Wednesday afternoon works for us.","Best regards,\nFarah Siddiqui\nProcurement Lead, Kestrel Foods"],
- points:[["Send the revised Q4 price sheet with the freight surcharge","progress","2026-11-05","",[St("m1","2026-11-02T10:05","progress"),U("m1","2026-11-02T16:20","Draft is ready. Waiting on the final freight numbers from Ops."),R("2026-11-03T09:05","Use the October freight rates, not September. Ops sent them yesterday.",true)]],
-  ["Confirm the December delivery schedule for both warehouses","wait","2026-11-06","Warehouse team to confirm the slots",[St("m1","2026-11-02T17:05","wait","Warehouse team to confirm the slots")]],
-  ["Share the countersigned MSA after legal review","todo","2026-11-09"],
-  ["Book a 30-minute volume forecast call next week","done","2026-11-04","",[U("m1","2026-11-03T08:15","Booked for Wed 11 Nov at 15:00. Invite sent to Farah and her finance lead."),St("m1","2026-11-03T08:15","done")]]]},
-{id:"DK-0137",subject:"Snag list from the Block C site visit",from:{name:"Usman Tariq",email:"usman.tariq@alderrow.com",org:"Alder & Row Builders"},received:"2026-10-27T14:30",member:"m1",priority:"high",deadline:"2026-11-04",
- summary:"Three snags from the Block C walk-through need closing before the handover inspection, then a photo report goes back to Alder & Row.",
- body:["Hi Aisha,","Here is the snag list from Tuesday's walk-through of Block C.","[[1|Please get a quote for replacing the lobby lighting.]] [[2|The cracked floor tiles near the lift need replacing before the handover inspection.]] [[3|Once both are fixed, send us a photo report so we can close the list.]]","Thanks,\nUsman Tariq\nSite Manager, Alder & Row Builders"],
- points:[["Get a quote for new lobby lighting","approved","2026-10-30","",[U("m1","2026-10-29T15:40","BrightLine quoted 1,240 for 12 fittings. The quote is in the shared drive."),St("m1","2026-10-29T15:41","done"),St("lead","2026-10-30T10:12","approved")]],
-  ["Replace the cracked floor tiles near the lift","wait","2026-10-31","Tile supplier is out of stock until 6 Nov",[U("m1","2026-10-30T11:30","Tile supplier is out of stock until 6 Nov."),St("m1","2026-10-30T11:31","wait","Tile supplier is out of stock until 6 Nov"),R("2026-10-31T09:20","Ask Usman if a matching tile from the other supplier is acceptable.")]],
-  ["Send a photo report after both fixes","todo","2026-11-04"]]},
-{id:"DK-0139",subject:"Invoice 4471 does not match PO 88213",from:{name:"Bilal Ahmed",email:"accounts@meridianfreight.com",org:"Meridian Freight"},received:"2026-10-29T11:20",member:"m2",priority:"normal",deadline:"2026-11-05",
- summary:"Meridian says PO 88213 was amended on 14 October. They want a line-by-line check and the corrected amount so they can issue a credit note.",
- body:["Hello,","We received your query about invoice 4471. Our records show the PO was amended on 14 October.","[[1|Please compare the invoice against the amended PO 88213 line by line.]] [[2|Reply to us with the corrected amount and the reason for the difference]], and we will issue a credit note. [[3|Please also update your payables ledger once the amount is agreed.]]","Regards,\nBilal Ahmed\nAccounts, Meridian Freight"],
- points:[["Compare invoice 4471 with the amended PO 88213","approved","2026-10-30","",[St("m2","2026-10-30T12:00","done"),St("lead","2026-10-30T16:45","approved")]],
-  ["Reply with the corrected amount and the reason","progress","2026-11-02","",[St("m2","2026-10-31T09:00","progress"),U("m2","2026-11-02T14:10","The difference is the fuel surcharge on lines 3 and 5. Drafting the reply now.")]],
-  ["Update the payables ledger once the amount is agreed","todo","2026-11-05"]]},
-{id:"DK-0145",subject:"Annual maintenance contract renewal",from:{name:"Grace Liu",email:"grace.liu@bluewaterclinics.org",org:"Bluewater Clinics"},received:"2026-10-30T15:45",member:"m2",priority:"normal",deadline:"2026-11-10",
- summary:"Bluewater Clinics wants to renew their maintenance contract, which ends on 30 November, with the agreed 5% uplift.",
- body:["Hi Daniel,","Our maintenance contract with you ends on 30 November and we would like to renew.","[[1|Please send a renewal quote that reflects the 5% uplift we discussed.]] [[2|Can you confirm the SLA response times for critical faults stay at four hours?]] [[3|Please attach last year's service log so our board can review it.]]","Thank you,\nGrace Liu\nFacilities Director, Bluewater Clinics"],
- points:[["Send the renewal quote with the 5% uplift","todo","2026-11-10"],["Confirm the 4-hour SLA for critical faults","todo","2026-11-06"],
-  ["Attach last year's service log","progress","2026-11-01","",[St("m2","2026-10-31T10:00","progress"),U("m2","2026-10-31T16:30","Exporting the log from the maintenance system. It covers 14 months of entries.")]]]},
-{id:"DK-0144",subject:"Onboarding three new hires on 10 Nov",from:{name:"Hina Javed",email:"hina.javed@larkspur.co",org:"Larkspur People Team"},received:"2026-10-30T10:05",member:"m3",priority:"normal",deadline:"2026-11-09",
- summary:"Three sales hires start on Tuesday 10 November. They need laptops, accounts, welcome packs and a first-week schedule.",
- body:["Hi Mei,","We have three people starting in the sales team on Tuesday 10 November.","[[1|Please set up their laptops by Monday 9 November.]] [[2|Can you create their email and CRM accounts?]] [[3|Please prepare the welcome packs]] and [[4|send them the first-week schedule by Friday.]]","Thanks!\nHina Javed\nPeople Team"],
- points:[["Set up three laptops","progress","2026-11-09","",[St("m3","2026-11-02T09:30","progress")]],["Create email and CRM accounts","todo","2026-11-09"],
-  ["Prepare the welcome packs","done","2026-11-06","",[U("m3","2026-11-02T15:10","Packs are ready: badge, handbook and parking pass. They're in the HR cupboard."),St("m3","2026-11-02T15:10","done")]],
-  ["Send the first-week schedule","todo","2026-11-06"]]},
-{id:"DK-0140",subject:"Product page copy changes",from:{name:"Jonas Weber",email:"jonas.weber@larkspur.co",org:"Larkspur Marketing"},received:"2026-10-29T13:10",member:"m3",priority:"low",deadline:"2026-11-05",
- summary:"Three fixes to the cold-storage product page before the campaign goes out.",
- body:["Hi Mei,","A few changes for the cold-storage product page before the campaign goes out.","[[1|Please update the capacity table to the new 2026 figures.]] [[2|Swap the hero photo for the one from the October shoot.]] [[3|Can you also fix the broken link to the spec sheet?]]","Cheers,\nJonas"],
- points:[["Update the capacity table to the 2026 figures","done","2026-11-04","",[U("m3","2026-11-02T11:00","Updated and checked against the spec sheet."),St("m3","2026-11-02T11:00","done")]],
-  ["Swap the hero photo for the October shoot image","done","2026-11-04","",[U("m3","2026-11-03T09:30","Swapped. Compressed it to 180 KB."),St("m3","2026-11-03T09:30","done")]],
-  ["Fix the broken link to the spec sheet","progress","2026-11-04","",[St("m3","2026-11-03T09:40","progress")]]]},
-{id:"DK-0131",subject:"Sales dashboard access for regional leads",from:{name:"Tom Becker",email:"tom.becker@larkspur.co",org:"Larkspur Sales"},received:"2026-10-19T09:00",member:"m3",priority:"normal",deadline:"2026-10-23",
- summary:"The four regional leads need view access to the sales dashboard and a short how-to guide.",
- body:["Hi Mei,","[[1|Please give the four regional leads view access to the sales dashboard.]] [[2|Send them the short how-to guide as well.]]","Thanks,\nTom"],
- points:[["Give the four regional leads view access","approved","2026-10-21","",[St("m3","2026-10-20T10:00","done"),St("lead","2026-10-20T14:00","approved")]],
-  ["Send the how-to guide","approved","2026-10-23","",[St("m3","2026-10-22T09:00","done"),St("lead","2026-10-22T11:30","approved")]]]},
-{id:"DK-0128",subject:"Quarterly stock count schedule",from:{name:"Nadia Rahman",email:"nadia.rahman@larkspur.co",org:"Larkspur Finance"},received:"2026-10-13T08:30",member:"m2",priority:"normal",deadline:"2026-10-20",
- summary:"Finance needs the Q4 stock count schedule shared with site managers, and a list of counts that need an external auditor.",
- body:["Hello Daniel,","[[1|Please share the stock count schedule for Q4 with all site managers.]] [[2|Confirm which counts need an external auditor present.]]","Best,\nNadia Rahman\nFinance Controller"],
- points:[["Share the Q4 stock count schedule with site managers","approved","2026-10-16","",[St("m2","2026-10-15T10:00","done"),St("lead","2026-10-15T15:00","approved")]],
-  ["Confirm which counts need an external auditor","approved","2026-10-20","",[St("m2","2026-10-19T11:00","done"),St("lead","2026-10-19T16:20","approved")]]]}
+{id:"AE-0146",subject:"Container GLNU 482193-6 on hold at Jebel Ali customs",from:{name:"Omar Haddad",email:"omar.haddad@dunebrokers.example",org:"Dune Customs Brokers"},received:"2026-11-03T08:02",member:"m1",priority:"high",deadline:"2026-11-04",
+ summary:"Customs is holding a reefer container of UHT milk because the certificate of origin is missing and two HS codes don't match the invoice. Port storage charges start tomorrow.",
+ body:["Hi Aisha,","Container GLNU 482193-6 (2,000 cartons of UHT milk) is on hold at Jebel Ali. Customs flagged it at inspection this morning.","[[1|Please send us the original certificate of origin today so we can resubmit the declaration.]] [[2|We also need you to confirm the HS codes for invoice lines 4 to 7, as two of them don't match.]]","Port storage starts tomorrow at AED 350 per day. [[3|Can you let the warehouse know the delivery will slip by two days?]]","Regards,\nOmar Haddad\nClearance Officer, Dune Customs Brokers"],
+ points:[["Send the original certificate of origin to the broker","progress","2026-11-03","",[St("m1","2026-11-03T08:40","progress"),U("m1","2026-11-03T09:10","The supplier is couriering the original. I sent Omar a scan so he can start.")]],
+  ["Confirm HS codes for invoice lines 4 to 7","todo","2026-11-03"],["Tell the warehouse the delivery slips by two days","todo","2026-11-04"]]},
+{id:"AE-0142",subject:"Booking confirmed: 2 × 40' reefer, Rotterdam to Jebel Ali",from:{name:"Lena Visser",email:"lena.visser@gulfline.example",org:"Gulfline Logistics"},received:"2026-11-02T09:14",member:"m1",priority:"high",deadline:"2026-11-09",
+ summary:"Gulfline booked two reefer containers of cheese on MV Saffron Bay. They need the shipping documents, the reefer setting, the draft B/L approved and a delivery slot agreed.",
+ body:["Hi Aisha,","Your booking is confirmed on MV Saffron Bay. ETD Rotterdam is next week and transit to Jebel Ali is about 18 days.","[[1|Please send the commercial invoice and packing list before the documents cut-off.]] [[2|We also need written confirmation of the reefer temperature setting for both containers.]]","[[3|Could you approve the draft bill of lading once your team has checked the consignee details?]] We can't issue the original B/L without it.","[[4|Finally, can we agree a delivery slot at your warehouse for the week of arrival?]]","Best regards,\nLena Visser\nOcean Freight Coordinator, Gulfline Logistics"],
+ points:[["Send the commercial invoice and packing list","progress","2026-11-05","",[St("m1","2026-11-02T10:05","progress"),U("m1","2026-11-02T16:20","Invoice is ready. Waiting on the final carton weights from the supplier for the packing list."),R("2026-11-03T09:05","Use the weights from the supplier's pre-shipment report, not the PO estimate.",true)]],
+  ["Confirm the reefer setting for both containers","wait","2026-11-06","QA to confirm +2 °C or +4 °C for the cheese",[St("m1","2026-11-02T17:05","wait","QA to confirm +2 °C or +4 °C for the cheese")]],
+  ["Approve the draft B/L after checking consignee details","todo","2026-11-09"],
+  ["Agree a warehouse delivery slot for arrival week","done","2026-11-04","",[U("m1","2026-11-03T08:15","Slot booked at the Al Ain warehouse, 07:00 on the day of arrival. Gate pass requested."),St("m1","2026-11-03T08:15","done")]]]},
+{id:"AE-0137",subject:"Demurrage invoice INV-7731 for three containers",from:{name:"Karim Nasser",email:"billing@saltline.example",org:"Saltline Container Lines"},received:"2026-10-27T14:30",member:"m1",priority:"high",deadline:"2026-11-04",
+ summary:"Saltline billed demurrage on three containers. Two of the days fall inside our contracted free time and were caused by a customs hold, so they should be waived.",
+ body:["Dear Aisha,","Please find attached invoice INV-7731 for demurrage on containers SLCU 210554-1, SLCU 210557-8 and SLCU 210563-0.","[[1|Please check the free time agreed in your contract against the days charged.]] [[2|If you want to dispute any days, send us the customs hold notice as proof.]] [[3|Once the amount is agreed, confirm payment so we can release the empty return slots.]]","Kind regards,\nKarim Nasser\nBilling, Saltline Container Lines"],
+ points:[["Check contracted free time against the days charged","approved","2026-10-30","",[U("m1","2026-10-29T15:40","The contract gives 7 free days. They counted 5, so two days are charged wrongly."),St("m1","2026-10-29T15:41","done"),St("lead","2026-10-30T10:12","approved")]],
+  ["Send the customs hold notice to dispute two days","wait","2026-10-31","Broker to send the stamped hold notice",[U("m1","2026-10-30T11:30","Asked Dune Customs Brokers for the stamped hold notice."),St("m1","2026-10-30T11:31","wait","Broker to send the stamped hold notice"),R("2026-10-31T09:20","Ask them to waive the detention on the same two days as well.")]],
+  ["Confirm payment of the agreed amount","todo","2026-11-04"]]},
+{id:"AE-0139",subject:"Ocean freight quotes: Mundra to Jebel Ali, next quarter",from:{name:"Priya Menon",email:"priya.menon@tideway.example",org:"Tideway Logistics"},received:"2026-10-29T11:20",member:"m2",priority:"normal",deadline:"2026-11-05",
+ summary:"Tideway sent next quarter's rates for rice from Mundra. They want our Incoterm, monthly volumes and insurance arrangement before they hold space.",
+ body:["Hello Daniel,","Thank you for the rate request. Our rates for next quarter are attached, for 20' and 40' dry containers from Mundra to Jebel Ali.","[[1|Please compare our CIF and FOB options and tell us which Incoterm you want to use.]] [[2|Send us your expected monthly volume so we can hold space on the weekly sailing.]] [[3|Please also confirm who arranges cargo insurance if you choose FOB.]]","Regards,\nPriya Menon\nSales, Tideway Logistics"],
+ points:[["Compare CIF and FOB quotes and pick an Incoterm","approved","2026-10-30","",[U("m2","2026-10-30T11:50","FOB is 6% cheaper once we use our own insurer. Recommending FOB."),St("m2","2026-10-30T12:00","done"),St("lead","2026-10-30T16:45","approved")]],
+  ["Send the expected monthly container volume","progress","2026-11-02","",[St("m2","2026-10-31T09:00","progress"),U("m2","2026-11-02T14:10","Planning says 12 × 20' a month. Waiting on sign-off from Procurement.")]],
+  ["Confirm who arranges cargo insurance under FOB","todo","2026-11-05"]]},
+{id:"AE-0145",subject:"Vessel rollover: new ETA for the wheat shipment",from:{name:"Hassan Ali",email:"ops@seabridge.example",org:"Seabridge Shipping"},received:"2026-10-30T15:45",member:"m2",priority:"normal",deadline:"2026-11-10",
+ summary:"The wheat shipment was rolled to the next vessel and now arrives about a week late. Planning, the mill and the haulier need the new dates.",
+ body:["Hi Daniel,","Because of port congestion, your wheat shipment was rolled over to the next vessel. The new ETA at Khalifa Port is about seven days later than planned.","[[1|Please update your production planning team with the new ETA.]] [[2|Can you confirm the mill can take the delivery on the new date?]] [[3|Please also rebook the trucks with your haulier for the new arrival week.]]","Thank you,\nHassan Ali\nOperations, Seabridge Shipping"],
+ points:[["Share the new ETA with production planning","todo","2026-11-10"],["Confirm the mill can take delivery on the new date","todo","2026-11-06"],
+  ["Rebook trucks for the new arrival week","progress","2026-11-01","",[St("m2","2026-10-31T10:00","progress"),U("m2","2026-10-31T16:30","Our haulier only has trucks the week after. Checking a second haulier.")]]]},
+{id:"AE-0144",subject:"Reefer temperature alarm on a yoghurt container",from:{name:"Tom Becker",email:"tom.becker@coldstream.example",org:"Coldstream Reefer Services"},received:"2026-10-30T10:05",member:"m3",priority:"normal",deadline:"2026-11-09",
+ summary:"A reefer container of yoghurt logged 8 °C for about three hours during transhipment. QA has to decide before the cargo is accepted, and a claim may follow.",
+ body:["Hi Mei,","Our monitoring flagged container CSRU 771204-3 at 8 °C for about three hours during transhipment.","[[1|Please download the full temperature log from the portal and send it to your QA team.]] [[2|Can you hold the container at the port until QA decides?]] [[3|Please prepare a cargo claim file in case the goods are rejected]] and [[4|send us the survey request form so we can book a surveyor.]]","Thanks,\nTom Becker\nReefer Services, Coldstream"],
+ points:[["Send the temperature log to QA","progress","2026-11-05","",[St("m3","2026-11-02T09:30","progress")]],["Hold the container at the port until QA decides","todo","2026-11-05"],
+  ["Prepare the cargo claim file","done","2026-11-06","",[U("m3","2026-11-02T15:10","Claim file is ready: B/L, invoice, temperature report and photos. It's in the shared drive."),St("m3","2026-11-02T15:10","done")]],
+  ["Send the survey request form","todo","2026-11-06"]]},
+{id:"AE-0140",subject:"Delivery order and gate passes for the flour shipment",from:{name:"Yusuf Rahman",email:"yusuf.rahman@gulfline.example",org:"Gulfline Logistics"},received:"2026-10-29T13:10",member:"m3",priority:"low",deadline:"2026-11-05",
+ summary:"The flour shipment is discharged. Gulfline needs the endorsed B/L and truck details to issue the delivery order and gate passes.",
+ body:["Hi Mei,","Your flour shipment is discharged and ready for collection.","[[1|Please send the bank-endorsed original bill of lading so we can issue the delivery order.]] [[2|Share the truck plate numbers and driver IDs for the gate passes.]] [[3|Can you also confirm the collection time with your warehouse?]]","Cheers,\nYusuf Rahman\nImport Documents, Gulfline Logistics"],
+ points:[["Send the endorsed original B/L","done","2026-11-04","",[U("m3","2026-11-02T11:00","Couriered to Gulfline. The tracking number is in the case notes."),St("m3","2026-11-02T11:00","done")]],
+  ["Share truck plates and driver IDs","done","2026-11-04","",[U("m3","2026-11-03T09:30","Sent details for 4 trucks."),St("m3","2026-11-03T09:30","done")]],
+  ["Confirm the collection time with the warehouse","progress","2026-11-04","",[St("m3","2026-11-03T09:40","progress")]]]},
+{id:"AE-0131",subject:"Air freight quote for urgent spare parts",from:{name:"Sam Ortiz",email:"sam.ortiz@skyway.example",org:"Skyway Cargo"},received:"2026-10-19T09:00",member:"m3",priority:"normal",deadline:"2026-10-23",
+ summary:"Skyway quoted air freight for 120 kg of spare parts for the bottling line and needs the pickup details.",
+ body:["Hi Mei,","[[1|Please approve our quote for the 120 kg of spare parts by air.]] [[2|Send us the pickup address and opening hours for collection.]]","Thanks,\nSam Ortiz\nSkyway Cargo"],
+ points:[["Approve the air freight quote","approved","2026-10-21","",[St("m3","2026-10-20T10:00","done"),St("lead","2026-10-20T14:00","approved")]],
+  ["Send the pickup address and opening hours","approved","2026-10-23","",[St("m3","2026-10-22T09:00","done"),St("lead","2026-10-22T11:30","approved")]]]},
+{id:"AE-0128",subject:"Last month's freight costs by lane",from:{name:"Nadia Rahman",email:"nadia.rahman@example.com",org:"Finance team"},received:"2026-10-13T08:30",member:"m2",priority:"normal",deadline:"2026-10-20",
+ summary:"Finance needs last month's freight costs broken down by lane, with any invoices above the agreed rates flagged.",
+ body:["Hello Daniel,","[[1|Please share last month's freight costs broken down by lane.]] [[2|Flag any carrier invoices above the agreed rates.]]","Best,\nNadia Rahman\nFinance Controller"],
+ points:[["Share last month's freight costs by lane","approved","2026-10-16","",[St("m2","2026-10-15T10:00","done"),St("lead","2026-10-15T15:00","approved")]],
+  ["Flag carrier invoices above the agreed rates","approved","2026-10-20","",[St("m2","2026-10-19T11:00","done"),St("lead","2026-10-19T16:20","approved")]]]}
 ];
 const MK=(s)=>s.replace(/\[\[(\d+)\|([^\]]+)\]\]/g,"$1$2");
-function build(raw){return raw.map(c=>{const cs={...c,from:{...c.from},body:c.body.map(MK),points:[]};cs.points=c.points.map((p,i)=>({id:`${c.id}-${i+1}`,src:i+1,text:p[0],status:p[1],due:p[2]||"",wait:p[3]||"",log:p[4]||[],c:cs}));return cs})}
+function build(raw){return raw.map(c=>{const cs={...c,received:SH(c.received),deadline:SH(c.deadline),from:{...c.from},body:c.body.map(MK),points:[]};cs.points=c.points.map((p,i)=>({id:`${c.id}-${i+1}`,src:i+1,text:p[0],status:p[1],due:SH(p[2]||""),wait:p[3]||"",log:(p[4]||[]).map(e=>({...e,at:SH(e.at)})),c:cs}));return cs})}
 
 const S={role:"lead",me:"m1",
  members:[
-  {id:"m1",name:"Aisha Raza",first:"Aisha",ini:"AR",email:"aisha.raza@larkspur.co",status:"active",ontime:86,avg:3.1},
-  {id:"m2",name:"Daniel Okafor",first:"Daniel",ini:"DO",email:"daniel.okafor@larkspur.co",status:"active",ontime:74,avg:4.2},
-  {id:"m3",name:"Mei Lin",first:"Mei",ini:"ML",email:"mei.lin@larkspur.co",status:"active",ontime:91,avg:2.8}],
+  {id:"m1",name:"Aisha Raza",first:"Aisha",ini:"AR",email:"aisha.raza@example.com",status:"active",ontime:86,avg:3.1},
+  {id:"m2",name:"Daniel Okafor",first:"Daniel",ini:"DO",email:"daniel.okafor@example.com",status:"active",ontime:74,avg:4.2},
+  {id:"m3",name:"Mei Lin",first:"Mei",ini:"ML",email:"mei.lin@example.com",status:"active",ontime:91,avg:2.8}],
  cases:build(RAW),
  alerts:{
   lead:[
-   {id:"a1",kind:"done",text:"<b>Aisha</b> marked <q>Book a 30-minute volume forecast call next week</q> as done",pid:"DK-0142-4",at:"2026-11-03T08:15",unread:true},
-   {id:"a2",kind:"new",text:"<b>Aisha</b> added a case from Meridian Freight",cid:"DK-0146",at:"2026-11-03T08:20",unread:true},
-   {id:"a3",kind:"late",text:"<q>Reply with the corrected amount and the reason</q> is 1 day past due",pid:"DK-0139-2",at:"2026-11-03T07:00",unread:true},
-   {id:"a4",kind:"done",text:"<b>Mei</b> marked 2 points as done",cid:"DK-0140",at:"2026-11-03T09:30",unread:false},
-   {id:"a5",kind:"done",text:"<b>Mei</b> marked <q>Prepare the welcome packs</q> as done",pid:"DK-0144-3",at:"2026-11-02T15:10",unread:false}],
+   {id:"a1",kind:"done",text:"<b>Aisha</b> marked <q>Agree a warehouse delivery slot for arrival week</q> as done",pid:"AE-0142-4",at:"2026-11-03T08:15",unread:true},
+   {id:"a2",kind:"new",text:"<b>Aisha</b> added a case from Dune Customs Brokers",cid:"AE-0146",at:"2026-11-03T08:20",unread:true},
+   {id:"a3",kind:"late",text:"<q>Send the expected monthly container volume</q> is 1 day past due",pid:"AE-0139-2",at:"2026-11-03T07:00",unread:true},
+   {id:"a4",kind:"done",text:"<b>Mei</b> marked 2 points as done",cid:"AE-0140",at:"2026-11-03T09:30",unread:false},
+   {id:"a5",kind:"done",text:"<b>Mei</b> marked <q>Prepare the cargo claim file</q> as done",pid:"AE-0144-3",at:"2026-11-02T15:10",unread:false}],
   m1:[
-   {id:"b1",kind:"remark",text:"<b>Rhea</b> added a remark on <q>Send the revised Q4 price sheet with the freight surcharge</q>",pid:"DK-0142-1",at:"2026-11-03T09:05",unread:true},
-   {id:"b2",kind:"due",text:"<q>Send the commercial invoice copy to the broker</q> is due today",pid:"DK-0146-1",at:"2026-11-03T07:00",unread:true},
-   {id:"b3",kind:"late",text:"<q>Replace the cracked floor tiles near the lift</q> is 3 days past due",pid:"DK-0137-2",at:"2026-11-03T07:00",unread:false},
-   {id:"b4",kind:"approved",text:"<b>Rhea</b> approved <q>Get a quote for new lobby lighting</q>",pid:"DK-0137-1",at:"2026-10-30T10:12",unread:false}]},
+   {id:"b1",kind:"remark",text:"<b>Rhea</b> added a remark on <q>Send the commercial invoice and packing list</q>",pid:"AE-0142-1",at:"2026-11-03T09:05",unread:true},
+   {id:"b2",kind:"due",text:"<q>Send the original certificate of origin to the broker</q> is due today",pid:"AE-0146-1",at:"2026-11-03T07:00",unread:true},
+   {id:"b3",kind:"late",text:"<q>Send the customs hold notice to dispute two days</q> is 3 days past due",pid:"AE-0137-2",at:"2026-11-03T07:00",unread:false},
+   {id:"b4",kind:"approved",text:"<b>Rhea</b> approved <q>Check contracted free time against the days charged</q>",pid:"AE-0137-1",at:"2026-10-30T10:12",unread:false}]},
  weekly:[6,4,8,5,9,7,7],
- open:new Set(),filt:{cases:"open",member:"all",q:""},boardMember:"all",chartMode:{},
+ open:new Set(),filt:{cases:"open",member:"all",q:""},boardMember:"all",boardCol:"todo",chartMode:{},
  draft:null,editCase:null,addPt:null,teamForm:false,tab:"points",compose:{},
  focusPt:null,focusComposer:null,fresh:null,refocus:null,drag:null};
 try{const r=localStorage.getItem("agthia-sandbox-role");if(r==="lead"||r==="member")S.role=r}catch(e){}
+Object.values(S.alerts).forEach(l=>l.forEach(a=>{a.at=SH(a.at)}));
 
 const who=id=>id==="lead"?LEAD:(S.members.find(m=>m.id===id)||{name:"Unknown",first:"Someone",ini:"?",email:""});
 const activeMembers=()=>S.members.filter(m=>m.status==="active");
@@ -770,7 +851,7 @@ function prio(level){const n={low:1,normal:2,high:3}[level]||2;const bars=[0,1,2
  return `<span class="prio prio-${level}"><svg viewBox="0 0 12 12" aria-hidden="true">${bars}</svg>${PR[level]||"Normal"}</span>`}
 const segbar=c=>`<span class="segbar" role="img" aria-label="${c.points.filter(p=>p.status==="approved").length} of ${c.points.length} points approved">${c.points.map(p=>`<i class="st-${p.status}"></i>`).join("")}</span>`;
 const panel=(title,count,body,{right="",cls="",tour=""}={})=>`<section class="panel ${cls}"${tour?` data-tour="${tour}"`:""}><div class="panel-h"><h2>${title}${count!=null?`<span class="count">${count}</span>`:""}</h2>${right}</div>${body}</section>`;
-function stat({label,value,ctx,icon="",href="",tone="",attrs=""}){const tag=href?"a":"div";return `<${tag} class="stat${tone?" tone-"+tone:""}"${href?` href="${href}"`:""} ${attrs}><span class="lab">${icon}${label}</span><span class="val">${value}</span><span class="ctx">${ctx}</span></${tag}>`}
+function stat({label,value,ctx,icon="",href="",tone="",attrs="",cls=""}){const tag=href?"a":"div";return `<${tag} class="stat${tone?" tone-"+tone:""}${cls?" "+cls:""}"${href?` href="${href}"`:""} ${attrs}><span class="lab">${icon}${label}</span><span class="val">${value}</span><span class="ctx">${ctx}</span></${tag}>`}
 function approvedStamp(p){if(p.status!=="approved")return"";const e=[...p.log].reverse().find(x=>x.t==="status"&&x.to==="approved");return `<span class="stamp${S.fresh===p.id?" fresh":""}">${ico("check","i-xs")}Approved${e?` · ${esc(who(e.by).ini)} · ${fmtS(D(e.at))}`:""}</span>`}
 
 /* ---------- email body ---------- */
@@ -791,6 +872,7 @@ function activity(limit){const items=[];vis().forEach(c=>c.points.forEach(p=>p.l
  return items.slice(0,limit).map(({e,p,c})=>`<li class="act">${av(e.by)}<div><div>${actLine(e,p,c)}</div>${e.text?`<div class="act-q">${e.t==="remark"?'<span class="kind remark">Remark</span> ':""}${esc(e.text)}</div>`:""}</div><time>${fmtAgo(e.at)}</time></li>`).join("")}
 
 const greet=()=>{const h=new Date().getHours();return h<12?"Good morning":h<17?"Good afternoon":"Good evening"};
+const showAll=n=>n>3?`<button class="row-more" data-act="expand">Show all ${n}</button>`:"";
 function vLeadHome(){const ps=S.cases.flatMap(c=>c.points);const open=ps.filter(p=>p.status!=="approved");const late=open.filter(isLate).sort((a,b)=>lateBy(b)-lateBy(a));
  const review=ps.filter(p=>p.status==="done").sort((a,b)=>lastAt(b).localeCompare(lastAt(a)));const openCases=S.cases.filter(c=>!caseClosed(c));
  const soon=open.filter(p=>!isLate(p)&&p.status!=="done"&&p.due&&dd(D(p.due),TODAY)<=2).sort(byDue);
@@ -800,42 +882,42 @@ function vLeadHome(){const ps=S.cases.flatMap(c=>c.points);const open=ps.filter(
  const dueAll=[...late,...soon],dueRows=dueAll.slice(0,6).map(p=>prow(p,{actions:`${pill(p)}${due(p)}`})).join("")+(dueAll.length>6?`<a class="row nolead more-row" href="#board"><span class="row-t">${dueAll.length-6} more on the board</span><span class="row-act">${ico("back","i-xs flip")}</span></a>`:"");
  const toggle=k=>`<div class="seg" role="group" aria-label="Show as"><button data-act="chart-mode" data-chart="${k}" data-v="chart" aria-pressed="${(S.chartMode[k]||"chart")==="chart"}">Chart</button><button data-act="chart-mode" data-chart="${k}" data-v="table" aria-pressed="${S.chartMode[k]==="table"}">Table</button></div>`;
  const legend=`<div class="legend">${["todo","progress","wait","done"].map(k=>`<span class="st-${k}"><i></i>${k==="done"?"Done, needs review":ST[k].l}</span>`).join("")}</div>`;
- return `<header class="ph"><div><div class="date">${fmtLong(TODAY)}</div><h1 class="h1">${greet()}, ${LEAD.first}</h1><p class="lede">${lede}</p></div><div class="ph-act"><a class="btn" href="#board">${ico("board","i-xs")}Open board</a></div></header>
+ return `<header class="ph"><div><div class="date">${fmtLong(TODAY)}</div><h1 class="h1">${greet()}, ${LEAD.first}</h1><p class="lede">${lede}</p></div><div class="ph-act m-hide"><a class="btn" href="#board">${ico("board","i-xs")}Open board</a></div></header>
  <section class="stats" aria-label="Key numbers">
-  ${stat({label:"Open points",value:open.length,ctx:`across ${pl(openCases.length,"open case")}`,href:"#cases",attrs:'data-act="filt" data-k="cases" data-v="open"'})}
+  ${stat({label:"Open points",value:open.length,ctx:`across ${pl(openCases.length,"open case")}`,href:"#cases",attrs:'data-act="filt" data-k="cases" data-v="open"',cls:"m-hide"})}
   ${stat({label:"Ready for review",value:review.length,ctx:review.length?`from ${pl(revMembers,"member")}`:"All caught up",icon:glyph("done"),href:"#board"})}
   ${stat({label:"Past due",value:late.length,ctx:late.length?`oldest is ${pl(lateBy(late[0]),"day")} late`:"Everything is on time",icon:late.length?'<i class="dot"></i>':"",href:"#cases",attrs:'data-act="filt" data-k="cases" data-v="late"'})}
-  ${stat({label:"On-time rate",value:'84<small>%</small>',ctx:"points closed by their date, last 30 days"})}
+  ${stat({label:"On-time rate",value:'84<small>%</small>',ctx:"points closed by their date, last 30 days",cls:"m-hide"})}
  </section>
  <div class="grid2">
-  ${panel("Ready for your review",review.length,review.length?`<div class="rows">${revRows}</div>`:`<div class="empty">Nothing to review. Points show up here when someone marks them done.</div>`,{tour:"review"})}
-  ${panel("Coming up",dueAll.length,dueRows?`<div class="rows">${dueRows}</div>`:`<div class="empty">Nothing is late or due in the next two days.</div>`)}
+  ${panel("Ready for your review",review.length,review.length?`<div class="rows clip">${revRows}</div>${showAll(review.length)}`:`<div class="empty">Nothing to review. Points show up here when someone marks them done.</div>`,{tour:"review"})}
+  ${panel("Coming up",dueAll.length,dueRows?`<div class="rows clip">${dueRows}</div>${showAll(Math.min(dueAll.length,6)+(dueAll.length>6?1:0))}`:`<div class="empty">Nothing is late or due in the next two days.</div>`)}
  </div>
  <div class="grid2 even">
   ${panel("Open points by member",null,`${(S.chartMode.workload||"chart")==="chart"?legend:""}<div class="chart" data-chart="workload"></div>`,{right:toggle("workload")})}
   ${panel("New cases per week",null,`<div class="chart" data-chart="weekly"></div>`,{right:toggle("weekly")})}
  </div>
- ${panel("Recent activity",null,`<ol class="acts">${activity(6)}</ol>`)}`}
+ ${panel("Recent activity",null,`<ol class="acts clip">${activity(6)}</ol>${showAll(6)}`)}`}
 
 function vMemberHome(){const me=who(S.me);const cs=vis();const ps=cs.flatMap(c=>c.points);const open=ps.filter(p=>p.status!=="approved");const work=open.filter(p=>p.status!=="done");
  const late=work.filter(isLate);const today=work.filter(p=>p.due&&dd(D(p.due),TODAY)===0);const week=work.filter(p=>p.due&&!isLate(p)&&dd(D(p.due),TODAY)<=6);const withLead=ps.filter(p=>p.status==="done");
  const parts=[];if(today.length)parts.push(`<b>${pl(today.length,"point")} due today</b>`);if(late.length)parts.push(`<b>${late.length} past due</b>`);
- const lede=parts.length?`You have ${parts.join(" and ")}. Everything else is below, soonest first.`:"Nothing is due today, and nothing is late.";
+ const lede=parts.length?`You have ${parts.join(" and ")}.`:"Nothing is due today, and nothing is late.";
  const next=work.slice().sort((a,b)=>(isLate(b)-isLate(a))||byDue(a,b)).slice(0,7);
  const rmks=[];cs.forEach(c=>c.points.forEach(p=>p.log.forEach(e=>{if(e.t==="remark")rmks.push({e,p,c})})));rmks.sort((a,b)=>b.e.at.localeCompare(a.e.at));
  const newR=rmks.filter(r=>r.e.unread).length;
  const rmkHtml=rmks.slice(0,4).map(({e,p,c})=>`<li class="rmk"><div class="rmk-h">${av("lead","av-xs")}<b>${LEAD.first}</b><time>${fmtAgo(e.at)}</time>${e.unread?'<span class="new-dot" title="New"></span>':""}</div><p class="rmk-t">${esc(e.text)}</p><a class="rmk-on" href="${caseHref(c)}" data-open="${p.id}"><span>On: ${esc(p.text)}</span><span class="cid">${c.id}</span></a></li>`).join("");
  const openCs=cs.filter(c=>!caseClosed(c));
  const myCases=openCs.map(c=>{const appr=c.points.filter(p=>p.status==="approved").length;return `<a class="row nolead" href="${caseHref(c)}"><div class="row-main"><span class="row-t">${esc(c.subject)}</span><div class="sub"><span class="cid">${c.id}</span><span>${esc(c.from.org||c.from.name)}</span></div></div><div class="row-act">${segbar(c)}<span class="small tnum muted">${appr}/${c.points.length}</span></div></a>`}).join("");
- return `<header class="ph"><div><div class="date">${fmtLong(TODAY)}</div><h1 class="h1">${greet()}, ${esc(me.first)}</h1><p class="lede">${lede}</p></div><div class="ph-act"><a class="btn btn-primary" href="#add">${ico("plus","i-xs")}Add email</a></div></header>
+ return `<header class="ph"><div><div class="date">${fmtLong(TODAY)}</div><h1 class="h1">${greet()}, ${esc(me.first)}</h1><p class="lede">${lede}</p></div><div class="ph-act m-hide"><a class="btn btn-primary" href="#add">${ico("plus","i-xs")}Add email</a></div></header>
  <section class="stats" aria-label="Key numbers">
-  ${stat({label:"Open points",value:work.length,ctx:`across ${pl(openCs.length,"case")}`,href:"#board"})}
+  ${stat({label:"Open points",value:work.length,ctx:`across ${pl(openCs.length,"case")}`,href:"#board",cls:"m-hide"})}
   ${stat({label:"Due this week",value:week.length,ctx:"in the next 7 days"})}
   ${stat({label:"Past due",value:late.length,ctx:late.length?`oldest is ${pl(Math.max(...late.map(lateBy)),"day")} late`:"You're on time",icon:late.length?'<i class="dot"></i>':""})}
-  ${stat({label:`With ${LEAD.first} for review`,value:withLead.length,ctx:"marked done",icon:glyph("done")})}
+  ${stat({label:`With ${LEAD.first} for review`,value:withLead.length,ctx:"marked done",icon:glyph("done"),cls:"m-hide"})}
  </section>
  <div class="grid2">
-  ${panel("Your next steps",work.length,next.length?`<div class="rows">${next.map(p=>prow(p,{lead:false,actions:`${pill(p)}${due(p)}`})).join("")}</div>`:`<div class="empty">You have no open points. Add an email to start tracking new work.</div>`,{tour:"next"})}
+  ${panel("Your next steps",work.length,next.length?`<div class="rows clip">${next.map(p=>prow(p,{lead:false,actions:`${pill(p)}${due(p)}`})).join("")}</div>${showAll(next.length)}`:`<div class="empty">You have no open points. Add an email to start tracking new work.</div>`,{tour:"next"})}
   ${panel(`Remarks from ${LEAD.first}`,newR?`${newR} new`:null,rmkHtml?`<ul class="rmks">${rmkHtml}</ul>`:`<div class="empty">No remarks yet. ${LEAD.first}'s notes on your points show up here.</div>`)}
  </div>
  ${panel("Your open cases",openCs.length,`<div class="rows">${myCases}</div>`)}`}
@@ -852,7 +934,7 @@ function vCases(){const lead=S.role==="lead",f=S.filt;let list=vis();if(lead&&f.
  if(q)list=list.filter(c=>`${c.id} ${c.subject} ${c.from.name} ${c.from.org} ${c.points.map(p=>p.text).join(" ")}`.toLowerCase().includes(q));
  list=list.slice().sort((a,b)=>{const ca=caseClosed(a),cb=caseClosed(b);if(ca!==cb)return ca-cb;if(ca)return b.received.localeCompare(a.received);const na=a.points.filter(p=>!closedSt(p.status)&&p.due).sort(byDue)[0],nb=b.points.filter(p=>!closedSt(p.status)&&p.due).sort(byDue)[0];return byDue(na||{},nb||{})});
  const labels=[["open","Open"],["late","Past due"],["review","Needs review"],["closed","Closed"],["all","All"]];
- return `<header class="ph"><div><h1 class="h1">Cases</h1><p class="lede">${lead?"Every email your team is working on. Each case holds the points pulled from one email.":"Every email you're working on. Each case holds the points pulled from one email."}</p></div><div class="ph-act">${viewSwitch("cases")}<a class="btn btn-primary" href="#add">${ico("plus","i-xs")}Add an email</a></div></header>
+ return `<header class="ph"><div><h1 class="h1">Cases</h1><p class="lede opt">${lead?"Every email the team is working on, one case per email.":"Every email you're working on, one case per email."}</p></div><div class="ph-act">${viewSwitch("cases")}<a class="btn btn-primary m-hide" href="#add">${ico("plus","i-xs")}Add an email</a></div></header>
  <div class="filters"><div class="seg" role="group" aria-label="Show">${labels.map(([k,l])=>`<button data-act="filt" data-k="cases" data-v="${k}" aria-pressed="${f.cases===k}">${l}<span class="n">${counts[k]}</span></button>`).join("")}</div>${lead?memberChips("member",f.member):""}<label class="find">${ico("search","i-xs")}<span class="sr">Filter cases</span><input id="case-q" type="search" placeholder="Filter by sender, subject or ID" value="${esc(f.q)}" autocomplete="off"></label></div>
  <section class="panel" aria-label="Cases"><div class="list"><div class="crow h${lead?"":" nm"}" aria-hidden="true"><span class="c-id">ID</span><span>Email</span>${lead?'<span class="c-mem">Owner</span>':""}<span class="c-prog">Points approved</span><span class="c-due">Next deadline</span><span class="c-prio">Priority</span></div>${list.map(caseRow).join("")||`<div class="empty">No cases match. Try another filter, or add an email.</div>`}</div></section>`}
 
@@ -863,9 +945,10 @@ function vBoard(){const lead=S.role==="lead";let cs=vis();if(lead&&S.boardMember
  const cols=ORDER.map(s=>{let items=ps.filter(p=>p.status===s);if(s==="approved")items.sort((a,b)=>lastAt(b).localeCompare(lastAt(a)));else items.sort((a,b)=>(isLate(b)-isLate(a))||byDue(a,b));
   const shown=s==="approved"?items.slice(0,4):items;const more=items.length-shown.length;
   return `<section class="col st-${s}" data-col="${s}" aria-label="${ST[s].l}"><div class="col-h">${glyph(s)}<span>${s==="done"?"Done, needs review":ST[s].l}</span><span class="count">${items.length}</span></div><div class="col-b">${shown.map(card).join("")}${more>0?`<div class="more">and ${more} more</div>`:""}${items.length?"":`<div class="col-empty">${empty[s]}</div>`}</div></section>`}).join("");
- return `<header class="ph"><div><h1 class="h1">Board</h1><p class="lede">${lead?"Every open point across the team. Drag a card to change its status, or drop a Done card on Approved to sign it off.":`Your points by status. Drag a card to move it. When you mark a point done, ${LEAD.first} reviews it.`}</p></div><div class="ph-act">${viewSwitch("board")}</div></header>
+ const sw=ORDER.map(s=>`<button data-act="board-col" data-v="${s}" aria-pressed="${S.boardCol===s}">${glyph(s)}${s==="done"?"Done":ST[s].l}<span class="n">${ps.filter(p=>p.status===s).length}</span></button>`).join("");
+ return `<header class="ph"><div><h1 class="h1">Board</h1><p class="lede opt">${lead?"Every open point by status. Drag a card to move it, or drop it on Approved to sign it off.":`Your points by status. Drag a card to move it. ${LEAD.first} approves points you mark done.`}</p></div><div class="ph-act">${viewSwitch("board")}</div></header>
  ${lead?`<div class="filters">${memberChips("boardMember",S.boardMember)}</div>`:""}
- <div class="board-wrap"><div class="board">${cols}</div></div><p class="hint">Tip: open a card's menu, or press Enter on it, if you'd rather not drag.</p>`}
+ <div class="seg board-switch" role="group" aria-label="Show status">${sw}</div><div class="board-wrap"><div class="board" data-show="${S.boardCol}">${cols}</div></div><p class="hint m-hide">Tip: open a card's menu, or press Enter on it, if you'd rather not drag.</p>`}
 
 /* ---------- views: case ---------- */
 function tlItem(e){const w=who(e.by);
@@ -889,40 +972,52 @@ function vCase(id){const c=findCase(id);if(!c)return vMissing();if(S.role==="mem
   <div class="field"><label for="ec-s">Summary</label><textarea id="ec-s" class="inp" rows="2">${esc(c.summary)}</textarea></div>
   <div class="fields-row"><div class="field"><span class="flabel">Priority</span>${prioSeg("ec-p",c.priority)}</div><div class="field"><label for="ec-org">Company</label><input id="ec-org" class="inp" value="${esc(c.from.org)}"></div>${lead?`<div class="field"><label for="ec-o">Owner</label><select id="ec-o" class="inp">${activeMembers().map(m=>`<option value="${m.id}"${m.id===c.member?" selected":""}>${esc(m.name)}</option>`).join("")}</select></div>`:""}</div>
   <div class="form-f" style="padding:0;border:0"><button type="button" class="btn" data-act="cancel-edit">Cancel</button><button class="btn btn-primary" type="submit">Save details</button></div></form>`
- :`<header class="case-h"><div class="case-top"><a class="back" href="#cases">${ico("back","i-xs")}Cases</a><span class="cid big">${c.id}</span>${caseClosed(c)?'<span class="stamp sm">Closed</span>':""}<span class="sp"></span><button class="btn btn-sm" data-act="edit-case" data-id="${c.id}">${ico("edit","i-xs")}Edit details</button></div><h1 class="h1">${esc(c.subject)}</h1><p class="lede">${esc(c.summary)}</p>
+ :`<header class="case-h"><div class="case-top"><a class="back" href="#cases">${ico("back","i-xs")}Cases</a><span class="cid big">${c.id}</span>${caseClosed(c)?'<span class="stamp sm">Closed</span>':""}<span class="sp"></span><button class="btn btn-sm" data-act="edit-case" data-id="${c.id}" aria-label="Edit details">${ico("edit","i-xs")}<span class="m-hide">Edit details</span></button></div><h1 class="h1">${esc(c.subject)}</h1><p class="lede">${esc(c.summary)}</p>
   <dl class="case-meta"><div><dt>From</dt><dd>${esc(c.from.name)}${c.from.org?` · ${esc(c.from.org)}`:""}</dd></div><div><dt>Owner</dt><dd>${av(c.member,"av-xs")}${esc(who(c.member).name)}</dd></div><div><dt>Priority</dt><dd>${prio(c.priority)}</dd></div><div><dt>Case deadline</dt><dd>${due({due:c.deadline,status:caseClosed(c)?"approved":"todo"},{caseId:c.id})}</dd></div><div><dt>Progress</dt><dd>${segbar(c)}<span class="tnum small">${appr} of ${total} approved</span></dd></div></dl></header>`;
  return `${head}<div class="seg tabs-m" role="group" aria-label="Show"><button data-act="tab-m" data-v="email" aria-pressed="${S.tab==="email"}">${ico("mail","i-xs")}Email</button><button data-act="tab-m" data-v="points" aria-pressed="${S.tab==="points"}">Points<span class="n">${total}</span></button></div>
  <div class="case-grid linkable" data-tab="${S.tab}"><section class="case-mail" aria-label="Original email">${mailHtml(c)}</section>
  <section class="case-pts" aria-label="Points"><div class="pts-h"><h2>Points <span class="count">${total}</span></h2><span class="hint d-only">Hover a point to see the sentence it came from</span></div><ol class="pts">${c.points.map(p=>ptCard(p,c)).join("")}</ol>
  ${S.addPt===c.id?`<form class="addpt" data-act-form="add-pt" data-id="${c.id}"><label class="sr" for="np-t">New point</label><input id="np-t" class="inp" placeholder="What needs to be done?" autocomplete="off"><label class="sr" for="np-d">Deadline</label><input id="np-d" type="date" class="inp"><button type="button" class="btn" data-act="cancel-addpt">Cancel</button><button class="btn btn-primary" type="submit">Add point</button></form>`:`<button class="add-pt" data-act="add-pt" data-id="${c.id}">${ico("plus","i-xs")}Add a point</button>`}</section></div>`}
+function vRoadmap(){const steps=[
+ {s:"done",t:"Design and this sandbox",d:"The look, the screens and how work moves from an email to done.",link:["#overview","Look around"]},
+ {s:"live",t:"Sign-in and team",d:"Lead and Member accounts, invite links and access control. This part is live in the real app.",link:["/login","Open the real app"]},
+ {s:"next",t:"Reading emails",d:"Paste or drop a freight email. AI pulls out the sender, the deadlines and each point. You check it before saving.",link:["#add","Try it with a sample email"]},
+ {s:"plan",t:"Updates, remarks and approvals",d:"Members post updates on each point. The Lead adds remarks, approves or reopens.",link:["#case-ae-0142","See a case"]},
+ {s:"plan",t:"Dashboards and reports",d:"Workload by person, on-time rate, what's late and what's coming up.",link:["#overview","See the Lead's home"]},
+ {s:"plan",t:"Alerts",d:"Reminders before deadlines, and a note when something needs you. In the app and by email.",link:null},
+ {s:"plan",t:"Launch",d:"Final checks with the team, then everyone moves over.",link:null}];
+ const tag={done:'<span class="rm-tag ok">Done</span>',live:'<span class="rm-tag ok">Live</span>',next:'<span class="rm-tag next">Next</span>',plan:'<span class="rm-tag">Planned</span>'};
+ return `<header class="ph"><div><h1 class="h1">What's being built</h1><p class="lede">Agthia Enhancements is built in steps. Each one is checked with the team before the next starts.</p></div></header>
+ <section class="panel" aria-label="Roadmap"><ol class="rm">${steps.map((x,i)=>`<li class="rm-i rm-${x.s}"><span class="rm-n">${x.s==="done"||x.s==="live"?ico("check","i-xs"):i+1}</span><div class="rm-b"><div class="rm-h"><b>${x.t}</b>${tag[x.s]}</div><p>${x.d}</p>${x.link?`<a class="link-btn" href="${x.link[0]}">${x.link[1]}</a>`:""}</div></li>`).join("")}</ol></section>
+ <p class="hint">Everything in this sandbox shows how the finished tool will work. In the real app today, sign-in and the Team page are live.</p>`}
 function vMissing(){return `<div class="ph"><div><h1 class="h1">That page isn't here</h1><p class="lede">The case may have been removed, or the link is wrong.</p></div></div><a class="btn" href="#cases" style="align-self:flex-start">Go to cases</a>`}
 
 /* ---------- views: add email ---------- */
 const newDraft=()=>({stage:"input",tab:"paste",raw:"",file:null,parsed:null,running:false});
 const kb=n=>n<1024?`${n} B`:`${(n/1024).toFixed(1)} KB`;
-const SAMPLE=`From: Omar Shaikh <omar.shaikh@harborlinepharma.com>
-Sent: Tuesday, 3 November 2026 10:42
-To: Aisha Raza <aisha.raza@larkspur.co>
-Subject: Cold-chain audit findings, action needed
+const SAMPLE=`From: Lena Visser <lena.visser@gulfline.example>
+Sent: ${WDL[TODAY.getDay()]}, ${TODAY.getDate()} ${MOL[TODAY.getMonth()]} ${TODAY.getFullYear()} 10:42
+To: Aisha Raza <aisha.raza@example.com>
+Subject: Arrival notice: 3 × 40' containers of frozen chicken, Jebel Ali
 
 Hi Aisha,
 
-Thanks for hosting our team at the warehouse last week. The audit went well overall, but there are a few items we need closed before we sign off on the next quarter.
+Your shipment on MV Coral Dawn arrives at Jebel Ali tomorrow. The containers are on the priority list for discharge.
 
-Please send the temperature logs for bays 3 and 4 for October by Friday. We also need the calibration certificates for the two new data loggers. Could you confirm that the backup generator test is scheduled before 15 Nov? Finally, please share the updated cleaning SOP once your QA team has approved it.
+Please send the import permit from the municipality by tomorrow. We also need the health certificate and the halal certificate for each container. Could you confirm the cold store slot before the end of the week? Finally, please pay the delivery order fees so we can release the cargo.
 
-This is urgent for us, as our compliance review is on 18 Nov.
+This is urgent for us, as free time at the port ends next week.
 
 Kind regards,
-Omar Shaikh
-Quality Assurance Manager, Harborline Pharma`;
-const wordsMsg=raw=>{const t=raw.trim();return t?`${t.split(/\s+/).length} words ready to read`:"Tip: you can drop an email file anywhere in Agthia Enhancements."};
+Lena Visser
+Import Coordinator, Gulfline Logistics`;
+const wordsMsg=raw=>{const t=raw.trim();return t?`${t.split(/\s+/).length} words ready to read`:"Tip: you can drop an email file anywhere on the page."};
 function vAdd(){const d=S.draft||(S.draft=newDraft());if(d.stage==="reading"&&d.parsed)return vReading(d);if(d.stage==="review"&&d.parsed)return vReview(d);
  const has=!!d.raw.trim();
  const body=d.tab==="paste"?`<label class="sr" for="raw">Email text</label><textarea id="raw" class="inp raw" spellcheck="false" placeholder="${esc("From: Name <name@company.com>\nSubject: What the email is about\n\nPaste the whole email here. Include the From and Subject lines if you have them.")}">${esc(d.raw)}</textarea>`
   :d.file?`<div class="filechip">${ico("mail")}<div><b>${esc(d.file.name)}</b><span>${kb(d.file.size)} · ${esc(d.file.note||"Ready to read")}</span></div><button class="btn btn-sm btn-ghost" data-act="clear-file">Remove</button></div><pre class="peek">${esc(d.raw.slice(0,700))}${d.raw.length>700?"\n…":""}</pre>`
   :`<button type="button" class="drop" id="drop" data-act="pick-file">${ico("upload")}<b>Drop an email file here</b><span>or click to choose one · .eml, .msg or .txt</span></button>`;
- return `<header class="ph"><div><h1 class="h1">Add an email</h1><p class="lede">Paste the email or upload the file. Agthia Enhancements finds the sender, the deadlines and each thing being asked. You check everything before it's saved.</p></div></header>
+ return `<header class="ph"><div><h1 class="h1">Add an email</h1><p class="lede opt">Paste the email or upload the file. It finds the sender, the deadlines and each thing being asked. You check everything before it's saved.</p></div></header>
  <section class="panel add-card"><div class="panel-h"><div class="seg" role="group" aria-label="How to add"><button data-act="add-tab" data-v="paste" aria-pressed="${d.tab==="paste"}">${ico("edit","i-xs")}Paste text</button><button data-act="add-tab" data-v="upload" aria-pressed="${d.tab==="upload"}">${ico("upload","i-xs")}Upload a file</button></div><button class="btn btn-sm btn-ghost" data-act="sample">Use a sample email</button></div>
  <div class="add-b">${body}<input type="file" id="file" class="sr" accept=".eml,.msg,.txt,message/rfc822,text/plain" tabindex="-1" aria-hidden="true"></div>
  <div class="add-f"><span class="hint" id="raw-n">${wordsMsg(d.raw)}</span><button class="btn btn-primary" data-act="read" id="read-btn"${has?"":" disabled"}>${ico("scan","i-xs")}Read email</button></div></section>`}
@@ -948,8 +1043,8 @@ function vReview(d){const p=d.parsed,lead=S.role==="lead";const keep=new Set(p.p
 function meter(v){return `<span class="meter-w"><span class="meter${v<80?" below":""}"><i style="width:${v}%"></i></span><span class="tnum small">${v}%</span></span>`}
 function memberStats(id){const ps=S.cases.filter(c=>c.member===id).flatMap(c=>c.points);const open=ps.filter(p=>p.status!=="approved");return{ps,open,late:open.filter(isLate),review:ps.filter(p=>p.status==="done")}}
 function vTeam(){const rows=S.members.map(m=>{const s=memberStats(m.id);return `<a class="trow" href="#member-${m.id}"><span class="t-who">${av(m.id,"av-md")}<span><b>${esc(m.name)}</b><span class="muted small">${esc(m.email)}</span></span></span><span class="t-n tnum">${s.open.length}</span><span class="t-n tnum">${s.late.length?`<span class="late-n">${ico("flag","i-xs")}${s.late.length}</span>`:"0"}</span><span class="t-n tnum">${s.review.length}</span><span class="t-on">${m.ontime!=null?meter(m.ontime):'<span class="small muted">No history yet</span>'}</span><span>${m.status==="invited"?'<span class="tag-st inv">Invite sent</span>':'<span class="tag-st">Member</span>'}</span></a>`}).join("");
- const form=S.teamForm?`<form class="panel team-form" data-act-form="team-add" novalidate><div class="panel-h"><h2>Add a member</h2></div><div class="tf-b"><div class="field"><label for="nm-name">Full name</label><input id="nm-name" class="inp" autocomplete="off" placeholder="e.g. Sara Ahmed"><span class="err" id="nm-name-err" hidden></span></div><div class="field"><label for="nm-email">Work email</label><input id="nm-email" class="inp" type="email" autocomplete="off" placeholder="name@larkspur.co"><span class="err" id="nm-email-err" hidden></span></div></div><p class="hint tf-note">They get an email with a link to set a password. They only see cases assigned to them.</p><div class="form-f"><button type="button" class="btn" data-act="team-cancel">Cancel</button><button class="btn btn-primary" type="submit">Send invite</button></div></form>`:"";
- return `<header class="ph"><div><h1 class="h1">Team</h1><p class="lede">Members see only their own cases. You see everything, and you're the only one who can approve points.</p></div><div class="ph-act">${S.teamForm?"":`<button class="btn btn-primary" data-act="team-add">${ico("plus","i-xs")}Add member</button>`}</div></header>${form}
+ const form=S.teamForm?`<form class="panel team-form" data-act-form="team-add" novalidate><div class="panel-h"><h2>Add a member</h2></div><div class="tf-b"><div class="field"><label for="nm-name">Full name</label><input id="nm-name" class="inp" autocomplete="off" placeholder="e.g. Sara Ahmed"><span class="err" id="nm-name-err" hidden></span></div><div class="field"><label for="nm-email">Work email</label><input id="nm-email" class="inp" type="email" autocomplete="off" placeholder="name@company.com"><span class="err" id="nm-email-err" hidden></span></div></div><p class="hint tf-note">They get an email with a link to set a password. They only see cases assigned to them.</p><div class="form-f"><button type="button" class="btn" data-act="team-cancel">Cancel</button><button class="btn btn-primary" type="submit">Send invite</button></div></form>`:"";
+ return `<header class="ph"><div><h1 class="h1">Team</h1><p class="lede opt">Members see only their own cases. You see everything, and only you can approve points.</p></div><div class="ph-act">${S.teamForm?"":`<button class="btn btn-primary" data-act="team-add">${ico("plus","i-xs")}Add member</button>`}</div></header>${form}
  <section class="panel" aria-label="Team members"><div class="list"><div class="trow h" aria-hidden="true"><span>Person</span><span class="t-n">Open</span><span class="t-n">Past due</span><span class="t-n">To review</span><span class="t-on">On-time rate</span><span>Role</span></div><div class="trow"><span class="t-who">${av("lead","av-md")}<span><b>${LEAD.name}</b><span class="muted small">${LEAD.email}</span></span></span><span class="t-n muted">-</span><span class="t-n muted">-</span><span class="t-n muted">-</span><span class="t-on small muted">Reviews and approves</span><span><span class="tag-st lead">Lead</span></span></div>${rows}</div></section>`}
 function vMember(id){const m=S.members.find(x=>x.id===id);if(!m)return vMissing();const s=memberStats(id);const cs=S.cases.filter(c=>c.member===id);const work=s.open.filter(p=>p.status!=="done").sort((a,b)=>(isLate(b)-isLate(a))||byDue(a,b));
  return `<header class="ph"><div><a class="back" href="#team">${ico("back","i-xs")}Team</a><div class="who-h">${av(id,"av-lg")}<div><h1 class="h1">${esc(m.name)}</h1><p class="lede" style="margin-top:4px">${esc(m.email)} · ${m.status==="invited"?"Invite sent":"Member"}</p></div></div></div></header>
@@ -986,7 +1081,7 @@ let chartW=0;
 function drawCharts(){$$(".chart[data-chart]").forEach(el=>{const k=el.dataset.chart;if((S.chartMode[k]||"chart")==="table"){el.innerHTML=k==="workload"?workTable():weekTable();return}const w=Math.max(240,Math.floor(el.clientWidth-32));el.innerHTML=k==="workload"?workSvg(w):weekSvg(w)})}
 
 /* ---------- chrome + render ---------- */
-function route(){const h=decodeURIComponent(location.hash.slice(1));let m;if(!h)return{name:"overview"};if((m=h.match(/^case-(dk-\d+)$/i)))return{name:"case",id:m[1].toUpperCase()};if((m=h.match(/^member-(m\d+)$/)))return{name:"member",id:m[1]};if(["overview","cases","board","add","team"].includes(h))return{name:h};return{name:"missing"}}
+function route(){const h=decodeURIComponent(location.hash.slice(1));let m;if(!h)return{name:"overview"};if((m=h.match(/^case-(ae-\d+)$/i)))return{name:"case",id:m[1].toUpperCase()};if((m=h.match(/^member-(m\d+)$/)))return{name:"member",id:m[1]};if(["overview","cases","board","add","team","roadmap"].includes(h))return{name:h};return{name:"missing"}}
 const alertsFor=()=>S.alerts[S.role==="lead"?"lead":S.me]||[];
 let thumbReady=false;
 function moveThumb(){const tabs=$("#tabs"),th=$("#tab-thumb");if(!tabs||!th)return;const a=tabs.querySelector('a[aria-current="page"]');if(!a||getComputedStyle(tabs).display==="none"){th.style.opacity="0";return}
@@ -1001,6 +1096,7 @@ function chrome(r){const lead=S.role==="lead";const cur=r.name==="case"?"cases":
  const me=lead?LEAD:who(S.me);$("#me-av").innerHTML=`<span class="me" title="${esc(me.name)}, ${lead?"Lead":"Member"}">${av(lead?"lead":S.me,"av-md")}<span class="me-t"><b>${esc(me.name)}</b><span>${lead?"Lead":"Member"}</span></span></span>`;
  const sb=$("#search-btn");sb.innerHTML=`${ico("search","i-xs")}<span>Search</span><kbd>${MOD} K</kbd>`;sb.setAttribute("aria-label","Search");
  const n=alertsFor().filter(a=>a.unread).length;$("#bell").innerHTML=`${ico("bell")}${n?`<span class="badge">${n}</span>`:""}`;$("#bell").setAttribute("aria-label",n?`Alerts, ${n} unread`:"Alerts");
+ const sbb=$("#sb-btn");if(sbb){sbb.innerHTML=`<span class="sb-dot" aria-hidden="true"></span><span class="sb-l">Sandbox</span><span class="sb-r">${lead?"Lead":"Member"}</span>${ico("chevD","i-xs")}`;sbb.setAttribute("aria-label",`Sandbox menu, viewing as ${lead?"Lead":"Member"}`)}
  $$('[data-act="role"]').forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.role===S.role)))}
 function focusKey(a){if(!a||a===document.body||!a.matches)return null;if(a.id)return "#"+CSS.escape(a.id);const ds=a.dataset||{};if(!ds.act)return null;let k=`[data-act="${ds.act}"]`;["id","v","k","chart","case","role"].forEach(x=>{if(ds[x])k+=`[data-${x}="${ds[x]}"]`});return k}
 function captureFocus(){const a=document.activeElement;const key=focusKey(a);if(!key)return null;let sel=null;try{if(typeof a.selectionStart==="number")sel=[a.selectionStart,a.selectionEnd]}catch(e){}return{key,sel}}
@@ -1009,7 +1105,7 @@ let lastKey="";
 function render(opt={}){const r=route();
  if(S.role==="member"&&(r.name==="team"||r.name==="member")){location.replace("#overview");return}
  const key=JSON.stringify(r),enter=!!opt.enter||key!==lastKey;lastKey=key;const f=enter?null:captureFocus();
- let html;switch(r.name){case"overview":html=S.role==="lead"?vLeadHome():vMemberHome();break;case"cases":html=vCases();break;case"board":html=vBoard();break;case"case":html=vCase(r.id);break;case"add":html=vAdd();break;case"team":html=vTeam();break;case"member":html=vMember(r.id);break;default:html=vMissing()}
+ let html;switch(r.name){case"overview":html=S.role==="lead"?vLeadHome():vMemberHome();break;case"cases":html=vCases();break;case"board":html=vBoard();break;case"case":html=vCase(r.id);break;case"add":html=vAdd();break;case"team":html=vTeam();break;case"member":html=vMember(r.id);break;case"roadmap":html=vRoadmap();break;default:html=vMissing()}
  const main=$("#main");main.innerHTML=`<div class="page-in${enter&&!RM.matches?" enter":""}">${html}</div>`;if(enter)[...main.firstElementChild.children].forEach((el,i)=>el.style.setProperty("--i",Math.min(i,8)));
  chrome(r);drawCharts();chartW=main.clientWidth;
  if(enter){if(!S.focusPt)window.scrollTo(0,0);main.focus({preventScroll:true})}else restoreFocus(f);
@@ -1061,7 +1157,7 @@ function dropAlert(ref){if(!ref)return;const l=S.alerts[ref.to];if(l){const i=l.
 
 /* ---------- command palette ---------- */
 let PAL=null;
-function palItems(q){const lead=S.role==="lead";const go=[{g:"Go to",l:"Overview",i:"overview",k:"O",h:"#overview"},{g:"Go to",l:"Cases",i:"cases",k:"C",h:"#cases"},{g:"Go to",l:"Board",i:"board",k:"B",h:"#board"},{g:"Go to",l:"Add an email",i:"plus",k:"N",h:"#add"}];if(lead)go.push({g:"Go to",l:"Team",i:"team",k:"T",h:"#team"});go.push({g:"Go to",l:"Alerts",i:"bell",k:"A",fn:openAlerts});go.push({g:"Help",l:"Take the tour",i:"help",k:"?",fn:startTour});
+function palItems(q){const lead=S.role==="lead";const go=[{g:"Go to",l:"Overview",i:"overview",k:"O",h:"#overview"},{g:"Go to",l:"Cases",i:"cases",k:"C",h:"#cases"},{g:"Go to",l:"Board",i:"board",k:"B",h:"#board"},{g:"Go to",l:"Add an email",i:"plus",k:"N",h:"#add"}];if(lead)go.push({g:"Go to",l:"Team",i:"team",k:"T",h:"#team"});go.push({g:"Go to",l:"Alerts",i:"bell",k:"A",fn:openAlerts});go.push({g:"Help",l:"Take the tour",i:"help",k:"?",fn:startTour});go.push({g:"Help",l:"What's being built",i:"road",h:"#roadmap"});
  const ql=q.trim().toLowerCase(),match=s=>!ql||ql.split(/\s+/).every(w=>s.toLowerCase().includes(w));
  const cases=vis().filter(c=>match(`${c.id} ${c.subject} ${c.from.name} ${c.from.org}`)).slice(0,ql?6:4).map(c=>({g:"Cases",l:c.subject,sub:`${c.id} · ${c.from.org||c.from.name}`,i:"mail",h:caseHref(c)}));
  const pts=ql?vis().flatMap(c=>c.points).filter(p=>match(`${p.text} ${p.c.id}`)).slice(0,6).map(p=>({g:"Points",l:p.text,sub:`${p.c.id} · ${ST[p.status].l}`,glyph:p.status,h:caseHref(p.c),pid:p.id})):[];
@@ -1107,7 +1203,7 @@ function addPoint(id){const c=findCase(id),t=$("#np-t").value.trim();if(!t){$("#
  c.points.push(p);S.addPt=null;S.open.add(p.id);render();toast("Point added")}
 function teamAdd(){const name=$("#nm-name").value.trim(),email=$("#nm-email").value.trim();const en=$("#nm-name-err"),ee=$("#nm-email-err");en.hidden=ee.hidden=true;let ok=true;
  if(!name){en.textContent="Enter their name.";en.hidden=false;ok=false}
- if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ee.textContent="Enter an email like name@larkspur.co.";ee.hidden=false;ok=false}
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ee.textContent="Enter an email like name@company.com.";ee.hidden=false;ok=false}
  else if(S.members.some(m=>m.email.toLowerCase()===email.toLowerCase())){ee.textContent="Someone on the team already uses this email.";ee.hidden=false;ok=false}
  if(!ok){(en.hidden?$("#nm-email"):$("#nm-name")).focus();return}
  const words=name.split(/\s+/);const id="m"+(Math.max(...S.members.map(m=>+m.id.slice(1)))+1);
@@ -1120,7 +1216,7 @@ function setRole(r){if(r===S.role)return;S.role=r;try{localStorage.setItem("agth
 
 /* ---------- email reading (preview stand-in for the real extraction) ---------- */
 const MON={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,sept:8,oct:9,nov:10,dec:11};
-const mkDate=(day,mon)=>{let d=new Date(2026,mon,day);if(dd(d,TODAY)<-60)d=new Date(2027,mon,day);return d};
+const mkDate=(day,mon)=>{const y=TODAY.getFullYear();let d=new Date(y,mon,day);if(dd(d,TODAY)<-60)d=new Date(y+1,mon,day);return d};
 function findDate(s){let m;
  if(/\b(today|end of (the )?day|eod|asap|as soon as possible|immediately)\b/i.test(s))return TODAY;
  if(/\btomorrow\b/i.test(s))return addDays(TODAY,1);
@@ -1132,7 +1228,7 @@ function findDate(s){let m;
  if(/\b(end of (the )?month|month[- ]end)\b/i.test(s))return new Date(TODAY.getFullYear(),TODAY.getMonth()+1,0);
  return null}
 const ASK_RX=/\b(please|kindly|could you|can you|can we|would you|will you|we (?:would )?(?:also )?need (?:you to|the|a|an|your|to|written|confirmation)|i (?:also )?need you to|(?:they|he|she) (?:also )?needs? you to|let (?:me|us) know|make sure)\b/i;
-const VERB_RX=/^(?:(?:also|and|finally|lastly|then|next),?\s+)?(?:send|share|confirm|update|review|arrange|schedule|book|provide|prepare|check|attach|fix|replace|reply|call|email|forward|submit|complete|sign|set up|create|swap|get|give|add|remove|chase)\b/i;
+const VERB_RX=/^(?:(?:also|and|finally|lastly|then|next),?\s+)?(?:send|share|confirm|update|review|arrange|schedule|book|provide|prepare|check|attach|fix|replace|reply|call|email|forward|submit|complete|sign|set up|create|swap|get|give|add|remove|chase|pay|rebook|collect|issue|endorse|courier|hold|download)\b/i;
 const SKIP_RX=/^(hi|hello|dear|hey|good (morning|afternoon|evening)|thanks|thank you|many thanks|best|regards|kind regards|warm regards|cheers|sincerely)\b/i;
 const isAsk=t=>t.length>=12&&!(SKIP_RX.test(t)&&!/\b(please|could you|can you)\b/i.test(t))&&(ASK_RX.test(t)||VERB_RX.test(t));
 function toPoint(s){let t=s.trim().replace(/[.?!]+["')\]]*$/,"");
@@ -1166,7 +1262,7 @@ function parseEmail(raw){const text=raw.replace(/\r\n?/g,"\n").replace(/ /g," "
  const subject=(H.subject||"").replace(/^\s*((re|fw|fwd)\s*:\s*)+/i,"").trim()||(asks[0]?asks[0].text:(paras[0]||"New email").slice(0,60));
  const sender=org||name||"The sender";
  let summary=asks.length?`${sender} is asking for ${pl(asks.length,"thing")}${deadline?`, the first by ${fmtD(D(deadline))}`:""}.`:`${sender} sent this email. No clear asks were found, so add the points yourself.`;
- if(raw.trim()===SAMPLE.trim())summary="Harborline's QA team needs four audit items closed before their compliance review on 18 Nov. Without them they won't sign off on the next quarter.";
+ if(raw.trim()===SAMPLE.trim())summary="Gulfline needs four things sorted so the frozen chicken clears Jebel Ali before free time at the port runs out next week.";
  let owner=S.role==="lead"?"m1":S.me;if(S.role==="lead"){const hay=`${H.to||""} ${paras[0]||""}`.toLowerCase();const g=activeMembers().find(x=>hay.includes(x.email.toLowerCase())||hay.includes(x.first.toLowerCase()));if(g)owner=g.id}
  return{subject,summary,from:{name,email,org},to:H.to||"",received:H.date||H.sent||"Just now",priority,deadline,body:out,points:asks,found:found.slice(0,4),owner}}
 let readTimers=[];
@@ -1180,7 +1276,7 @@ function createCase(){const d=S.draft,p=d.parsed;const title=p.subject.trim();if
  const kept=p.points.filter(x=>x.text.trim());if(!kept.length){toast("Add at least one point. Each point is one thing to get done.");return}
  const map={};let n=0;kept.forEach(x=>{if(x.src)map[x.src]=++n});
  const body=p.body.map(par=>par.replace(/(\d+)([^]*)/g,(mm,k,t)=>map[k]?`${map[k]}${t}`:t));
- const id=`DK-${String(Math.max(...S.cases.map(c=>+c.id.slice(3)))+1).padStart(4,"0")}`;const by=S.role==="lead"?"lead":S.me;const owner=S.role==="lead"?(p.owner||"m1"):S.me;
+ const id=`AE-${String(Math.max(...S.cases.map(c=>+c.id.slice(3)))+1).padStart(4,"0")}`;const by=S.role==="lead"?"lead":S.me;const owner=S.role==="lead"?(p.owner||"m1"):S.me;
  const c={id,subject:title,from:{name:p.from.name.trim()||"Unknown sender",email:p.from.email,org:p.from.org.trim()},to:p.to,received:stamp(),receivedLabel:p.received,member:owner,priority:p.priority,deadline:"",summary:p.summary.trim(),body,points:[]};
  c.points=kept.map((x,i)=>({id:`${id}-${i+1}`,src:x.src?map[x.src]:null,text:x.text.trim(),status:"todo",due:x.due||"",wait:"",log:[{t:"created",by,at:stamp()}],c}));
  c.deadline=p.deadline||c.points.map(x=>x.due).filter(Boolean).sort()[0]||"";
@@ -1224,6 +1320,10 @@ document.addEventListener("click",e=>{const t=e.target;
   case"role":setRole(a.dataset.role);break;
   case"palette":openPalette();break;
   case"tour":startTour();break;
+  case"sandbox-menu":{if(menuAnchor===a){closeMenu();break}openMenu(a,sandboxMenu());break}
+  case"welcome":closeMenu();showLaunch(true);break;
+  case"board-col":S.boardCol=v;render();break;
+  case"expand":{const box=a.previousElementSibling;if(box)box.classList.remove("clip");a.remove();break}
   case"launch-close":markSeen();hideLaunch();break;
   case"alerts":$("#drawer")?closeDrawer():openAlerts();break;
   case"close-layer":closeDrawer();break;
@@ -1276,6 +1376,7 @@ document.addEventListener("change",e=>{const t=e.target;
 document.addEventListener("keydown",e=>{const t=e.target,typing=t.matches&&t.matches("input,textarea,select,[contenteditable]");if(TR){tourKeys(e);return}
  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="k"){e.preventDefault();$("#pal")?closePalette():openPalette();return}
  if(PAL){if(e.key==="Escape"){e.preventDefault();closePalette();$("#search-btn").focus()}else if(e.key==="ArrowDown"){e.preventDefault();PAL.sel=Math.min(PAL.items.length-1,PAL.sel+1);palRender()}else if(e.key==="ArrowUp"){e.preventDefault();PAL.sel=Math.max(0,PAL.sel-1);palRender()}else if(e.key==="Enter"){e.preventDefault();palGo(PAL.sel)}else if(e.key==="Tab")e.preventDefault();return}
+ if(e.key==="Escape"&&$("#launch")){markSeen();hideLaunch();return}
  if(e.key==="Escape"){if(menuEl){const anc=menuAnchor;closeMenu();anc&&anc.focus();return}if($("#drawer")){closeDrawer();return}if(S.editCase){S.editCase=null;render();return}if(S.addPt){S.addPt=null;render()}return}
  if(menuEl&&(e.key==="ArrowDown"||e.key==="ArrowUp")&&!typing){const items=$$(".mi:not([disabled])",menuEl);const i=items.indexOf(document.activeElement);e.preventDefault();const n=e.key==="ArrowDown"?(i+1)%items.length:(i-1+items.length)%items.length;items[n]&&items[n].focus();return}
  if(t.matches&&t.matches(".comp textarea")&&(e.metaKey||e.ctrlKey)&&e.key==="Enter"){e.preventDefault();t.form.requestSubmit();return}
@@ -1331,23 +1432,23 @@ function drawScene(){const cv=$("#scene");if(!cv)return;const k=.4,w=Math.max(2,
  try{const off=document.createElement("canvas");off.width=w;off.height=h;const o=off.getContext("2d");const s=Math.max(w/1600,h/1000);o.setTransform(s,0,0,s,(w-1600*s)/2,(h-1000*s)*.6);paintOffice(o);
   cv.width=w;cv.height=h;const c=cv.getContext("2d");if("filter" in c){c.filter=`blur(${(9*k).toFixed(1)}px)`;c.drawImage(off,0,0)}else{cv.classList.add("soft");c.drawImage(off,0,0)}}catch(e){}}
 
+function sandboxMenu(){const lead=S.role==="lead";return `<div class="menu-h">Sandbox · sample data, nothing is saved</div><div class="sb-role"><span class="flabel">View as</span><div class="seg" role="group" aria-label="View as"><button data-act="role" data-role="lead" aria-pressed="${lead}">Lead · Rhea</button><button data-act="role" data-role="member" aria-pressed="${!lead}">Member · Aisha</button></div></div><div class="menu-sep"></div><a class="mi" href="#roadmap" data-act="close-menu">${ico("road","i-xs")}<span>What's being built</span></a><button class="mi" data-act="tour">${ico("help","i-xs")}<span>Take the tour</span></button><button class="mi" data-act="welcome">${ico("dot","i-xs")}<span>Show the welcome card</span></button><div class="menu-sep"></div><a class="mi" href="/login">${ico("lock","i-xs")}<span>Sign in to the real app</span></a>`}
 /* ---------- floating tour ---------- */
 const TOUR=[
- {title:"Welcome to Agthia Enhancements",body:"Agthia Enhancements turns emails into work your team can track. This short tour shows you around. It takes about a minute."},
- {route:"#overview",target:"#tb-add",mtarget:".bnav .b-add",title:"Start with an email",body:"Paste an email or drop the file. Agthia Enhancements reads it and lists each thing being asked, with any deadlines."},
+ {route:"#overview",target:"#tb-add",mtarget:".bnav .b-add",title:"Start with an email",body:"A booking confirmation, a customs hold, a rate quote. Paste it or drop the file, and each thing it asks for becomes a point with its deadline."},
  {route:"#overview",target:"#tabs",mtarget:"#bnav",title:"Find your way",body:"Home shows what needs you. Cases lists every email. Board shows each point by its status."},
  {route:"#overview",role:"lead",target:'[data-tour="review"]',title:"Review finished work",body:"When someone marks a point done, it lands here. Approve it, or reopen it with a remark."},
  {route:"#overview",role:"member",target:'[data-tour="next"]',title:"Your next steps",body:"Your open points, soonest first. Change a status straight from this list."},
- {route:"#case-dk-0142",pre:()=>{S.tab="email"},target:".case-mail",title:"The email, kept whole",body:"Every sentence that asks for something becomes a numbered point. The highlight shows where each one came from.",enter:()=>setLit("1"),leave:()=>setLit(null)},
- {route:"#case-dk-0142",pre:()=>{S.tab="points"},target:"#pt-DK-0142-1",title:"Each point is tracked on its own",body:"Set its status and deadline here. Open it to post updates and remarks. Hover it to see its sentence light up."},
- {target:"#search-btn",title:"Jump anywhere",body:`Press ${MOD} K to find any case or point, or to jump to a page.`},
- {target:"#pv",title:"See both sides",body:"This preview lets you switch between Rhea, the Lead, and Aisha, a Member. Try it after the tour."},
- {title:"You're all set",body:"Replay this tour any time from the help button in the corner."}];
+ {route:"#case-ae-0142",pre:()=>{S.tab="email"},target:".case-mail",title:"The email, kept whole",body:"Each sentence that asks for something becomes a numbered point. The highlight shows where each one came from.",enter:()=>setLit("1"),leave:()=>setLit(null)},
+ {route:"#case-ae-0142",pre:()=>{S.tab="points"},target:"#pt-AE-0142-1",title:"Each point is tracked on its own",body:"Set its status and deadline, post updates, and see the Lead's remarks in one place."},
+ {target:"#sb-btn",title:"Switch views",body:"Open Sandbox to switch between Rhea, the Lead, and Aisha, a Member, or to see what's being built."},
+ {title:"You're all set",body:"Replay this tour any time from the Sandbox menu."}];
 let TR=null;
 const seen=()=>{try{return localStorage.getItem("agthia-sandbox-tour")==="done"}catch(e){return false}};
 const markSeen=()=>{try{localStorage.setItem("agthia-sandbox-tour","done")}catch(e){}};
-function showLaunch(){if(seen()||TR||$("#launch"))return;const l=document.createElement("div");l.className="launch";l.id="launch";l.setAttribute("role","dialog");l.setAttribute("aria-label","Tour");
- l.innerHTML=`<div class="launch-t"><b>New here?</b><span>Take a one-minute tour of how Agthia Enhancements works.</span></div><div class="launch-f"><button class="btn btn-ghost btn-sm" data-act="launch-close">Not now</button><button class="btn btn-primary btn-sm" data-act="tour">Start the tour</button></div>`;document.body.appendChild(l)}
+function showLaunch(force){if((!force&&seen())||TR||$("#launch"))return;const w=document.createElement("div");w.className="wl-wrap";w.id="launch";
+ w.innerHTML=`<div class="welcome" role="dialog" aria-modal="true" aria-labelledby="wl-t"><span class="sb-tag"><span class="sb-dot" aria-hidden="true"></span>Sandbox</span><h2 id="wl-t">See what we're building</h2><p class="wl-lede">Agthia Enhancements turns freight emails into work the team can track. Everything here is sample data, and nothing is saved.</p><ol class="wl-steps"><li><span class="tag">1</span><div><b>An email comes in</b><span>A booking, a customs hold or a rate quote. Paste it or drop the file.</span></div></li><li><span class="tag">2</span><div><b>Each ask becomes a point</b><span>Every action and deadline is pulled out and linked to the sentence it came from.</span></div></li><li><span class="tag">3</span><div><b>The work is tracked to done</b><span>Members post updates. The Lead reviews and approves.</span></div></li></ol><div class="wl-f"><a class="link-btn" href="#roadmap" data-act="launch-close">See what's being built</a><span class="sp"></span><button class="btn btn-ghost" data-act="launch-close">Look around</button><button class="btn btn-primary" data-act="tour">Take the 1-minute tour</button></div></div>`;
+ w.addEventListener("click",e=>{if(e.target===w){markSeen();hideLaunch()}});document.body.appendChild(w);const b=w.querySelector('[data-act="tour"]');if(b)b.focus({preventScroll:true})}
 function hideLaunch(){const l=$("#launch");if(l){l.id="";l.classList.add("bye");setTimeout(()=>l.remove(),300)}}
 function startTour(){closeAll();hideLaunch();if(TR)return;const steps=TOUR.filter(s=>!s.role||s.role===S.role);
  const block=document.createElement("div");block.className="tour-block";
@@ -1357,7 +1458,7 @@ function startTour(){closeAll();hideLaunch();if(TR)return;const steps=TOUR.filte
  card.addEventListener("click",e=>{const b=e.target.closest("[data-tour-act]");if(!b||!TR)return;const a=b.dataset.tourAct;if(a==="next")tourGo(TR.i+1);else if(a==="back")tourGo(TR.i-1);else endTour()});
  tourGo(0)}
 function tourCardHtml(){const n=TR.steps.length,i=TR.i,st=TR.steps[i],first=i===0,last=i===n-1;
- return `<div class="tc-step">${first?"Quick tour":last?"That's it":`Step ${i} of ${n-2}`}</div><h3 id="tc-t">${esc(st.title)}</h3><p>${esc(st.body)}</p><div class="tc-f"><div class="tc-dots" aria-hidden="true">${TR.steps.map((_,j)=>`<i class="${j===i?"on":""}"></i>`).join("")}</div>${first?`<button class="btn btn-ghost btn-sm" data-tour-act="skip">Not now</button>`:last?"":`<button class="btn btn-ghost btn-sm" data-tour-act="skip">Skip</button><button class="btn btn-sm" data-tour-act="back">Back</button>`}<button class="btn btn-primary btn-sm" data-tour-act="next">${first?"Show me around":last?"Finish":"Next"}</button></div>`}
+ return `<div class="tc-step">${last?"That's it":`Step ${i+1} of ${n-1}`}</div><h3 id="tc-t">${esc(st.title)}</h3><p>${esc(st.body)}</p><div class="tc-f"><div class="tc-dots" aria-hidden="true">${TR.steps.map((_,j)=>`<i class="${j===i?"on":""}"></i>`).join("")}</div>${last?"":`<button class="btn btn-ghost btn-sm" data-tour-act="skip">Skip</button>`}${first?"":`<button class="btn btn-sm" data-tour-act="back">Back</button>`}<button class="btn btn-primary btn-sm" data-tour-act="next">${last?"Finish":"Next"}</button></div>`}
 function tourGo(i){if(!TR||i<0)return;const prev=TR.steps[TR.i];if(prev&&prev.leave)prev.leave();if(i>=TR.steps.length){endTour();return}TR.i=i;const st=TR.steps[i];
  if(st.pre)st.pre();
  const show=()=>{if(!TR)return;const sel=innerWidth<900&&st.mtarget?st.mtarget:st.target;TR.el=sel?$(sel):null;let wait=0;
@@ -1375,7 +1476,7 @@ function tourPlace(){if(!TR)return;const{ring,card,el}=TR,pad=8,vw=innerWidth,vh
   if(b+gap+ch<vh-m){cy=b+gap;cx=clampX(l)}else if(t-gap-ch>m){cy=t-gap-ch;cx=clampX(l)}else if(rt+gap+cw<vw-m){cx=rt+gap;cy=clampY(t)}else if(l-gap-cw>m){cx=l-gap-cw;cy=clampY(t)}else{cx=vw-cw-m-4;cy=vh-ch-m-24}}
  else{ring.classList.add("noring");Object.assign(ring.style,{top:vh/2+"px",left:vw/2+"px",width:"0px",height:"0px"});cx=(vw-cw)/2;cy=(vh-ch)/2}
  card.style.left=Math.round(cx)+"px";card.style.top=Math.round(cy)+"px"}
-function endTour(){if(!TR)return;const st=TR.steps[TR.i];if(st&&st.leave)st.leave();const{block,ring,card}=TR;TR=null;markSeen();[block,ring,card].forEach(x=>x.classList.add("bye"));setTimeout(()=>{block.remove();ring.remove();card.remove()},RM.matches?0:320);const hb=$("#help-btn");if(hb)hb.focus({preventScroll:true})}
+function endTour(){if(!TR)return;const st=TR.steps[TR.i];if(st&&st.leave)st.leave();const{block,ring,card}=TR;TR=null;markSeen();[block,ring,card].forEach(x=>x.classList.add("bye"));setTimeout(()=>{block.remove();ring.remove();card.remove()},RM.matches?0:320);const hb=$("#sb-btn");if(hb)hb.focus({preventScroll:true})}
 function tourKeys(e){if(e.key==="Escape"){e.preventDefault();endTour()}else if(e.key==="ArrowRight"){e.preventDefault();tourGo(TR.i+1)}else if(e.key==="ArrowLeft"){e.preventDefault();tourGo(TR.i-1)}
  else if(e.key==="Tab"){const f=$$("button",TR.card);if(!f.length)return;const i=f.indexOf(document.activeElement);e.preventDefault();f[(i+(e.shiftKey?-1:1)+f.length)%f.length].focus()}}
 addEventListener("resize",()=>{clearTimeout(sceneT);sceneT=setTimeout(drawScene,160);moveThumb();if(TR)tourPlace()});
@@ -1383,7 +1484,7 @@ addEventListener("scroll",()=>{if(TR)tourPlace()},{passive:true});
 drawScene();
 render({enter:true});
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{moveThumb();drawCharts()});
-setTimeout(showLaunch,1100);
+setTimeout(showLaunch,700);
 })();
 </script>
 </body>

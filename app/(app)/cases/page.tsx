@@ -36,6 +36,11 @@ export default async function CasesPage({ searchParams }: { searchParams: Promis
               Board
             </Link>
           </div>
+          <Link className="btn" href="/cases/export">
+            <Icon name="download" size={15} />
+            <span className="m-hide">Export to Excel</span>
+            <span className="m-only-i">Export</span>
+          </Link>
           {!viewOnly && (
             <Link className="btn btn-primary m-hide" href="/add">
               <Icon name="plus" size={15} />

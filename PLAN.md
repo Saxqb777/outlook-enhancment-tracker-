@@ -167,6 +167,11 @@ Each step stops for the owner's review.
   - **Expand** opens any email full size; **Original file** opens the uploaded PDF (or downloads .eml / .msg). Files up to 2.5 MB are kept, in the database table `email_files`; bigger files keep their text only
   - The Add email page checks open cases first: same subject or same booking / B/L / container number → "Add as a reply to AE-…" or "make a new case"
   - **Admin (view only)**: sees every case, board and team; "See their view" shows the app exactly as the Lead or a Member sees it, with a bar to go back. Admin page: database and AI health, people (last sign-in, open and late points), AI reading log (time, result, errors), sign-in log (wrong passwords, paused emails). The server refuses every change from the Admin account. Hidden from the Lead's Team page
+- [~] **Excel export** (2026-11-07). **Live, waiting for the owner's review.**
+  - Cases page → "Export to Excel" (`/cases/export`): filter by state (Open, Past due, Needs review, Closed, All), person (Lead / Admin), date added (this week, this month, pick dates) and search; tick cases or "Select all shown"; options: updates and remarks history (on), email text (off)
+  - File `Agthia-cases-<day>-<Mon>-<year>.xlsx` with tabs: **Summary** (who exported and when, totals, table per person), **Cases** (one row per case), **Points** (one row per point, status colours, days late, which email it came from), **Change log** (every change in order; Excel doesn't allow a tab called "History"), **Emails** (if ticked)
+  - Header rows frozen with filters, real Excel dates in UAE time, Case IDs link back to the app, no merged cells
+  - Members can only export their own cases (checked on the server too); Lead and Admin can export any
 - [ ] **Step 5** — Dashboards and analytics
 - [ ] **Step 6** — Alerts (in-app + email)
 - [ ] **Step 7** — Launch polish (custom domain if wanted, final checks). The app is already live on Vercel from Step 2.
@@ -215,6 +220,7 @@ Each step stops for the owner's review.
 | 2026-11-07 | Owner asked for follow-up replies: add a new reply to an existing case so all follow-ups stay together. Plan sent for confirmation |
 | 2026-11-07 | Owner approved replies + Admin, and added: keep the real email (file) viewable, make it bigger (Expand), and label every reply so the log is clear. Built, tested (49 + 11 checks), deployed |
 | 2026-11-07 | Admin is view only by owner's choice: no acting as people, just seeing their view. Admin account hidden from the Lead's Team page |
+| 2026-11-07 | Owner asked for a case-wise Excel export (pick cases or select all). Built with exceljs, tested (25 checks, including opening the file), deployed |
 
 ---
 

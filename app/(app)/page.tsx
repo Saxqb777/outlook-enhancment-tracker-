@@ -3,7 +3,7 @@ import { Greeting, Today } from "@/components/forms";
 import { Avatar, Icon } from "@/components/Icon";
 import { firstName, Glyph, Pill, plural, SegBar } from "@/components/ui";
 import { Clip, DueControl, ReviewButtons, StatusControl } from "@/components/work";
-import { requireUser, type User } from "@/lib/auth";
+import { getViewer, type User } from "@/lib/auth";
 import { one } from "@/lib/db";
 import { caseRef, closedStatus } from "@/lib/status";
 import { diffDays, fmtDay, fmtWhen, todayISO } from "@/lib/time";
@@ -16,8 +16,8 @@ const isLate = (p: BoardPoint, today: string) => !closedStatus(p.status) && !!p.
 const byDue = (a: BoardPoint, b: BoardPoint) => (a.due ?? "9999").localeCompare(b.due ?? "9999");
 
 export default async function HomePage() {
-  const me = await requireUser();
-  return me.role === "lead" ? <LeadHome me={me} /> : <MemberHome me={me} />;
+  const { me, viewOnly } = await getViewer();
+  return me.role === "member" ? <MemberHome me={me} viewOnly={viewOnly} /> : <LeadHome me={me} viewOnly={viewOnly} />;
 }
 
 function PointRow({ p, lead, actions, extra }: { p: BoardPoint; lead: boolean; actions: React.ReactNode; extra?: React.ReactNode }) {
@@ -122,7 +122,7 @@ function Activity({ rows, today }: { rows: ActivityRow[]; today: string }) {
   );
 }
 
-async function LeadHome({ me }: { me: User }) {
+async function LeadHome({ me, viewOnly }: { me: User; viewOnly: boolean }) {
   const today = todayISO();
   const [points, cases, activity, team] = await Promise.all([
     listPoints(me),
@@ -226,10 +226,12 @@ async function LeadHome({ me }: { me: User }) {
             <Icon name="board" size={15} />
             Open board
           </Link>
-          <Link className="btn btn-primary" href="/add">
-            <Icon name="plus" size={15} />
-            Add email
-          </Link>
+          {!viewOnly && (
+            <Link className="btn btn-primary" href="/add">
+              <Icon name="plus" size={15} />
+              Add email
+            </Link>
+          )}
         </div>
       </header>
 
@@ -317,7 +319,7 @@ async function LeadHome({ me }: { me: User }) {
   );
 }
 
-async function MemberHome({ me }: { me: User }) {
+async function MemberHome({ me, viewOnly }: { me: User; viewOnly: boolean }) {
   const today = todayISO();
   const [points, cases, remarks, lead] = await Promise.all([listPoints(me), listCases(me), recentRemarks(me, 4), leadName()]);
   const lf = firstName(lead);
@@ -355,12 +357,14 @@ async function MemberHome({ me }: { me: User }) {
             )}
           </p>
         </div>
-        <div className="ph-act m-hide">
-          <Link className="btn btn-primary" href="/add">
-            <Icon name="plus" size={15} />
-            Add email
-          </Link>
-        </div>
+        {!viewOnly && (
+          <div className="ph-act m-hide">
+            <Link className="btn btn-primary" href="/add">
+              <Icon name="plus" size={15} />
+              Add email
+            </Link>
+          </div>
+        )}
       </header>
 
       {!cases.length ? (

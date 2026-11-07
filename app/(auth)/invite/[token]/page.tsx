@@ -8,7 +8,7 @@ import { one } from "@/lib/db";
 export const metadata: Metadata = { title: "Join the team" };
 export const dynamic = "force-dynamic";
 
-type Invite = { name: string | null; email: string | null; role: "lead" | "member"; inviter: string | null };
+type Invite = { name: string | null; email: string | null; role: "lead" | "member" | "admin"; inviter: string | null };
 
 export default async function InvitePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -44,9 +44,11 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
       lede={
         <>
           {invite.inviter ? `${invite.inviter} invited you. ` : ""}
-          {lead
-            ? "You're joining as the Lead: you'll see every case, add members and approve finished work."
-            : "You're joining as a Member: you'll see the cases assigned to you."}{" "}
+          {invite.role === "admin"
+            ? "You're joining as Admin: view only. You'll see every case, the board, the team and each person's view, and nothing you do changes their work."
+            : lead
+              ? "You're joining as the Lead: you'll see every case, add members and approve finished work."
+              : "You're joining as a Member: you'll see the cases assigned to you."}{" "}
           Add your details and choose a password.
         </>
       }

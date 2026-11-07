@@ -113,6 +113,7 @@ A tracker that turns emails into work you can follow.
 | Code | GitHub `Saxqb777/outlook-enhancment-tracker-`, branch `claude/nice-babbage-j31aej` (also the repo's default branch) | Every push to this branch deploys to production |
 | Hosting | Vercel project `agthia-enhancements` (team "saxqb777's projects") | Functions in `fra1` (Frankfurt), Node 22. Vercel login wall only on preview links |
 | Database | Neon project `agthia-enhancements` (`delicate-flower-67324386`), region AWS Frankfurt, Postgres 17, database `agthia` | Free plan. Schema in `db/migrations/` |
+| Original email files | Neon table `email_files` (up to 2.5 MB each), served only to people who can see the case at `/files/<email id>` | Neon free plan has about 0.5 GB, roughly a few hundred PDFs. Move to Vercel Blob or a paid Neon plan if it fills up |
 | Secrets | Vercel environment variables `DATABASE_URL`, `SETUP_CODE`, `ANTHROPIC_API_KEY` (all sensitive) | Never commit these. `.env.example` lists the names. The Claude key was given by the owner on 2026-11-06 |
 | Sandbox mode | Vercel environment variable `SANDBOX_MODE=1` (currently **on**) | Home page shows the no-login demo (`public/sandbox.html`, sample data, Lead / Member switch) to anyone not signed in. `/login` and `/setup` still work. To turn off: delete the variable in Vercel and redeploy. Rebuild the demo from `design/preview.html` with `npm run sandbox:build` |
 
@@ -160,6 +161,12 @@ Each step stops for the owner's review.
   - Home (Lead): ready for review with Approve / Reopen, coming up (late + next 2 days), recent activity, key numbers
   - Home (Member): next steps, remarks from the Lead, open cases
   - Not yet: editing a case's title / summary after it's created, deleting a case, moving a case to another owner after it's created
+- [~] **Replies, original files, Admin** (2026-11-07). **Live, waiting for the owner's review.**
+  - **Add a reply** on a case (paste / upload / drop, full thread is fine). The AI compares it with the case and suggests: new points, moved deadlines, points that look done, a note per point, an updated summary. Each one can be unticked or edited. Nothing changes until "Save reply"
+  - Every email on a case is kept: Original, Reply 1, Reply 2 ... each labelled with who added it and when, plus "What this reply changed". Points show "From Reply N"; timeline entries show "from Reply N"
+  - **Expand** opens any email full size; **Original file** opens the uploaded PDF (or downloads .eml / .msg). Files up to 2.5 MB are kept, in the database table `email_files`; bigger files keep their text only
+  - The Add email page checks open cases first: same subject or same booking / B/L / container number → "Add as a reply to AE-…" or "make a new case"
+  - **Admin (view only)**: sees every case, board and team; "See their view" shows the app exactly as the Lead or a Member sees it, with a bar to go back. Admin page: database and AI health, people (last sign-in, open and late points), AI reading log (time, result, errors), sign-in log (wrong passwords, paused emails). The server refuses every change from the Admin account. Hidden from the Lead's Team page
 - [ ] **Step 5** — Dashboards and analytics
 - [ ] **Step 6** — Alerts (in-app + email)
 - [ ] **Step 7** — Launch polish (custom domain if wanted, final checks). The app is already live on Vercel from Step 2.
@@ -206,6 +213,8 @@ Each step stops for the owner's review.
 | 2026-11-07 | Hashim uploaded a PDF of a full thread and it failed (PDF opened as text, too big to send). Fixed: PDFs are read in the browser (pdf.js), scanned PDFs and non-email files get a clear message, threads up to ~60,000 words are accepted, and the AI now reads whole threads and lists only what's still open (skips asks already done, uses moved deadlines) |
 | 2026-11-07 | Owner approved a view-only **Admin** account (sees everything, "See their view" per person, sign-in and AI problem logs). Next after the PDF fix |
 | 2026-11-07 | Owner asked for follow-up replies: add a new reply to an existing case so all follow-ups stay together. Plan sent for confirmation |
+| 2026-11-07 | Owner approved replies + Admin, and added: keep the real email (file) viewable, make it bigger (Expand), and label every reply so the log is clear. Built, tested (49 + 11 checks), deployed |
+| 2026-11-07 | Admin is view only by owner's choice: no acting as people, just seeing their view. Admin account hidden from the Lead's Team page |
 
 ---
 

@@ -15,7 +15,8 @@ export function navItems(role: Role): { href: string; label: string; icon: IconN
     { href: "/cases", label: "Cases", icon: "cases" },
     { href: "/board", label: "Board", icon: "board" },
   ];
-  if (role === "lead") items.push({ href: "/team", label: "Team", icon: "team" });
+  if (role === "lead" || role === "admin") items.push({ href: "/team", label: "Team", icon: "team" });
+  if (role === "admin") items.push({ href: "/admin", label: "Admin", icon: "shield" });
   return items;
 }
 
@@ -23,9 +24,9 @@ export function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/");
 }
 
-export default function TopBar({ me }: { me: Me }) {
+export default function TopBar({ me, navRole, viewOnly }: { me: Me; navRole: Role; viewOnly: boolean }) {
   const pathname = usePathname();
-  const items = navItems(me.role);
+  const items = navItems(navRole);
   const tabsRef = useRef<HTMLElement>(null);
   const thumbRef = useRef<HTMLSpanElement>(null);
   const placed = useRef(false);
@@ -76,10 +77,12 @@ export default function TopBar({ me }: { me: Me }) {
         </span>
       </nav>
       <div className="top-r">
-        <Link className="btn btn-primary btn-sm add-top" href="/add" aria-current={pathname === "/add" ? "page" : undefined}>
-          <Icon name="plus" size={15} />
-          Add email
-        </Link>
+        {!viewOnly && (
+          <Link className="btn btn-primary btn-sm add-top" href="/add" aria-current={pathname === "/add" ? "page" : undefined}>
+            <Icon name="plus" size={15} />
+            Add email
+          </Link>
+        )}
         <UserMenu me={me} />
       </div>
     </header>
@@ -110,7 +113,7 @@ function UserMenu({ me }: { me: Me }) {
     };
   }, [open]);
 
-  const roleLabel = me.role === "lead" ? "Lead" : "Member";
+  const roleLabel = me.role === "lead" ? "Lead" : me.role === "admin" ? "Admin · view only" : "Member";
   return (
     <div className="me-wrap" ref={wrap}>
       <button
@@ -121,7 +124,7 @@ function UserMenu({ me }: { me: Me }) {
         onClick={() => setOpen((v) => !v)}
         title={`${me.name}, ${roleLabel}`}
       >
-        <Avatar name={me.name} lead={me.role === "lead"} />
+        <Avatar name={me.name} lead={me.role !== "member"} />
         <span className="me-t">
           <b>{me.name}</b>
           <span>{roleLabel}</span>
@@ -133,7 +136,7 @@ function UserMenu({ me }: { me: Me }) {
           <div className="menu-who">
             <b>{me.name}</b>
             <span>{me.email}</span>
-            <span className={`tag-st${me.role === "lead" ? " lead" : ""}`}>{roleLabel}</span>
+            <span className={`tag-st${me.role === "lead" ? " lead" : me.role === "admin" ? " admin" : ""}`}>{roleLabel}</span>
           </div>
           <div className="menu-sep" />
           <form action={logout}>

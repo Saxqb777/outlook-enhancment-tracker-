@@ -4,10 +4,12 @@ import { redirect } from "next/navigation";
 import { createHash, randomBytes, scrypt as scryptCb, timingSafeEqual } from "node:crypto";
 import { one, q } from "@/lib/db";
 
-export type Role = "lead" | "member";
+export type Role = "lead" | "member" | "admin";
 export type User = { id: string; email: string; name: string; role: Role };
 
 export const SESSION_COOKIE = "ae_session";
+/** Set only for the Admin: whose view they are looking at. Ignored for everyone else. */
+export const VIEW_AS_COOKIE = "ae_view_as";
 const SESSION_DAYS = 30;
 const SCRYPT = { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
 
@@ -77,6 +79,7 @@ export async function destroySession(): Promise<void> {
   const token = store.get(SESSION_COOKIE)?.value;
   if (token) await q("delete from sessions where id = $1", [hashToken(token)]);
   store.delete(SESSION_COOKIE);
+  store.delete(VIEW_AS_COOKIE);
 }
 
 export const getCurrentUser = cache(async (): Promise<User | null> => {
@@ -101,6 +104,36 @@ export async function requireLead(): Promise<User> {
   if (user.role !== "lead") redirect("/");
   return user;
 }
+
+export async function requireAdmin(): Promise<User> {
+  const user = await requireUser();
+  if (user.role !== "admin") redirect("/");
+  return user;
+}
+
+export type Viewer = {
+  /** Who the pages are shown for: the signed-in person, or the person the Admin is looking as. */
+  me: User;
+  /** The signed-in person. */
+  real: User;
+  /** True for the Admin: nothing can be changed. */
+  viewOnly: boolean;
+  /** Set when the Admin is looking at someone else's view. */
+  viewingAs: User | null;
+};
+
+export const getViewer = cache(async (): Promise<Viewer> => {
+  const real = await requireUser();
+  if (real.role !== "admin") return { me: real, real, viewOnly: false, viewingAs: null };
+  const id = (await cookies()).get(VIEW_AS_COOKIE)?.value ?? "";
+  const target = /^[0-9a-f-]{36}$/.test(id)
+    ? await one<User>("select id, email, name, role from users where id = $1 and status = 'active' and role <> 'admin'", [id])
+    : null;
+  return { me: target ?? real, real, viewOnly: true, viewingAs: target };
+});
+
+/** Lead and Admin see everyone's work; Members see their own. */
+export const seesAll = (u: User) => u.role !== "member";
 
 export async function leadExists(): Promise<boolean> {
   return !!(await one("select 1 from users where role = 'lead'"));

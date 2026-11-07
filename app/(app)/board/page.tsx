@@ -3,7 +3,7 @@ import Link from "next/link";
 import BoardView from "@/components/BoardView";
 import { Icon } from "@/components/Icon";
 import { firstName } from "@/components/ui";
-import { requireUser } from "@/lib/auth";
+import { getViewer } from "@/lib/auth";
 import { todayISO } from "@/lib/time";
 import { leadName, listPoints } from "@/lib/work";
 
@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Board" };
 export const dynamic = "force-dynamic";
 
 export default async function BoardPage() {
-  const me = await requireUser();
+  const { me, viewOnly } = await getViewer();
   const [rows, lead] = await Promise.all([listPoints(me), leadName()]);
   const points = rows.map((p) => ({ ...p, last_at: p.last_at ? new Date(p.last_at).toISOString() : null }));
 
@@ -21,7 +21,9 @@ export default async function BoardPage() {
         <div>
           <h1 className="h1">Board</h1>
           <p className="lede opt">
-            {me.role === "lead"
+            {viewOnly
+              ? "Every point by status. View only."
+              : me.role !== "member"
               ? "Every point by status. Drag a card to move it, or drop it on Approved to sign it off."
               : `Your points by status. Drag a card to move it. ${firstName(lead)} approves points you mark done.`}
           </p>
@@ -40,7 +42,7 @@ export default async function BoardPage() {
         </div>
       </header>
       {points.length ? (
-        <BoardView points={points} role={me.role} leadName={lead} today={todayISO()} />
+        <BoardView points={points} role={me.role === "member" ? "member" : "lead"} leadName={lead} today={todayISO()} />
       ) : (
         <section className="panel empty-state">
           <span className="es-i">
@@ -48,10 +50,12 @@ export default async function BoardPage() {
           </span>
           <h2>Nothing on the board yet</h2>
           <p>Each point from an email shows up here as a card, sorted by status.</p>
-          <Link className="btn btn-primary" href="/add" style={{ marginTop: 12 }}>
-            <Icon name="plus" size={15} />
-            Add an email
-          </Link>
+          {!viewOnly && (
+            <Link className="btn btn-primary" href="/add" style={{ marginTop: 12 }}>
+              <Icon name="plus" size={15} />
+              Add an email
+            </Link>
+          )}
         </section>
       )}
     </div>

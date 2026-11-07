@@ -3,7 +3,7 @@ import { one, q } from "@/lib/db";
 import type { Priority, Status } from "@/lib/status";
 
 // Members only ever see their own cases; the Lead sees everything.
-const scopeOwner = (me: User) => (me.role === "lead" ? null : me.id);
+const scopeOwner = (me: User) => (me.role === "member" ? me.id : null);
 
 export type PointLite = { id: string; status: Status; due: string | null; text: string };
 
@@ -39,7 +39,8 @@ export async function listCases(me: User): Promise<CaseListRow[]> {
 export type PointEvent = {
   id: string;
   point_id: string;
-  kind: "created" | "status" | "update" | "remark" | "due" | "reopen";
+  email_id: string | null;
+  kind: "created" | "status" | "update" | "remark" | "due" | "reopen" | "reply";
   text: string | null;
   status: Status | null;
   due: string | null;
@@ -50,6 +51,7 @@ export type PointEvent = {
 
 export type PointFull = {
   id: string;
+  email_id: string | null;
   position: number;
   text: string;
   source_quote: string | null;
@@ -80,11 +82,29 @@ export type CaseFull = {
   details: { label: string; value: string }[];
   created_at: Date;
   points: PointFull[];
+  emails: CaseEmail[];
+};
+
+export type CaseEmail = {
+  id: string;
+  position: number;
+  from_name: string;
+  from_email: string;
+  email_to: string;
+  email_sent: string;
+  subject: string;
+  body: string;
+  source: "paste" | "file";
+  file_name: string | null;
+  change_note: string | null;
+  added_by_name: string | null;
+  created_at: Date;
+  file: { name: string; mime: string; size: number } | null;
 };
 
 export async function getCase(me: User, id: string): Promise<CaseFull | null> {
   if (!/^\d{1,12}$/.test(id)) return null;
-  const c = await one<Omit<CaseFull, "points">>(
+  const c = await one<Omit<CaseFull, "points" | "emails">>(
     `select c.id::text as id, c.owner_id, o.name as owner_name, o.role = 'lead' as owner_lead, cb.name as created_by_name, c.subject, c.summary,
             c.from_name, c.from_email, c.company, c.priority, c.deadline::text as deadline, c.email_to, c.email_sent,
             c.email_body, c.source, c.file_name, c.details, c.created_at
@@ -93,21 +113,29 @@ export async function getCase(me: User, id: string): Promise<CaseFull | null> {
     [id, scopeOwner(me)],
   );
   if (!c) return null;
+  const emails = await q<CaseEmail>(
+    `select e.id::text as id, e.position, e.from_name, e.from_email, e.email_to, e.email_sent, e.subject, e.body, e.source,
+            e.file_name, e.change_note, u.name as added_by_name, e.created_at,
+            case when f.email_id is null then null else json_build_object('name', f.name, 'mime', f.mime, 'size', f.size) end as file
+       from case_emails e left join users u on u.id = e.added_by left join email_files f on f.email_id = e.id
+      where e.case_id = $1 order by e.position`,
+    [id],
+  );
   const points = await q<Omit<PointFull, "events">>(
-    `select id::text as id, position, text, source_quote, status, wait_reason, due::text as due
+    `select id::text as id, email_id::text as email_id, position, text, source_quote, status, wait_reason, due::text as due
        from points where case_id = $1 order by position, id`,
     [id],
   );
   const events = points.length
     ? await q<PointEvent>(
-        `select e.id::text as id, e.point_id::text as point_id, e.kind, e.text, e.status, e.due::text as due, e.created_at,
+        `select e.id::text as id, e.point_id::text as point_id, e.email_id::text as email_id, e.kind, e.text, e.status, e.due::text as due, e.created_at,
                 u.name as user_name, u.role as user_role
            from point_events e left join users u on u.id = e.user_id
           where e.point_id = any($1::bigint[]) order by e.created_at, e.id`,
         [points.map((p) => p.id)],
       )
     : [];
-  return { ...c, points: points.map((p) => ({ ...p, events: events.filter((e) => e.point_id === p.id) })) };
+  return { ...c, emails, points: points.map((p) => ({ ...p, events: events.filter((e) => e.point_id === p.id) })) };
 }
 
 export type BoardPoint = {
@@ -170,7 +198,7 @@ export async function recentActivity(me: User, limit = 6): Promise<ActivityRow[]
 export type Assignee = { id: string; name: string; role: "lead" | "member" };
 
 export async function assignees(): Promise<Assignee[]> {
-  return q<Assignee>(`select id, name, role from users where status = 'active' order by (role = 'lead') desc, lower(name)`);
+  return q<Assignee>(`select id, name, role from users where status = 'active' and role <> 'admin' order by (role = 'lead') desc, lower(name)`);
 }
 
 /** The Lead's name, for hints like "Irfan approves". */

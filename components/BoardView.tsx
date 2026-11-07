@@ -5,7 +5,7 @@ import { useMemo, useOptimistic, useState, useTransition } from "react";
 import { setPointStatus } from "@/app/actions/work";
 import { Avatar, Icon } from "@/components/Icon";
 import { DueTag, firstName, Glyph, Prio } from "@/components/ui";
-import { ReasonDialog, run, StatusControl, toast } from "@/components/work";
+import { ReasonDialog, run, StatusControl, toast, useViewOnly } from "@/components/work";
 import type { Role } from "@/lib/auth";
 import { caseRef, statusBlocked, STATUSES, STATUS_LABEL, closedStatus, type Priority, type Status } from "@/lib/status";
 import { diffDays, fmtShort, todayISO } from "@/lib/time";
@@ -38,6 +38,7 @@ export default function BoardView({ points, role, leadName, today }: { points: B
     state.map((p) => (p.id === m.id ? { ...p, status: m.status, wait_reason: m.why ?? p.wait_reason } : p)),
   );
   const lf = firstName(leadName);
+  const viewOnly = useViewOnly();
 
   const owners = useMemo(() => {
     const m = new Map<string, { id: string; name: string; lead: boolean }>();
@@ -133,7 +134,7 @@ export default function BoardView({ points, role, leadName, today }: { points: B
                 </div>
                 <div className="col-b">
                   {visible.map((p) => {
-                    const canMove = !(role === "member" && p.status === "approved");
+                    const canMove = !viewOnly && !(role === "member" && p.status === "approved");
                     const open = () => router.push(`/cases/${p.case_id}#pt-${p.id}`);
                     return (
                       <article
@@ -201,7 +202,7 @@ export default function BoardView({ points, role, leadName, today }: { points: B
           })}
         </div>
       </div>
-      <p className="hint m-hide">Tip: open a card&apos;s menu if you&apos;d rather not drag. Click a card to open its case.</p>
+      {!viewOnly && <p className="hint m-hide">Tip: open a card&apos;s menu if you&apos;d rather not drag. Click a card to open its case.</p>}
       {asking && (
         <ReasonDialog
           onCancel={() => setAsking(null)}

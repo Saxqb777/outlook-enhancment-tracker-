@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { cancelInvite, cancelOpenInvite, setMemberAccess } from "@/app/actions/team";
 import { ConfirmButton, InviteLinkForm, NewLinkButton } from "@/components/forms";
 import { Avatar } from "@/components/Icon";
-import { requireLead } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { getViewer } from "@/lib/auth";
 import { q } from "@/lib/db";
 
 export const metadata: Metadata = { title: "Team" };
@@ -32,12 +33,14 @@ function ago(d: Date): string {
 const day = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Asia/Dubai" });
 
 export default async function TeamPage() {
-  const me = await requireLead();
+  const { me, viewOnly } = await getViewer();
+  if (me.role === "member") redirect("/");
   const [people, open] = await Promise.all([
     q<Person>(
       `select u.id, u.name, u.email, u.role, u.status, u.last_login_at, i.expires_at as invite_expires,
               (select count(*)::int from points p join cases c on c.id = p.case_id where c.owner_id = u.id and p.status <> 'approved') as open_points
          from users u left join invites i on i.user_id = u.id
+        where u.role <> 'admin'
         order by (u.role = 'lead') desc, (u.status = 'invited') desc, lower(u.name)`,
     ),
     q<OpenInvite>("select token_hash as key, label, created_at, expires_at from invites where user_id is null and expires_at > now() order by created_at desc"),
@@ -49,16 +52,20 @@ export default async function TeamPage() {
       <header className="ph">
         <div>
           <h1 className="h1">Team</h1>
-          <p className="lede opt">Members see only their own cases. You see everything, and only you can approve points.</p>
+          <p className="lede opt">
+            {viewOnly
+              ? "Everyone on the team. View only: invites and access are managed by the Lead."
+              : "Members see only their own cases. You see everything, and only you can approve points."}
+          </p>
         </div>
       </header>
 
       <section className="panel">
         <div className="panel-h">
-          <h2>Invite someone</h2>
-          <span className="hint">Create a link, send it to them, and they set up their own account.</span>
+          <h2>{viewOnly ? "Invite links" : "Invite someone"}</h2>
+          <span className="hint">{viewOnly ? "Links the Lead has made that haven't been used yet." : "Create a link, send it to them, and they set up their own account."}</span>
         </div>
-        <InviteLinkForm />
+        {!viewOnly && <InviteLinkForm />}
         {open.length > 0 && (
           <div className="open-inv">
             <div className="open-inv-h">Links not used yet</div>
@@ -70,7 +77,9 @@ export default async function TeamPage() {
                     Created {day(o.created_at)} · works until {day(o.expires_at)}
                   </span>
                 </span>
-                <ConfirmButton action={cancelOpenInvite} userId="" extra={{ key: o.key }} label="Cancel link" confirm="Stop this link working?" danger />
+                {!viewOnly && (
+                  <ConfirmButton action={cancelOpenInvite} userId="" extra={{ key: o.key }} label="Cancel link" confirm="Stop this link working?" danger />
+                )}
               </div>
             ))}
           </div>
@@ -120,13 +129,13 @@ export default async function TeamPage() {
                     : `${p.open_points} open point${p.open_points === 1 ? "" : "s"} · ${p.last_login_at ? `signed in ${ago(p.last_login_at)}` : "not signed in yet"}`}
                 </span>
                 <span className="t-act">
-                  {p.role === "member" && p.status === "invited" && (
+                  {!viewOnly && p.role === "member" && p.status === "invited" && (
                     <>
                       <NewLinkButton userId={p.id} />
                       <ConfirmButton action={cancelInvite} userId={p.id} label="Cancel invite" confirm="Remove this invite?" danger />
                     </>
                   )}
-                  {p.role === "member" && p.status === "active" && (
+                  {!viewOnly && p.role === "member" && p.status === "active" && (
                     <ConfirmButton
                       action={setMemberAccess}
                       userId={p.id}
@@ -136,7 +145,7 @@ export default async function TeamPage() {
                       danger
                     />
                   )}
-                  {p.role === "member" && p.status === "disabled" && (
+                  {!viewOnly && p.role === "member" && p.status === "disabled" && (
                     <ConfirmButton action={setMemberAccess} userId={p.id} label="Turn access on" confirm="Let them sign in again?" extra={{ access: "on" }} />
                   )}
                 </span>

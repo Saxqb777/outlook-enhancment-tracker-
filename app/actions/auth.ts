@@ -30,8 +30,8 @@ export async function login(_prev: FormState, form: FormData): Promise<FormState
     return { error: "Too many tries. Wait 15 minutes, then try again.", fields };
   }
 
-  const user = await one<{ id: string; password_hash: string | null; status: string }>(
-    "select id, password_hash, status from users where lower(email) = $1",
+  const user = await one<{ id: string; password_hash: string | null; status: string; role: string }>(
+    "select id, password_hash, status, role from users where lower(email) = $1",
     [email],
   );
   const hash = user?.password_hash ?? (await dummyPasswordHash());
@@ -47,7 +47,7 @@ export async function login(_prev: FormState, form: FormData): Promise<FormState
   }
 
   await createSession(user!.id);
-  redirect("/");
+  redirect(user!.role === "admin" ? "/admin" : "/");
 }
 
 export async function logout(): Promise<void> {
@@ -100,7 +100,7 @@ export async function acceptInvite(_prev: FormState, form: FormData): Promise<Fo
   if (problem) return { error: problem, fields };
 
   const hash = await hashPassword(password);
-  type Outcome = { id: string } | { error: string };
+  type Outcome = { id: string; role: string } | { error: string };
   let outcome: Outcome;
   try {
     outcome = await tx<Outcome>(async (c) => {
@@ -114,14 +114,16 @@ export async function acceptInvite(_prev: FormState, form: FormData): Promise<Fo
       const taken = await c.query("select 1 from users where lower(email) = $1 and ($2::uuid is null or id <> $2)", [email, inv.user_id]);
       if (taken.rowCount) return { error: "This email already has an account. Sign in instead, or use a different email." };
       let id: string;
+      let role = "member";
       if (inv.user_id) {
-        const res = await c.query<{ id: string }>(
+        const res = await c.query<{ id: string; role: string }>(
           `update users set name = $1, email = $2, password_hash = $3, status = 'active', activated_at = now()
-            where id = $4 and status = 'invited' returning id`,
+            where id = $4 and status = 'invited' returning id, role`,
           [name, email, hash, inv.user_id],
         );
         if (!res.rows[0]) return { error: "This invite link was already used. Sign in instead." };
         id = res.rows[0].id;
+        role = res.rows[0].role;
       } else {
         const res = await c.query<{ id: string }>(
           `insert into users (email, name, role, status, password_hash, created_by, activated_at)
@@ -131,7 +133,7 @@ export async function acceptInvite(_prev: FormState, form: FormData): Promise<Fo
         id = res.rows[0].id;
       }
       await c.query("delete from invites where token_hash = $1", [hashToken(token)]);
-      return { id };
+      return { id, role };
     });
   } catch (err) {
     if (isUniqueViolation(err)) return { error: "This email already has an account. Sign in instead, or use a different email.", fields };
@@ -140,5 +142,5 @@ export async function acceptInvite(_prev: FormState, form: FormData): Promise<Fo
 
   if ("error" in outcome) return { error: outcome.error, fields };
   await createSession(outcome.id);
-  redirect("/");
+  redirect(outcome.role === "admin" ? "/admin" : "/");
 }

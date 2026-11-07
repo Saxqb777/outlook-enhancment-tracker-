@@ -33,6 +33,8 @@ const nextConfig: NextConfig = {
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
         ],
       },
+      // Original email PDFs open inside the app's full-size reader.
+      { source: "/files/:id", headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }] },
     ];
   },
 };

@@ -1,15 +1,16 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { createCase, readEmail } from "@/app/actions/work";
+import { createCase, matchCases, readEmail, type CaseMatch } from "@/app/actions/work";
+import { EmailInputPanel, handOff, Highlighted, MailReader, useEmailSource, useFileUrl } from "@/components/EmailInput";
 import { Icon } from "@/components/Icon";
 import { Prio } from "@/components/ui";
 import type { Role } from "@/lib/auth";
 import { MAX_EMAIL_CHARS, parseAddress, splitEmail } from "@/lib/email";
 import type { Extraction } from "@/lib/extract";
 import { segmentBody } from "@/lib/highlight";
-import { readEmailFile } from "@/lib/mailfile";
-import { PRIORITIES, PRIORITY_LABEL, type Priority } from "@/lib/status";
+import { caseRef, PRIORITIES, PRIORITY_LABEL, type Priority } from "@/lib/status";
 import { addDaysISO, fmtDay, fmtLongToday } from "@/lib/time";
 
 type Person = { id: string; name: string; role: Role };
@@ -31,7 +32,6 @@ type Draft = {
 let keySeq = 0;
 const nextKey = () => ++keySeq;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const kb = (n: number) => (n < 1024 ? `${n} B` : `${(n / 1024).toFixed(1)} KB`);
 
 function sample(today: string): string {
   const [y, m, d] = today.split("-").map(Number);
@@ -56,10 +56,13 @@ Import Coordinator, Gulfline Logistics`;
 
 export default function AddEmail({ role, meId, people, today }: { role: Role; meId: string; people: Person[]; today: string }) {
   const lead = role === "lead";
-  const [stage, setStage] = useState<"input" | "reading" | "review">("input");
-  const [tab, setTab] = useState<"paste" | "upload">("paste");
-  const [raw, setRaw] = useState("");
-  const [file, setFile] = useState<{ name: string; size: number; note: string } | null>(null);
+  const router = useRouter();
+  const [stage, setStage] = useState<"input" | "match" | "reading" | "review">("input");
+  const src = useEmailSource(stage === "input");
+  const { raw, file } = src;
+  const fileUrl = useFileUrl(file);
+  const [matches, setMatches] = useState<CaseMatch[]>([]);
+  const [reader, setReader] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [found, setFound] = useState<Extraction | null>(null);
   const [revealed, setRevealed] = useState(0);
@@ -67,14 +70,11 @@ export default function AddEmail({ role, meId, people, today }: { role: Role; me
   const [lit, setLit] = useState<number | null>(null);
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const [saving, startSave] = useTransition();
-  const [over, setOver] = useState(false);
-  const [opening, setOpening] = useState(false);
   const [errKind, setErrKind] = useState<"file" | "read">("read");
-  const fileInput = useRef<HTMLInputElement>(null);
   const reading = useRef(0);
 
   const mail = useMemo(() => splitEmail(raw), [raw]);
-  const words = raw.trim() ? raw.trim().split(/\s+/).length : 0;
+  const words = src.words;
 
   // Warn before leaving with an unsaved case.
   useEffect(() => {
@@ -84,61 +84,6 @@ export default function AddEmail({ role, meId, people, today }: { role: Role; me
     };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [stage]);
-
-  const loadFile = async (f: File) => {
-    setErr(null);
-    setOpening(true);
-    const r = await readEmailFile(f).finally(() => setOpening(false));
-    if ("error" in r) {
-      setErrKind("file");
-      setErr(r.error);
-      return;
-    }
-    setRaw(r.text);
-    setFile({ name: f.name, size: f.size, note: r.note });
-    setTab("upload");
-    setStage("input");
-  };
-
-  // Drop an email file anywhere on the page while adding.
-  useEffect(() => {
-    if (stage !== "input") return;
-    let depth = 0;
-    const hasFile = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes("Files");
-    const enter = (e: DragEvent) => {
-      if (!hasFile(e)) return;
-      depth++;
-      document.body.classList.add("filedrag");
-    };
-    const leave = (e: DragEvent) => {
-      if (!hasFile(e)) return;
-      depth = Math.max(0, depth - 1);
-      if (!depth) document.body.classList.remove("filedrag");
-    };
-    const overFn = (e: DragEvent) => {
-      if (hasFile(e)) e.preventDefault();
-    };
-    const drop = (e: DragEvent) => {
-      if (!hasFile(e)) return;
-      e.preventDefault();
-      depth = 0;
-      document.body.classList.remove("filedrag");
-      const f = e.dataTransfer?.files?.[0];
-      if (f) void loadFile(f);
-    };
-    window.addEventListener("dragenter", enter);
-    window.addEventListener("dragleave", leave);
-    window.addEventListener("dragover", overFn);
-    window.addEventListener("drop", drop);
-    return () => {
-      document.body.classList.remove("filedrag");
-      window.removeEventListener("dragenter", enter);
-      window.removeEventListener("dragleave", leave);
-      window.removeEventListener("dragover", overFn);
-      window.removeEventListener("drop", drop);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage]);
 
   const toDraft = (x: Extraction | null): Draft => {
@@ -158,13 +103,22 @@ export default function AddEmail({ role, meId, people, today }: { role: Role; me
     };
   };
 
-  const read = async () => {
+  const read = async (skipMatch = false) => {
     const text = raw.trim();
     if (!text) return;
     if (text.length > MAX_EMAIL_CHARS) {
       setErrKind("file");
       setErr(`This thread is too long to read in one go (${words.toLocaleString()} words). Remove the oldest replies at the bottom and try again.`);
       return;
+    }
+    if (!skipMatch) {
+      const m = await matchCases(text).catch(() => [] as CaseMatch[]);
+      if (m.length) {
+        setMatches(m);
+        setStage("match");
+        window.scrollTo({ top: 0 });
+        return;
+      }
     }
     const ticket = ++reading.current;
     setErr(null);
@@ -223,6 +177,8 @@ export default function AddEmail({ role, meId, people, today }: { role: Role; me
     if (!draft.points.some((p) => p.text.trim())) return setSaveErr("Add at least one point. Each point is one thing to get done.");
     startSave(async () => {
       try {
+        const fd = new FormData();
+        if (file) fd.append("file", file.blob, file.name);
         const r = await createCase({
           raw,
           source: file ? "file" : "paste",
@@ -237,7 +193,7 @@ export default function AddEmail({ role, meId, people, today }: { role: Role; me
           ownerId: draft.ownerId,
           details: draft.details,
           points: draft.points.map(({ text, due, quote }) => ({ text, due, quote })),
-        });
+        }, fd);
         if (r && !r.ok) setSaveErr(r.error);
       } catch (e) {
         // A redirect after saving is not an error.
@@ -257,50 +213,57 @@ export default function AddEmail({ role, meId, people, today }: { role: Role; me
     return m;
   }, [matched, quotes.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const isPdf = !!file && /\.pdf$/i.test(file.name);
+  const meta: [string, string][] = [["From", mail.from || "Not in the pasted text"]];
+  if (mail.to) meta.push(["To", mail.to]);
+  if (mail.sent) meta.push(["Sent", mail.sent]);
+  const body = (marks: boolean) =>
+    marks ? <Highlighted segments={segments} numbers={numbers} lit={lit} onLit={setLit} onPick={(n) => document.getElementById(`pe-${n}`)?.focus()} /> : mail.body || raw;
+
   const preview = (marks: boolean) => (
     <article className="mail">
       <header className="mail-h">
+        <div className="mail-top">
+          <span className="mail-label">{file ? `From ${file.name}` : "Pasted email"}</span>
+          <span className="sp" />
+          {marks && (
+            <button type="button" className="btn btn-sm btn-ghost" onClick={() => setReader(true)}>
+              <Icon name="expand" size={14} />
+              Expand
+            </button>
+          )}
+        </div>
         <div className="mail-s">{mail.subject || draft?.subject || found?.subject || "(No subject)"}</div>
         <dl className="mail-meta">
-          <dt>From</dt>
-          <dd>{mail.from || "Not in the pasted text"}</dd>
-          {mail.to && (
-            <>
-              <dt>To</dt>
-              <dd>{mail.to}</dd>
-            </>
-          )}
-          {mail.sent && (
-            <>
-              <dt>Sent</dt>
-              <dd>{mail.sent}</dd>
-            </>
-          )}
+          {meta.map(([k, v]) => (
+            <span key={k} style={{ display: "contents" }}>
+              <dt>{k}</dt>
+              <dd>{v}</dd>
+            </span>
+          ))}
         </dl>
       </header>
-      <div className="mail-b">
-        {marks
-          ? segments.map((s, i) =>
-              s.n && numbers.has(s.n) ? (
-                <span
-                  key={i}
-                  className={`src${lit === s.n ? " lit" : ""}`}
-                  data-src={s.n}
-                  onMouseEnter={() => setLit(s.n!)}
-                  onMouseLeave={() => setLit(null)}
-                  onClick={() => document.getElementById(`pe-${s.n}`)?.focus()}
-                >
-                  <span className="tag" aria-hidden="true">
-                    {numbers.get(s.n)}
-                  </span>
-                  {s.text}
-                </span>
-              ) : (
-                <span key={i}>{s.text}</span>
-              ),
-            )
-          : mail.body || raw}
-      </div>
+      <div className="mail-b">{body(marks)}</div>
+      {reader && (
+        <MailReader
+          start={0}
+          onClose={() => setReader(false)}
+          emails={[
+            {
+              key: "new",
+              tab: "This email",
+              label: file ? `From ${file.name}` : "Pasted email",
+              subject: mail.subject || draft?.subject || "",
+              meta,
+              body: body(true),
+              fileUrl: isPdf ? fileUrl : null,
+              downloadUrl: file && !isPdf ? fileUrl : null,
+              isPdf,
+              fileName: file?.name,
+            },
+          ]}
+        />
+      )}
     </article>
   );
 
@@ -538,6 +501,55 @@ export default function AddEmail({ role, meId, people, today }: { role: Role; me
     );
   }
 
+  // ---------------------------------------------------------------- is it a reply?
+  if (stage === "match") {
+    return (
+      <div className="page-in">
+        <header className="ph">
+          <div>
+            <h1 className="h1">Is this a reply to an open case?</h1>
+            <p className="lede">This email looks like it belongs to a case that&apos;s already being tracked. Add it there so all the follow-ups stay together.</p>
+          </div>
+        </header>
+        <section className="panel">
+          <div className="rows">
+            {matches.map((m) => (
+              <div className="row nolead" key={m.id}>
+                <div className="row-main">
+                  <span className="row-t">{m.subject}</span>
+                  <div className="sub">
+                    <span className="cid">{caseRef(m.id)}</span>
+                    <span>{m.reason}</span>
+                  </div>
+                </div>
+                <div className="row-act">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary"
+                    onClick={() => {
+                      handOff(raw, file);
+                      router.push(`/cases/${m.id}/reply`);
+                    }}
+                  >
+                    Add as a reply to {caseRef(m.id)}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="form-f">
+            <button type="button" className="btn btn-ghost" onClick={() => setStage("input")}>
+              Back
+            </button>
+            <button type="button" className="btn" onClick={() => void read(true)}>
+              No, make a new case
+            </button>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   // ---------------------------------------------------------------- input
   return (
     <div className="page-in">
@@ -547,132 +559,44 @@ export default function AddEmail({ role, meId, people, today }: { role: Role; me
           <p className="lede opt">Paste the email or upload the file. It finds the sender, the deadlines and each thing being asked. You check everything before it&apos;s saved.</p>
         </div>
       </header>
-      <section className="panel add-card">
-        <div className="panel-h">
-          <div className="seg" role="group" aria-label="How to add">
-            <button type="button" aria-pressed={tab === "paste"} onClick={() => setTab("paste")}>
-              <Icon name="edit" size={15} />
-              Paste text
-            </button>
-            <button type="button" aria-pressed={tab === "upload"} onClick={() => setTab("upload")}>
-              <Icon name="upload" size={15} />
-              Upload a file
-            </button>
-          </div>
+      <EmailInputPanel
+        src={src}
+        readLabel="Read email"
+        onRead={() => void read()}
+        placeholder={"From: Name <name@company.com>\nSubject: What the email is about\n\nPaste the whole email or thread here. Include the From and Subject lines if you have them."}
+        head={
           <button
             type="button"
             className="btn btn-sm btn-ghost"
             onClick={() => {
-              setRaw(sample(today));
-              setFile(null);
-              setTab("paste");
+              src.setRaw(sample(today));
+              src.setFile(null);
+              src.setTab("paste");
               setErr(null);
             }}
           >
             Use a sample email
           </button>
-        </div>
-        <div className="add-b">
-          {tab === "paste" ? (
-            <>
-              <label className="sr" htmlFor="raw">
-                Email text
-              </label>
-              <textarea
-                id="raw"
-                className="inp raw"
-                spellCheck={false}
-                value={raw}
-                onChange={(e) => {
-                  setRaw(e.target.value);
-                  if (file) setFile(null);
-                }}
-                placeholder={"From: Name <name@company.com>\nSubject: What the email is about\n\nPaste the whole email here. Include the From and Subject lines if you have them."}
-              />
-            </>
-          ) : file ? (
-            <>
-              <div className="filechip">
-                <Icon name="mail" />
-                <div>
-                  <b>{file.name}</b>
-                  <span>
-                    {kb(file.size)} · {file.note}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-ghost"
-                  onClick={() => {
-                    setFile(null);
-                    setRaw("");
-                  }}
-                >
-                  Remove
-                </button>
-              </div>
-              <pre className="peek">
-                {raw.slice(0, 900)}
-                {raw.length > 900 ? "\n…" : ""}
-              </pre>
-            </>
-          ) : (
-            <button
-              type="button"
-              className={`drop${over ? " over" : ""}`}
-              onClick={() => fileInput.current?.click()}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setOver(true);
-              }}
-              onDragLeave={() => setOver(false)}
-              onDrop={() => setOver(false)}
-            >
-              <Icon name="upload" size={30} />
-              <b>Drop an email file here</b>
-              <span>or click to choose one · .eml, .msg, .pdf or .txt</span>
-            </button>
-          )}
-          <input
-            ref={fileInput}
-            type="file"
-            className="sr"
-            accept=".eml,.msg,.pdf,.txt,.htm,.html,message/rfc822,application/pdf,text/plain,text/html"
-            tabIndex={-1}
-            aria-hidden="true"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              e.target.value = "";
-              if (f) void loadFile(f);
-            }}
-          />
-          {err && (
-            <div className="form-err" role="alert" style={{ marginTop: 12, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-              <span style={{ flex: 1, minWidth: 200 }}>{err}</span>
-              {raw.trim() && errKind === "read" && (
-                <>
-                  <button type="button" className="btn btn-sm" onClick={read}>
-                    Try again
-                  </button>
-                  <button type="button" className="btn btn-sm btn-ghost" onClick={manual}>
-                    Fill it in yourself
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-        <div className="add-f">
-          <span className="hint" aria-live="polite">
-            {opening ? "Opening the file…" : words ? `${words.toLocaleString()} words ready to read` : "Tip: you can drop an email file anywhere on this page. Full threads are fine."}
-          </span>
-          <button type="button" className="btn btn-primary" onClick={read} disabled={!raw.trim() || opening}>
-            <Icon name="scan" size={15} />
-            Read email
-          </button>
-        </div>
-      </section>
+        }
+        err={
+          err
+            ? {
+                text: err,
+                actions:
+                  raw.trim() && errKind === "read" ? (
+                    <>
+                      <button type="button" className="btn btn-sm" onClick={() => void read(true)}>
+                        Try again
+                      </button>
+                      <button type="button" className="btn btn-sm btn-ghost" onClick={manual}>
+                        Fill it in yourself
+                      </button>
+                    </>
+                  ) : null,
+              }
+            : null
+        }
+      />
     </div>
   );
 }
-

@@ -1,13 +1,21 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useOptimistic, useRef, useState, useTransition } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { reopenPoint, setCaseDeadline, setPointDue, setPointStatus, type ActionResult } from "@/app/actions/work";
 import { Icon } from "@/components/Icon";
-import { Glyph } from "@/components/ui";
+import { DueTag, Glyph, Pill } from "@/components/ui";
 import type { Role } from "@/lib/auth";
 import { STATUSES, STATUS_LABEL, type Status } from "@/lib/status";
 import { addDaysISO, dueInfo, fmtDay, nextWeekday } from "@/lib/time";
+
+// ------------------------------------------------------------------ view only (Admin)
+
+const ViewOnlyCtx = createContext(false);
+export function ViewOnlyProvider({ value, children }: { value: boolean; children: React.ReactNode }) {
+  return <ViewOnlyCtx.Provider value={value}>{children}</ViewOnlyCtx.Provider>;
+}
+export const useViewOnly = () => useContext(ViewOnlyCtx);
 
 // ------------------------------------------------------------------ toasts
 
@@ -134,6 +142,7 @@ export function StatusControl({
   const [pending, start] = useTransition();
   const [shown, setShown] = useOptimistic(status);
   const locked = role === "member" && status === "approved";
+  const viewOnly = useViewOnly();
   const close = () => {
     setOpen(false);
     setAsking(false);
@@ -153,6 +162,8 @@ export function StatusControl({
       if (ok && s === "approved") toast("Approved.");
     });
   };
+
+  if (viewOnly) return variant === "icon" ? null : <Pill s={status} />;
 
   const trigger =
     variant === "icon" ? (
@@ -251,6 +262,7 @@ export function DueControl({
   label?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const viewOnly = useViewOnly();
   const btn = useRef<HTMLButtonElement>(null);
   const [pending, start] = useTransition();
   const [shown, setShown] = useOptimistic(due);
@@ -266,6 +278,8 @@ export function DueControl({
       await run(caseId ? setCaseDeadline(caseId, d) : setPointDue(pointId!, d));
     });
   };
+
+  if (viewOnly) return <DueTag due={due} status={status} today={today} />;
 
   const opts: [string, string][] = [
     ["Today", today],
@@ -363,6 +377,7 @@ export function ReasonDialog({ onCancel, onSave }: { onCancel: () => void; onSav
 
 export function ReviewButtons({ pointId }: { pointId: string }) {
   const [pending, start] = useTransition();
+  if (useViewOnly()) return null;
   return (
     <span className={`row-act${pending ? " is-busy" : ""}`}>
       <button type="button" className="btn btn-sm" onClick={() => start(async () => void (await run(reopenPoint(pointId))))}>

@@ -14,6 +14,18 @@ const PATHS = {
   chevD: '<path d="m6 9 6 6 6-6"/>',
   arrowR: '<path d="M5 12h14M13 6l6 6-6 6"/>',
   clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  back: '<path d="M19 12H5M11 6l-6 6 6 6"/>',
+  x: '<path d="M6 6l12 12M18 6 6 18"/>',
+  upload: '<path d="M12 15V4M7.5 8.5 12 4l4.5 4.5"/><path d="M4 14.5V19c0 .8.7 1.5 1.5 1.5h13c.8 0 1.5-.7 1.5-1.5v-4.5"/>',
+  scan: '<path d="M4 8V5.5C4 4.7 4.7 4 5.5 4H8M16 4h2.5c.8 0 1.5.7 1.5 1.5V8M20 16v2.5c0 .8-.7 1.5-1.5 1.5H16M8 20H5.5c-.8 0-1.5-.7-1.5-1.5V16M7.5 12h9"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',
+  more: '<circle cx="6" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18" cy="12" r="1.2"/>',
+  dot: '<circle cx="12" cy="12" r="2.2"/>',
+  undo: '<path d="M9 7 4.5 11.5 9 16"/><path d="M5 11.5h9.5a5 5 0 0 1 0 10H11"/>',
+  cal: '<rect x="4" y="5.5" width="16" height="15" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/>',
+  flag: '<path d="M5.5 21V4.5h11l-2 4 2 4h-11"/>',
+  msg: '<path d="M4.5 5.5h15v10h-9l-4.5 4v-4h-1.5z"/>',
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>',
 } as const;
 
 export type IconName = keyof typeof PATHS;
@@ -51,7 +63,7 @@ export function initials(name: string): string {
   return (first + last).toUpperCase();
 }
 
-export function Avatar({ name, lead = false, size = "md" }: { name: string; lead?: boolean; size?: "sm" | "md" | "lg" }) {
+export function Avatar({ name, lead = false, size = "md" }: { name: string; lead?: boolean; size?: "xs" | "sm" | "md" | "lg" }) {
   return (
     <span className={`av av-${size}${lead ? " lead" : ""}`} aria-hidden="true">
       {initials(name)}

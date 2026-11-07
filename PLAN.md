@@ -100,9 +100,9 @@ A tracker that turns emails into work you can follow.
 
 - **App:** Next.js (TypeScript) on Vercel
 - **Data:** Neon Postgres
-- **Email reading:** Claude API (owner provides key by Step 3)
+- **Email reading:** Claude API (Claude Opus, structured JSON output; server-side model fallback switched on)
 - **Email alerts:** Resend
-- **Login:** email + password; Lead creates Member accounts
+- **Login:** email + password; people join through invite links from the Lead
 
 ---
 
@@ -113,16 +113,16 @@ A tracker that turns emails into work you can follow.
 | Code | GitHub `Saxqb777/outlook-enhancment-tracker-`, branch `claude/nice-babbage-j31aej` (also the repo's default branch) | Every push to this branch deploys to production |
 | Hosting | Vercel project `agthia-enhancements` (team "saxqb777's projects") | Functions in `fra1` (Frankfurt), Node 22. Vercel login wall only on preview links |
 | Database | Neon project `agthia-enhancements` (`delicate-flower-67324386`), region AWS Frankfurt, Postgres 17, database `agthia` | Free plan. Schema in `db/migrations/` |
-| Secrets | Vercel environment variables `DATABASE_URL`, `SETUP_CODE` (sensitive) | Never commit these. `.env.example` lists the names |
+| Secrets | Vercel environment variables `DATABASE_URL`, `SETUP_CODE`, `ANTHROPIC_API_KEY` (all sensitive) | Never commit these. `.env.example` lists the names. The Claude key was given by the owner on 2026-11-06 |
 | Sandbox mode | Vercel environment variable `SANDBOX_MODE=1` (currently **on**) | Home page shows the no-login demo (`public/sandbox.html`, sample data, Lead / Member switch) to anyone not signed in. `/login` and `/setup` still work. To turn off: delete the variable in Vercel and redeploy. Rebuild the demo from `design/preview.html` with `npm run sandbox:build` |
 
 **Running it locally**
 - `npm install`
-- Create `.env.local` with `DATABASE_URL` and `SETUP_CODE` (see `.env.example`)
+- Create `.env.local` with `DATABASE_URL`, `SETUP_CODE` and `ANTHROPIC_API_KEY` (see `.env.example`)
 - `npm run db:migrate` (applies new files in `db/migrations/`)
 - `npm run dev`
 
-**How sign-in works:** passwords hashed with scrypt; a random session token sits in an httpOnly cookie and only its hash is stored in the `sessions` table (30 days). After 8 wrong passwords in 15 minutes for an email, sign-in for it pauses. Invite links are random tokens; only their hash is stored, so a link is shown once.
+**How sign-in works:** passwords hashed with scrypt; a random session token sits in an httpOnly cookie and only its hash is stored in the `sessions` table (30 days). After 8 wrong passwords in 15 minutes for an email, sign-in for it pauses. Invite links are random tokens; only their hash is stored, so a link is shown once. Two kinds of link: a **personal link** for someone already named (keeps their name and role; used for Irfan and Haslam), and an **open link** from the Team page (anyone who opens it types their name and email, picks a password and joins as a Member). Each link works once.
 
 ---
 
@@ -140,15 +140,26 @@ Each step stops for the owner's review.
   - Owner's reference for the vibe: a "glassy dashboard" reel (frosted glass over a calm scene). We build our own design in that style, not a copy
   - Signature: every Point links back to the sentence in the email it came from (hover lights it up like a highlighter)
   - Email reading in the preview is a simple stand-in; the real app uses the Claude API
-- [~] **Step 2** — Login, roles, Team page. **Built and live, waiting for the owner's review.**
+- [x] **Step 2** — Login, roles, Team page. Live.
   - Live app: https://agthia-enhancements.vercel.app
   - Sign in with email + password; first visit uses `/setup` (needs the one-time setup code) to create the single Lead
-  - Lead: Team page → add a member → copy the invite link (works once, 7 days) → member opens it and picks a password
+  - Lead: Team page → "Create invite link" (optional note like "Sara from imports") → send it → the person opens it, types name + email, picks a password, joins as a Member (works once, 7 days). Unused links are listed and can be cancelled
   - Lead can make a new link, cancel an invite, turn a member's access off / on (turning off signs them out at once)
-  - Members never see the Team page; Cases and Board are placeholders until Step 3
+  - Members never see the Team page
   - Tested end to end in a browser (32 checks: setup, sign-in, wrong password, invites, one-use links, roles, access off/on, sign out, phone layout)
-- [ ] **Step 3** — Add email + extraction + edit
-- [ ] **Step 4** — Case page: Points, updates, remarks, deadlines
+- [~] **Step 3** — Add email + extraction + edit. **Live, waiting for the owner's review.**
+  - "Add email" (top bar; "Add" on phones) → paste text, upload .eml / .msg / .txt (read in the browser), or use a sample → Claude reads it (about 10–30 s) → check-and-edit screen (title, summary, sender, company, priority, case deadline, owner for the Lead, points with dates, "also found" details like B/L, vessel, ETA) → Create case
+  - Each point keeps the exact sentence it came from; the email shows those sentences highlighted and numbered
+  - If reading fails, the person can try again or fill it in by hand
+  - Email text is treated as data only (the prompt tells Claude to ignore instructions inside emails)
+- [~] **Step 4** — Case page, Cases list, Board, Home. **Live, waiting for the owner's review.**
+  - Case page: email on the left with highlights, points on the right; status menu (To do, In progress, Waiting + reason, Done, Approved), deadline menu (today, tomorrow, Friday, next Monday, pick a date, remove), timeline, updates (Member) and remarks (Lead), add a point by hand, case deadline; phones switch between Email and Points
+  - Only the Lead approves; Members mark Done and the Lead approves or reopens. Approved points are locked for Members
+  - Cases list: Open / Past due / Needs review / Closed / All, owner filter for the Lead, search
+  - Board: drag cards between statuses (Waiting asks for a reason); phones show one status at a time
+  - Home (Lead): ready for review with Approve / Reopen, coming up (late + next 2 days), recent activity, key numbers
+  - Home (Member): next steps, remarks from the Lead, open cases
+  - Not yet: editing a case's title / summary after it's created, deleting a case, moving a case to another owner after it's created
 - [ ] **Step 5** — Dashboards and analytics
 - [ ] **Step 6** — Alerts (in-app + email)
 - [ ] **Step 7** — Launch polish (custom domain if wanted, final checks). The app is already live on Vercel from Step 2.
@@ -161,7 +172,7 @@ Each step stops for the owner's review.
 - [x] Final role names (Lead / Member)
 - [x] Final app name (Agthia Enhancements)
 - [ ] Custom domain (optional, later)
-- [ ] Claude API key (needed by Step 3)
+- [x] Claude API key (given 2026-11-06, stored in Vercel only)
 
 ---
 
@@ -188,6 +199,10 @@ Each step stops for the owner's review.
 | 2026-11-04 | Sandbox is now a demo for future users: freight sample data (bookings, customs holds, demurrage, rate quotes, rollovers, reefer alarms, delivery orders), a welcome card, a "What's being built" roadmap page (`#roadmap`), and a freight-worded tour. "Foresight" read as "show what's coming" |
 | 2026-11-04 | Phone clean-up: Sandbox controls moved into one top-bar menu (no floating chip or help button), 2 summary cards on phones, lists show 3 + "Show all", notes hidden on phones, Board shows one status at a time, compact case header, shorter intro lines |
 | 2026-11-04 | Sample dates follow today's date; sample case IDs use `AE-` |
+| 2026-11-06 | Owner gave the Claude key and asked to make it live. Steps 3 and 4 built, tested end to end locally with the real key (77 checks), and deployed |
+| 2026-11-06 | Starting accounts: **Irfan Anwar** (Lead) and **Haslam** (Member), created as named invites with personal join links (14 days). Each opens the link, adds their email, picks a password. Everyone else joins through open links the Lead makes on the Team page |
+| 2026-11-06 | `/setup` no longer needed: Irfan's Lead account exists, so setup is closed |
+| 2026-11-06 | Sandbox stays on for people who aren't signed in (roadmap updated to show what's live). Signed-in people get the real app |
 
 ---
 

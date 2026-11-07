@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { acceptInvite, login, setupLead } from "@/app/actions/auth";
-import { inviteMember, newInviteLink } from "@/app/actions/team";
+import { createInviteLink, newInviteLink } from "@/app/actions/team";
 import { Icon } from "@/components/Icon";
 import { MIN_PASSWORD, type FormState, type InviteState } from "@/lib/forms";
 
@@ -93,12 +93,20 @@ export function SetupForm() {
   );
 }
 
-export function AcceptInviteForm({ token, email }: { token: string; email: string }) {
+export function AcceptInviteForm({ token, name, email }: { token: string; name: string; email: string }) {
   const [state, action] = useActionState(acceptInvite, undefined);
   return (
     <form action={action} className="auth-form" noValidate>
       <input type="hidden" name="token" value={token} />
-      <input type="email" name="username" value={email} autoComplete="username" readOnly hidden />
+      <div className="field">
+        <label htmlFor="name">Your full name</label>
+        <input id="name" name="name" className="inp" autoComplete="name" defaultValue={state?.fields?.name ?? name} required autoFocus={!name} />
+      </div>
+      <div className="field">
+        <label htmlFor="email">Work email</label>
+        <input id="email" name="email" className="inp" type="email" autoComplete="username" defaultValue={state?.fields?.email ?? email} required autoFocus={!!name} />
+        <span className="hint">You&apos;ll use this to sign in.</span>
+      </div>
       <PasswordField id="password" label={`Choose a password (at least ${MIN_PASSWORD} characters)`} autoComplete="new-password" />
       <PasswordField id="confirm" label="Type it again" autoComplete="new-password" />
       <FormError state={state} />
@@ -131,22 +139,18 @@ export function CopyLink({ link }: { link: string }) {
   );
 }
 
-export function InviteMemberForm() {
-  const [state, action] = useActionState(inviteMember, undefined);
+export function InviteLinkForm() {
+  const [state, action] = useActionState(createInviteLink, undefined);
   const formRef = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (state?.link) formRef.current?.reset();
   }, [state]);
   return (
     <div className="invite">
-      <form ref={formRef} action={action} className="invite-form" noValidate>
+      <form ref={formRef} action={action} className="invite-form two" noValidate>
         <div className="field">
-          <label htmlFor="inv-name">Full name</label>
-          <input id="inv-name" name="name" className="inp" autoComplete="off" placeholder="e.g. Sara Ahmed" defaultValue={state?.link ? "" : state?.fields?.name} required />
-        </div>
-        <div className="field">
-          <label htmlFor="inv-email">Work email</label>
-          <input id="inv-email" name="email" className="inp" type="email" autoComplete="off" placeholder="name@company.com" defaultValue={state?.link ? "" : state?.fields?.email} required />
+          <label htmlFor="inv-label">Who is it for? (optional, only you see this)</label>
+          <input id="inv-label" name="label" className="inp" autoComplete="off" placeholder="e.g. Sara from imports" />
         </div>
         <SubmitButton pending="Creating link">
           <Icon name="plus" size={15} />
@@ -157,7 +161,8 @@ export function InviteMemberForm() {
       {state?.link && (
         <div className="invite-done" role="status">
           <p>
-            <b>Invite ready for {state.name}.</b> Copy this link and send it to {state.email}. It works once and expires in 7 days.
+            <b>Invite link ready{state.name ? ` for ${state.name}` : ""}.</b> Send it to the person joining. They open it, type their name and email, and set a password.
+            It works once and expires in 7 days.
           </p>
           <CopyLink link={state.link} />
         </div>

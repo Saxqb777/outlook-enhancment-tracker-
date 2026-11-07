@@ -76,6 +76,10 @@ export default function TopBar({ me }: { me: Me }) {
         </span>
       </nav>
       <div className="top-r">
+        <Link className="btn btn-primary btn-sm add-top" href="/add" aria-current={pathname === "/add" ? "page" : undefined}>
+          <Icon name="plus" size={15} />
+          Add email
+        </Link>
         <UserMenu me={me} />
       </div>
     </header>

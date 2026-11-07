@@ -1,5 +1,6 @@
 import BottomNav from "@/components/BottomNav";
 import TopBar from "@/components/TopBar";
+import { Toasts } from "@/components/work";
 import { requireUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {children}
       </main>
       <BottomNav role={me.role} />
+      <Toasts />
     </>
   );
 }

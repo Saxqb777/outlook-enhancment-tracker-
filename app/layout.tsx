@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Onest } from "next/font/google";
 import OfficeScene from "@/components/OfficeScene";
 import "./globals.css";
+import "./work.css";
 
 const onest = Onest({ subsets: ["latin"], display: "swap", variable: "--font-onest" });
 

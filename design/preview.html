@@ -972,15 +972,15 @@ function vCase(id){const c=findCase(id);if(!c)return vMissing();if(S.role==="mem
 function vRoadmap(){const steps=[
  {s:"done",t:"Design and this sandbox",d:"The look, the screens and how work moves from an email to done.",link:["#overview","Look around"]},
  {s:"live",t:"Sign-in and team",d:"Lead and Member accounts, invite links and access control. This part is live in the real app.",link:["/login","Open the real app"]},
- {s:"next",t:"Reading emails",d:"Paste or drop a freight email. AI pulls out the sender, the deadlines and each point. You check it before saving.",link:["#add","Try it with a sample email"]},
- {s:"plan",t:"Updates, remarks and approvals",d:"Members post updates on each point. The Lead adds remarks, approves or reopens.",link:["#case-ae-0142","See a case"]},
- {s:"plan",t:"Dashboards and reports",d:"Workload by person, on-time rate, what's late and what's coming up.",link:["#overview","See the Lead's home"]},
+ {s:"live",t:"Reading emails",d:"Paste or drop a freight email. AI pulls out the sender, the deadlines and each point. You check it before saving. Live in the real app.",link:["#add","Try it with a sample email"]},
+ {s:"live",t:"Updates, remarks and approvals",d:"Members post updates on each point. The Lead adds remarks, approves or reopens. Live in the real app, with the board and deadlines.",link:["#case-ae-0142","See a case"]},
+ {s:"next",t:"Dashboards and reports",d:"Workload by person, on-time rate, what's late and what's coming up.",link:["#overview","See the Lead's home"]},
  {s:"plan",t:"Alerts",d:"Reminders before deadlines, and a note when something needs you. In the app and by email.",link:null},
  {s:"plan",t:"Launch",d:"Final checks with the team, then everyone moves over.",link:null}];
  const tag={done:'<span class="rm-tag ok">Done</span>',live:'<span class="rm-tag ok">Live</span>',next:'<span class="rm-tag next">Next</span>',plan:'<span class="rm-tag">Planned</span>'};
  return `<header class="ph"><div><h1 class="h1">What's being built</h1><p class="lede">Agthia Enhancements is built in steps. Each one is checked with the team before the next starts.</p></div></header>
  <section class="panel" aria-label="Roadmap"><ol class="rm">${steps.map((x,i)=>`<li class="rm-i rm-${x.s}"><span class="rm-n">${x.s==="done"||x.s==="live"?ico("check","i-xs"):i+1}</span><div class="rm-b"><div class="rm-h"><b>${x.t}</b>${tag[x.s]}</div><p>${x.d}</p>${x.link?`<a class="link-btn" href="${x.link[0]}">${x.link[1]}</a>`:""}</div></li>`).join("")}</ol></section>
- <p class="hint">Everything in this sandbox shows how the finished tool will work. In the real app today, sign-in and the Team page are live.</p>`}
+ <p class="hint">Everything in this sandbox shows how the finished tool will work. In the real app today, sign-in, the Team page, reading emails, cases, the board, updates and approvals are live. Charts and alerts come next.</p>`}
 function vMissing(){return `<div class="ph"><div><h1 class="h1">That page isn't here</h1><p class="lede">The case may have been removed, or the link is wrong.</p></div></div><a class="btn" href="#cases" style="align-self:flex-start">Go to cases</a>`}
 
 /* ---------- views: add email ---------- */

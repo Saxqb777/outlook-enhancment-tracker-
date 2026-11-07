@@ -8,13 +8,17 @@ import { one } from "@/lib/db";
 export const metadata: Metadata = { title: "Join the team" };
 export const dynamic = "force-dynamic";
 
+type Invite = { name: string | null; email: string | null; role: "lead" | "member"; inviter: string | null };
+
 export default async function InvitePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const invite = /^[A-Za-z0-9_-]{20,100}$/.test(token)
-    ? await one<{ name: string; email: string; lead: string | null }>(
-        `select u.name, u.email, (select name from users where role = 'lead') as lead
-           from invites i join users u on u.id = i.user_id
-          where i.token_hash = $1 and i.expires_at > now() and u.status = 'invited'`,
+    ? await one<Invite>(
+        `select u.name, u.email, coalesce(u.role, i.role) as role, cb.name as inviter
+           from invites i
+           left join users u on u.id = i.user_id
+           left join users cb on cb.id = i.created_by
+          where i.token_hash = $1 and i.expires_at > now() and (i.user_id is null or u.status = 'invited')`,
         [hashToken(token)],
       )
     : null;
@@ -32,18 +36,22 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
     );
   }
 
-  const first = invite.name.split(/\s+/)[0];
+  const first = invite.name?.split(/\s+/)[0];
+  const lead = invite.role === "lead";
   return (
     <AuthCard
-      title={`Welcome, ${first}`}
+      title={first ? `Welcome, ${first}` : "Join Agthia Enhancements"}
       lede={
         <>
-          {invite.lead ? `${invite.lead} invited you` : "You've been invited"} to Agthia Enhancements. Choose a password to finish
-          setting up <b>{invite.email}</b>.
+          {invite.inviter ? `${invite.inviter} invited you. ` : ""}
+          {lead
+            ? "You're joining as the Lead: you'll see every case, add members and approve finished work."
+            : "You're joining as a Member: you'll see the cases assigned to you."}{" "}
+          Add your details and choose a password.
         </>
       }
     >
-      <AcceptInviteForm token={token} email={invite.email} />
+      <AcceptInviteForm token={token} name={invite.name ?? ""} email={invite.email ?? ""} />
     </AuthCard>
   );
 }

@@ -90,27 +90,55 @@ export async function setupLead(_prev: FormState, form: FormData): Promise<FormS
 
 export async function acceptInvite(_prev: FormState, form: FormData): Promise<FormState> {
   const token = String(form.get("token") ?? "");
+  const name = cleanName(form.get("name"));
+  const email = cleanEmail(form.get("email"));
   const password = String(form.get("password") ?? "");
   const confirm = String(form.get("confirm") ?? "");
+  const fields = { name, email };
 
-  const problem = passwordProblem(password, confirm);
-  if (problem) return { error: problem };
+  const problem = nameProblem(name) ?? (isEmail(email) ? null : "Enter a valid work email address.") ?? passwordProblem(password, confirm);
+  if (problem) return { error: problem, fields };
 
   const hash = await hashPassword(password);
-  const userId = await tx(async (c) => {
-    const res = await c.query<{ user_id: string }>(
-      `delete from invites i using users u
-        where i.token_hash = $1 and i.user_id = u.id and i.expires_at > now() and u.status = 'invited'
-        returning i.user_id`,
-      [hashToken(token)],
-    );
-    const id = res.rows[0]?.user_id;
-    if (!id) return null;
-    await c.query("update users set password_hash = $1, status = 'active', activated_at = now() where id = $2", [hash, id]);
-    return id;
-  });
+  type Outcome = { id: string } | { error: string };
+  let outcome: Outcome;
+  try {
+    outcome = await tx<Outcome>(async (c) => {
+      const inv = (
+        await c.query<{ user_id: string | null; created_by: string | null }>(
+          "select user_id, created_by from invites where token_hash = $1 and expires_at > now() for update",
+          [hashToken(token)],
+        )
+      ).rows[0];
+      if (!inv) return { error: "This invite link has expired or was already used. Ask your Lead for a new one." };
+      const taken = await c.query("select 1 from users where lower(email) = $1 and ($2::uuid is null or id <> $2)", [email, inv.user_id]);
+      if (taken.rowCount) return { error: "This email already has an account. Sign in instead, or use a different email." };
+      let id: string;
+      if (inv.user_id) {
+        const res = await c.query<{ id: string }>(
+          `update users set name = $1, email = $2, password_hash = $3, status = 'active', activated_at = now()
+            where id = $4 and status = 'invited' returning id`,
+          [name, email, hash, inv.user_id],
+        );
+        if (!res.rows[0]) return { error: "This invite link was already used. Sign in instead." };
+        id = res.rows[0].id;
+      } else {
+        const res = await c.query<{ id: string }>(
+          `insert into users (email, name, role, status, password_hash, created_by, activated_at)
+           values ($1, $2, 'member', 'active', $3, $4, now()) returning id`,
+          [email, name, hash, inv.created_by],
+        );
+        id = res.rows[0].id;
+      }
+      await c.query("delete from invites where token_hash = $1", [hashToken(token)]);
+      return { id };
+    });
+  } catch (err) {
+    if (isUniqueViolation(err)) return { error: "This email already has an account. Sign in instead, or use a different email.", fields };
+    throw err;
+  }
 
-  if (!userId) return { error: "This invite link has expired or was already used. Ask your Lead for a new one." };
-  await createSession(userId);
+  if ("error" in outcome) return { error: outcome.error, fields };
+  await createSession(outcome.id);
   redirect("/");
 }

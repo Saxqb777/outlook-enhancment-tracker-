@@ -115,19 +115,82 @@ export function readMsg(buf: ArrayBuffer): string {
   return (runs[0] || "").trim();
 }
 
+/** Pulls the text out of a PDF (e.g. an email or thread printed to PDF). Scanned pages have no text and come back empty. */
+async function readPdf(buf: ArrayBuffer): Promise<{ text: string; pages: number }> {
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/legacy/build/pdf.worker.min.mjs", import.meta.url).toString();
+  const task = pdfjs.getDocument({ data: new Uint8Array(buf) });
+  const doc = await task.promise;
+  const out: string[] = [];
+  try {
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i);
+      const content = await page.getTextContent();
+      let t = "";
+      for (const item of content.items) {
+        if ("str" in item) {
+          t += item.str;
+          if (item.hasEOL) t += "\n";
+        }
+      }
+      out.push(t);
+      page.cleanup();
+    }
+  } finally {
+    void task.destroy();
+  }
+  const text = out
+    .join("\n\n")
+    .replace(/\u00a0/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return { text, pages: out.length };
+}
+
+/** True when text is mostly unreadable bytes (a binary file opened as text). */
+function looksBinary(s: string): boolean {
+  const sample = s.slice(0, 20000);
+  if (!sample) return false;
+  let bad = 0;
+  for (let i = 0; i < sample.length; i++) {
+    const c = sample.charCodeAt(i);
+    if (c === 0xfffd || (c < 32 && c !== 9 && c !== 10 && c !== 13)) bad++;
+  }
+  return bad / sample.length > 0.02;
+}
+
+const SUPPORTED = "Use an .eml, .msg, .pdf or .txt file, or paste the text.";
+
 export async function readEmailFile(file: File): Promise<{ text: string; note: string } | { error: string }> {
   const ext = (file.name.split(".").pop() || "").toLowerCase();
-  if (file.size > 5_000_000) return { error: "That file is over 5 MB. Paste the email text instead." };
   try {
+    const head = new Uint8Array(await file.slice(0, 5).arrayBuffer());
+    const isPdf = ext === "pdf" || (head[0] === 0x25 && head[1] === 0x50 && head[2] === 0x44 && head[3] === 0x46); // %PDF
+    if (isPdf) {
+      if (file.size > 25_000_000) return { error: "That PDF is over 25 MB. Save just the email as PDF, or paste the text." };
+      const { text, pages } = await readPdf(await file.arrayBuffer());
+      if (text.replace(/\s+/g, "").length < 40) {
+        return { error: "This PDF is a picture of the email, so there's no text to read. Open it, copy the text and paste it instead." };
+      }
+      return { text, note: `PDF, ${pages} page${pages === 1 ? "" : "s"}. Check the text below looks right.` };
+    }
+    if (["doc", "docx", "xls", "xlsx", "ppt", "pptx", "png", "jpg", "jpeg", "gif", "heic", "webp", "zip", "rar", "7z"].includes(ext)) {
+      return { error: `Can't read .${ext} files here. ${SUPPORTED}` };
+    }
+    if (file.size > 5_000_000) return { error: "That file is over 5 MB. Paste the email text instead." };
     if (ext === "msg") {
       const text = readMsg(await file.arrayBuffer());
       return text ? { text, note: "Outlook file. Check the text below looks right." } : { error: "That file has no readable text. Paste the email instead." };
     }
     const raw = await file.text();
+    if (looksBinary(raw)) return { error: `That file isn't an email this page can read. ${SUPPORTED}` };
     const looksMime = /^(received|return-path|mime-version|message-id|from|to|subject|date):/im.test(raw.slice(0, 3000)) && /content-type:/i.test(raw);
-    const text = ext === "eml" || looksMime ? decodeEml(raw) : raw.trim();
+    const isHtml = ext === "htm" || ext === "html";
+    const text = ext === "eml" || looksMime ? decodeEml(raw) : isHtml ? stripHtml(raw).trim() : raw.trim();
     return text ? { text, note: "Ready to read" } : { error: "That file has no readable text. Paste the email instead." };
-  } catch {
-    return { error: "That file couldn't be read. Save it as .eml, or paste the text." };
+  } catch (err) {
+    console.error("readEmailFile", err);
+    return { error: `That file couldn't be read. ${SUPPORTED}` };
   }
 }

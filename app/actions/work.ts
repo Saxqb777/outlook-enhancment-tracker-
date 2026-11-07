@@ -4,14 +4,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser, type User } from "@/lib/auth";
 import { one, q, tx } from "@/lib/db";
-import { splitEmail } from "@/lib/email";
+import { MAX_EMAIL_CHARS, splitEmail } from "@/lib/email";
 import { extractEmail, type Extraction } from "@/lib/extract";
 import { isPriority, isStatus, statusBlocked, type Status } from "@/lib/status";
 import { isISODate, todayISO } from "@/lib/time";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
-const MAX_EMAIL = 100_000;
+const MAX_EMAIL = MAX_EMAIL_CHARS;
 
 function touch(caseId?: string) {
   revalidatePath("/");
@@ -26,7 +26,7 @@ export async function readEmail(raw: string): Promise<{ ok: true; data: Extracti
   await requireUser();
   const text = String(raw ?? "").trim();
   if (!text) return { ok: false, error: "Paste the email first." };
-  if (text.length > MAX_EMAIL) return { ok: false, error: "This email is very long. Paste just the latest message, without the older replies." };
+  if (text.length > MAX_EMAIL) return { ok: false, error: "This thread is too long to read in one go. Remove the oldest replies at the bottom and try again." };
   return extractEmail(text, todayISO());
 }
 

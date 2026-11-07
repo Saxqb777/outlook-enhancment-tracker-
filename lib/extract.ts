@@ -65,6 +65,10 @@ Points:
 - "quote" must be the exact sentence from the email that the point comes from, copied character for character so it can be found in the text.
 - Give a due date only when the email states or clearly implies one. Resolve words like "today", "tomorrow", "by Thursday", "end of the week" or "next week" against the date the email was sent if a header shows it, otherwise against today's date given below. Use YYYY-MM-DD.
 
+Threads:
+- The text is often a whole email thread: several messages, usually newest first, with older replies quoted below. Read all of it, but list only what is still open now. Skip asks that a later message shows were already done, answered or cancelled, and use the newest dates when a deadline moved.
+- For a thread, the sender is whoever sent the newest message that asks for something, and the summary says where things stand now.
+
 Other fields:
 - priority is "high" when the email signals urgency, money at risk (storage, demurrage, penalties), cargo on hold, or a deadline within two days; "low" for routine requests with no time pressure; otherwise "normal".
 - case_deadline is the earliest point due date, or empty.
@@ -106,7 +110,7 @@ export async function extractEmail(raw: string, today: string): Promise<{ ok: tr
   }
 
   if (res.stop_reason === "refusal") return { ok: false, error: "The AI declined to read this email. You can add the points yourself." };
-  if (res.stop_reason === "max_tokens") return { ok: false, error: "This email is too long to read in one go. Paste just the latest message." };
+  if (res.stop_reason === "max_tokens") return { ok: false, error: "This thread is too long to read in one go. Remove the oldest replies at the bottom and try again." };
 
   const text = res.content.map((b) => (b.type === "text" ? b.text : "")).join("");
   let j: Record<string, unknown>;

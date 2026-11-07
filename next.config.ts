@@ -6,6 +6,8 @@ const sandbox = process.env.SANDBOX_MODE === "1";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Full email threads can be long; let them through (Vercel's own limit is 4.5 MB).
+  experimental: { serverActions: { bodySizeLimit: "4mb" } },
   async rewrites() {
     if (!sandbox) return [];
     return {

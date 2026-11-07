@@ -148,7 +148,7 @@ Each step stops for the owner's review.
   - Members never see the Team page
   - Tested end to end in a browser (32 checks: setup, sign-in, wrong password, invites, one-use links, roles, access off/on, sign out, phone layout)
 - [~] **Step 3** — Add email + extraction + edit. **Live, waiting for the owner's review.**
-  - "Add email" (top bar; "Add" on phones) → paste text, upload .eml / .msg / .txt (read in the browser), or use a sample → Claude reads it (about 10–30 s) → check-and-edit screen (title, summary, sender, company, priority, case deadline, owner for the Lead, points with dates, "also found" details like B/L, vessel, ETA) → Create case
+  - "Add email" (top bar; "Add" on phones) → paste text, upload .eml / .msg / .pdf / .txt (read in the browser; full threads are fine), or use a sample → Claude reads it (about 10–30 s) → check-and-edit screen (title, summary, sender, company, priority, case deadline, owner for the Lead, points with dates, "also found" details like B/L, vessel, ETA) → Create case
   - Each point keeps the exact sentence it came from; the email shows those sentences highlighted and numbered
   - If reading fails, the person can try again or fill it in by hand
   - Email text is treated as data only (the prompt tells Claude to ignore instructions inside emails)
@@ -203,6 +203,9 @@ Each step stops for the owner's review.
 | 2026-11-06 | Starting accounts: **Irfan Anwar** (Lead) and **Hashim** (Member), created as named invites with personal join links (14 days). Each opens the link, adds their email, picks a password. Everyone else joins through open links the Lead makes on the Team page |
 | 2026-11-06 | `/setup` no longer needed: Irfan's Lead account exists, so setup is closed |
 | 2026-11-06 | Sandbox stays on for people who aren't signed in (roadmap updated to show what's live). Signed-in people get the real app |
+| 2026-11-07 | Hashim uploaded a PDF of a full thread and it failed (PDF opened as text, too big to send). Fixed: PDFs are read in the browser (pdf.js), scanned PDFs and non-email files get a clear message, threads up to ~60,000 words are accepted, and the AI now reads whole threads and lists only what's still open (skips asks already done, uses moved deadlines) |
+| 2026-11-07 | Owner approved a view-only **Admin** account (sees everything, "See their view" per person, sign-in and AI problem logs). Next after the PDF fix |
+| 2026-11-07 | Owner asked for follow-up replies: add a new reply to an existing case so all follow-ups stay together. Plan sent for confirmation |
 
 ---
 

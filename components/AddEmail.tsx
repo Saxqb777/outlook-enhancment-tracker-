@@ -5,7 +5,7 @@ import { createCase, readEmail } from "@/app/actions/work";
 import { Icon } from "@/components/Icon";
 import { Prio } from "@/components/ui";
 import type { Role } from "@/lib/auth";
-import { parseAddress, splitEmail } from "@/lib/email";
+import { MAX_EMAIL_CHARS, parseAddress, splitEmail } from "@/lib/email";
 import type { Extraction } from "@/lib/extract";
 import { segmentBody } from "@/lib/highlight";
 import { readEmailFile } from "@/lib/mailfile";
@@ -68,6 +68,8 @@ export default function AddEmail({ role, meId, people, today }: { role: Role; me
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const [saving, startSave] = useTransition();
   const [over, setOver] = useState(false);
+  const [opening, setOpening] = useState(false);
+  const [errKind, setErrKind] = useState<"file" | "read">("read");
   const fileInput = useRef<HTMLInputElement>(null);
   const reading = useRef(0);
 
@@ -86,8 +88,10 @@ export default function AddEmail({ role, meId, people, today }: { role: Role; me
 
   const loadFile = async (f: File) => {
     setErr(null);
-    const r = await readEmailFile(f);
+    setOpening(true);
+    const r = await readEmailFile(f).finally(() => setOpening(false));
     if ("error" in r) {
+      setErrKind("file");
       setErr(r.error);
       return;
     }
@@ -157,6 +161,11 @@ export default function AddEmail({ role, meId, people, today }: { role: Role; me
   const read = async () => {
     const text = raw.trim();
     if (!text) return;
+    if (text.length > MAX_EMAIL_CHARS) {
+      setErrKind("file");
+      setErr(`This thread is too long to read in one go (${words.toLocaleString()} words). Remove the oldest replies at the bottom and try again.`);
+      return;
+    }
     const ticket = ++reading.current;
     setErr(null);
     setFound(null);
@@ -171,6 +180,7 @@ export default function AddEmail({ role, meId, people, today }: { role: Role; me
     }
     if (ticket !== reading.current) return;
     if (!r.ok) {
+      setErrKind("read");
       setErr(r.error);
       setStage("input");
       return;
@@ -307,7 +317,7 @@ export default function AddEmail({ role, meId, people, today }: { role: Role; me
         <header className="ph">
           <div>
             <h1 className="h1">Reading the email</h1>
-            <p className="lede">Finding who sent it, what they need and by when. This usually takes 10 to 30 seconds.</p>
+            <p className="lede">Finding who sent it, what they need and by when. This usually takes 10 to 30 seconds; a long thread can take up to a minute.</p>
           </div>
           <div className="ph-act">
             <button type="button" className="btn btn-ghost" onClick={restart}>
@@ -620,14 +630,14 @@ export default function AddEmail({ role, meId, people, today }: { role: Role; me
             >
               <Icon name="upload" size={30} />
               <b>Drop an email file here</b>
-              <span>or click to choose one · .eml, .msg or .txt</span>
+              <span>or click to choose one · .eml, .msg, .pdf or .txt</span>
             </button>
           )}
           <input
             ref={fileInput}
             type="file"
             className="sr"
-            accept=".eml,.msg,.txt,message/rfc822,text/plain"
+            accept=".eml,.msg,.pdf,.txt,.htm,.html,message/rfc822,application/pdf,text/plain,text/html"
             tabIndex={-1}
             aria-hidden="true"
             onChange={(e) => {
@@ -639,7 +649,7 @@ export default function AddEmail({ role, meId, people, today }: { role: Role; me
           {err && (
             <div className="form-err" role="alert" style={{ marginTop: 12, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
               <span style={{ flex: 1, minWidth: 200 }}>{err}</span>
-              {raw.trim() && (
+              {raw.trim() && errKind === "read" && (
                 <>
                   <button type="button" className="btn btn-sm" onClick={read}>
                     Try again
@@ -653,8 +663,10 @@ export default function AddEmail({ role, meId, people, today }: { role: Role; me
           )}
         </div>
         <div className="add-f">
-          <span className="hint">{words ? `${words} words ready to read` : "Tip: you can drop an email file anywhere on this page."}</span>
-          <button type="button" className="btn btn-primary" onClick={read} disabled={!raw.trim()}>
+          <span className="hint" aria-live="polite">
+            {opening ? "Opening the file…" : words ? `${words.toLocaleString()} words ready to read` : "Tip: you can drop an email file anywhere on this page. Full threads are fine."}
+          </span>
+          <button type="button" className="btn btn-primary" onClick={read} disabled={!raw.trim() || opening}>
             <Icon name="scan" size={15} />
             Read email
           </button>

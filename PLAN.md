@@ -122,7 +122,7 @@ A tracker that turns emails into work you can follow.
 - `npm run db:migrate` (applies new files in `db/migrations/`)
 - `npm run dev`
 
-**How sign-in works:** passwords hashed with scrypt; a random session token sits in an httpOnly cookie and only its hash is stored in the `sessions` table (30 days). After 8 wrong passwords in 15 minutes for an email, sign-in for it pauses. Invite links are random tokens; only their hash is stored, so a link is shown once. Two kinds of link: a **personal link** for someone already named (keeps their name and role; used for Irfan and Haslam), and an **open link** from the Team page (anyone who opens it types their name and email, picks a password and joins as a Member). Each link works once.
+**How sign-in works:** passwords hashed with scrypt; a random session token sits in an httpOnly cookie and only its hash is stored in the `sessions` table (30 days). After 8 wrong passwords in 15 minutes for an email, sign-in for it pauses. Invite links are random tokens; only their hash is stored, so a link is shown once. Two kinds of link: a **personal link** for someone already named (keeps their name and role; used for Irfan and Hashim), and an **open link** from the Team page (anyone who opens it types their name and email, picks a password and joins as a Member). Each link works once.
 
 ---
 
@@ -200,7 +200,7 @@ Each step stops for the owner's review.
 | 2026-11-04 | Phone clean-up: Sandbox controls moved into one top-bar menu (no floating chip or help button), 2 summary cards on phones, lists show 3 + "Show all", notes hidden on phones, Board shows one status at a time, compact case header, shorter intro lines |
 | 2026-11-04 | Sample dates follow today's date; sample case IDs use `AE-` |
 | 2026-11-06 | Owner gave the Claude key and asked to make it live. Steps 3 and 4 built, tested end to end locally with the real key (77 checks), and deployed |
-| 2026-11-06 | Starting accounts: **Irfan Anwar** (Lead) and **Haslam** (Member), created as named invites with personal join links (14 days). Each opens the link, adds their email, picks a password. Everyone else joins through open links the Lead makes on the Team page |
+| 2026-11-06 | Starting accounts: **Irfan Anwar** (Lead) and **Hashim** (Member), created as named invites with personal join links (14 days). Each opens the link, adds their email, picks a password. Everyone else joins through open links the Lead makes on the Team page |
 | 2026-11-06 | `/setup` no longer needed: Irfan's Lead account exists, so setup is closed |
 | 2026-11-06 | Sandbox stays on for people who aren't signed in (roadmap updated to show what's live). Signed-in people get the real app |
 

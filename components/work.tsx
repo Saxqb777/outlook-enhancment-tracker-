@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { reopenPoint, setCaseDeadline, setPointDue, setPointStatus, type ActionResult } from "@/app/actions/work";
 import { Icon } from "@/components/Icon";
 import { AttachPicker, useAttach } from "@/components/Attach";
-import { DueTag, Glyph, Pill } from "@/components/ui";
+import { cap, DueTag, Glyph, Pill } from "@/components/ui";
 import type { Role } from "@/lib/auth";
 import { STATUSES, STATUS_LABEL, type Status } from "@/lib/status";
 import { addDaysISO, dueInfo, fmtDay, nextWeekday } from "@/lib/time";
@@ -271,7 +271,7 @@ export function StatusControl({
                     <Glyph s={s} />
                     <span>{STATUS_LABEL[s]}</span>
                     {dis ? (
-                      <span className="hint">{leadName} approves</span>
+                      <span className="hint">{cap(leadName)} approves</span>
                     ) : s === "done" || s === "wait" ? (
                       <span className="hint">
                         <Icon name="clip" size={13} />

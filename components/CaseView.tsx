@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { addPoint, postNote, reopenPoint, setPointStatus } from "@/app/actions/work";
+import { addPoint, postNote, reopenPoint, setCaseMembers, setPointStatus } from "@/app/actions/work";
 import { AttachPicker, FileList, useAttach, type FileView } from "@/components/Attach";
 import { Highlighted, MailReader, type ReaderEmail } from "@/components/EmailInput";
 import { Avatar, Icon } from "@/components/Icon";
 import { Glyph, plural, Prio, SegBar, firstName } from "@/components/ui";
-import { DueControl, run, StatusControl, toast, useViewOnly } from "@/components/work";
+import { DueControl, Pop, run, StatusControl, toast, useViewOnly } from "@/components/work";
 import type { Role } from "@/lib/auth";
 import { segmentBody, type Segment } from "@/lib/highlight";
 import { caseRef, STATUS_LABEL, type Priority, type Status } from "@/lib/status";
@@ -65,7 +65,11 @@ export type CaseViewData = {
   created_at: string;
   points: PointView[];
   emails: EmailView[];
+  owner_id: string;
+  members: { id: string; name: string; role: "lead" | "member"; added_by_name: string | null; added_at: string }[];
 };
+
+export type Person = { id: string; name: string; role: "lead" | "member" | "admin" };
 
 const emailTab = (e: EmailView) => (e.position === 0 ? "Original" : `Reply ${e.position}`);
 const emailName = (e: EmailView) => (e.position === 0 ? "Original email" : `Reply ${e.position}`);
@@ -76,12 +80,16 @@ export default function CaseView({
   leadName,
   today,
   startEmail,
+  people,
+  canManage,
 }: {
   c: CaseViewData;
   role: Role;
   leadName: string;
   today: string;
   startEmail: number | null;
+  people: Person[];
+  canManage: boolean;
 }) {
   const lead = role === "lead";
   const viewOnly = useViewOnly();
@@ -120,7 +128,7 @@ export default function CaseView({
   const total = c.points.length;
   const approved = c.points.filter((p) => p.status === "approved").length;
   const closed = total > 0 && approved === total;
-  const lf = firstName(leadName);
+  const lf = leadName;
 
   useEffect(() => {
     const m = location.hash.match(/^#pt-(\d+)$/);
@@ -210,10 +218,9 @@ export default function CaseView({
             </dd>
           </div>
           <div>
-            <dt>Owner</dt>
+            <dt>{c.members.length ? "People" : "Owner"}</dt>
             <dd>
-              <Avatar name={c.owner_name} lead={c.owner_lead} size="xs" />
-              {c.owner_name}
+              <PeopleControl c={c} people={people} canManage={canManage && !viewOnly} today={today} />
             </dd>
           </div>
           <div>
@@ -720,5 +727,102 @@ function AddPointForm({ caseId, onDone }: { caseId: string; onDone: () => void }
         Add point
       </button>
     </form>
+  );
+}
+
+/** Owner plus anyone else working on the case. The Lead or the owner can add or remove people. */
+function PeopleControl({ c, people, canManage, today }: { c: CaseViewData; people: Person[]; canManage: boolean; today: string }) {
+  const [open, setOpen] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set(c.members.map((m) => m.id)));
+  const [pending, start] = useTransition();
+  const btn = useRef<HTMLButtonElement>(null);
+  const choices = people.filter((p) => p.id !== c.owner_id && p.role !== "admin");
+  const names = [firstName(c.owner_name), ...c.members.map((m) => firstName(m.name))];
+  const save = () =>
+    start(async () => {
+      const ids = [...picked];
+      if (await run(setCaseMembers(c.id, ids))) {
+        setOpen(false);
+        const added = ids.filter((id) => !c.members.some((m) => m.id === id)).length;
+        const removed = c.members.filter((m) => !picked.has(m.id)).length;
+        toast(added || removed ? "People on this case updated." : "No changes.");
+      }
+    });
+  return (
+    <span className="people">
+      <span className="av-stack" title={[c.owner_name + " (owner)", ...c.members.map((m) => `${m.name}${m.added_by_name ? `, added by ${firstName(m.added_by_name)} ${fmtWhen(m.added_at, today)}` : ""}`)].join("\n")}>
+        <Avatar name={c.owner_name} lead={c.owner_lead} size="xs" />
+        {c.members.map((m) => (
+          <Avatar key={m.id} name={m.name} lead={m.role === "lead"} size="xs" />
+        ))}
+      </span>
+      <span>{c.members.length ? names.join(", ") : c.owner_name}</span>
+      {canManage && (
+        <>
+          <button
+            ref={btn}
+            type="button"
+            className={`btn btn-sm btn-ghost people-btn${pending ? " is-busy" : ""}`}
+            onClick={() => {
+              setPicked(new Set(c.members.map((m) => m.id)));
+              setOpen((v) => !v);
+            }}
+            aria-haspopup="dialog"
+            aria-expanded={open}
+          >
+            <Icon name={c.members.length ? "edit" : "plus"} size={13} />
+            {c.members.length ? "Edit" : "Add people"}
+          </button>
+          {open && (
+            <Pop anchor={btn.current} onClose={() => setOpen(false)} label="People on this case">
+              <div className="menu-form wide">
+                <div className="menu-form-h">
+                  <Icon name="team" size={16} />
+                  <b>Who works on this case?</b>
+                </div>
+                <span className="hint">
+                  {firstName(c.owner_name)} owns it. Everyone you tick can see the case, update its points and attach files.
+                </span>
+                {choices.length ? (
+                  <ul className="pick-list">
+                    {choices.map((p) => (
+                      <li key={p.id}>
+                        <label className="chg-row">
+                          <input
+                            type="checkbox"
+                            checked={picked.has(p.id)}
+                            onChange={(e) =>
+                              setPicked((s) => {
+                                const n = new Set(s);
+                                if (e.target.checked) n.add(p.id);
+                                else n.delete(p.id);
+                                return n;
+                              })
+                            }
+                          />
+                          <Avatar name={p.name} lead={p.role === "lead"} size="xs" />
+                          <span>{p.name}</span>
+                          <span className="hint">{p.role === "lead" ? "Lead" : "Member"}</span>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="hint">Nobody else on the team yet.</p>
+                )}
+                <div className="form-f">
+                  <button type="button" className="btn btn-sm btn-ghost" onClick={() => setOpen(false)}>
+                    Cancel
+                  </button>
+                  <button type="button" className="btn btn-sm btn-primary" onClick={save} disabled={pending}>
+                    Save
+                  </button>
+                </div>
+              </div>
+            </Pop>
+          )}
+        </>
+      )}
+    </span>
   );
 }

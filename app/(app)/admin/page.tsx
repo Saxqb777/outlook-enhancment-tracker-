@@ -43,10 +43,10 @@ export default async function AdminPage() {
   const [people, reads, attempts, stats, openLinks] = await Promise.all([
     q<Person>(
       `select u.id, u.name, u.email, u.role, u.status, u.last_login_at, i.expires_at as invite_expires,
-              (select count(*)::int from points p join cases c on c.id = p.case_id where c.owner_id = u.id and p.status <> 'approved') as open_points,
+              (select count(*)::int from points p join cases c on c.id = p.case_id where (c.owner_id = u.id or exists (select 1 from case_members cm where cm.case_id = c.id and cm.user_id = u.id)) and p.status <> 'approved') as open_points,
               (select count(*)::int from points p join cases c on c.id = p.case_id
-                where c.owner_id = u.id and p.status not in ('done', 'approved') and p.due < $1::date) as late_points,
-              (select count(*)::int from cases c where c.owner_id = u.id) as cases
+                where (c.owner_id = u.id or exists (select 1 from case_members cm where cm.case_id = c.id and cm.user_id = u.id)) and p.status not in ('done', 'approved') and p.due < $1::date) as late_points,
+              (select count(*)::int from cases c where (c.owner_id = u.id or exists (select 1 from case_members cm where cm.case_id = c.id and cm.user_id = u.id))) as cases
          from users u left join invites i on i.user_id = u.id
         where u.role <> 'admin'
         order by (u.role = 'lead') desc, (u.status = 'active') desc, lower(u.name)`,
@@ -74,7 +74,7 @@ export default async function AdminPage() {
               (select count(*)::int from case_emails where position > 0) as replies`,
       [today],
     ),
-    q<{ label: string | null; expires_at: Date }>("select label, expires_at from invites where user_id is null and expires_at > now() order by created_at desc"),
+    q<{ label: string | null; role: string; expires_at: Date }>("select label, role, expires_at from invites where user_id is null and expires_at > now() order by created_at desc"),
   ]);
   const s = stats!;
   const aiKey = !!process.env.ANTHROPIC_API_KEY;
@@ -194,7 +194,7 @@ export default async function AdminPage() {
         {openLinks.length > 0 && (
           <p className="hint" style={{ margin: "0 18px 14px" }}>
             {plural(openLinks.length, "invite link")} not used yet:{" "}
-            {openLinks.map((o) => `${o.label ?? "no note"} (until ${fmtShort(todayISO(new Date(o.expires_at)))})`).join(", ")}.
+            {openLinks.map((o) => `${o.label ?? "no note"} (${o.role === "lead" ? "Lead" : "Member"}, until ${fmtShort(todayISO(new Date(o.expires_at)))})`).join(", ")}. Make new links on the Team page.
           </p>
         )}
       </section>

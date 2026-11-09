@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Greeting, Today } from "@/components/forms";
 import { Avatar, Icon } from "@/components/Icon";
-import { firstName, Glyph, Pill, plural, SegBar } from "@/components/ui";
+import { cap, firstName, Glyph, Pill, plural, SegBar } from "@/components/ui";
 import { Clip, DueControl, ReviewButtons, StatusControl } from "@/components/work";
 import { getViewer, type User } from "@/lib/auth";
 import { one } from "@/lib/db";
@@ -322,7 +322,8 @@ async function LeadHome({ me, viewOnly }: { me: User; viewOnly: boolean }) {
 async function MemberHome({ me, viewOnly }: { me: User; viewOnly: boolean }) {
   const today = todayISO();
   const [points, cases, remarks, lead] = await Promise.all([listPoints(me), listCases(me), recentRemarks(me, 4), leadName()]);
-  const lf = firstName(lead);
+  const lf = lead;
+  const severalLeads = lead === "a Lead";
 
   const work = points.filter((p) => p.status !== "approved" && p.status !== "done");
   const late = work.filter((p) => isLate(p, today));
@@ -393,7 +394,7 @@ async function MemberHome({ me, viewOnly }: { me: User; viewOnly: boolean }) {
             <li className="soon">
               <span className="step-n">3</span>
               <div>
-                <b>{lf} approves</b>
+                <b>{cap(lf)} approves</b>
                 <p>When you mark a point done, {lf} reviews it and approves it, or reopens it with a remark.</p>
               </div>
             </li>
@@ -459,7 +460,7 @@ async function MemberHome({ me, viewOnly }: { me: User; viewOnly: boolean }) {
             </section>
             <section className="panel">
               <div className="panel-h">
-                <h2>Remarks from {lf}</h2>
+                <h2>{severalLeads ? "Remarks from the Leads" : `Remarks from ${lf}`}</h2>
               </div>
               {remarks.length ? (
                 <ul className="rmks">
@@ -479,7 +480,7 @@ async function MemberHome({ me, viewOnly }: { me: User; viewOnly: boolean }) {
                   ))}
                 </ul>
               ) : (
-                <p className="empty">No remarks yet. {lf}&apos;s notes on your points show up here.</p>
+                <p className="empty">No remarks yet. {severalLeads ? "The Leads'" : `${lf}'s`} notes on your points show up here.</p>
               )}
             </section>
           </div>
@@ -504,6 +505,12 @@ async function MemberHome({ me, viewOnly }: { me: User; viewOnly: boolean }) {
                         <div className="sub">
                           <span className="cid">{caseRef(c.id)}</span>
                           <span className="trunc">{c.company || c.from_name}</span>
+                          {(c.members.length > 0 || c.owner_id !== me.id) && (
+                            <span className="shared-tag">
+                              <Icon name="team" size={12} />
+                              {c.owner_id !== me.id ? `With ${firstName(c.owner_name)}` : `With ${c.members.map((m) => firstName(m.name)).join(", ")}`}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="row-act">

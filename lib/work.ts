@@ -19,6 +19,7 @@ export type CaseListRow = {
   owner_lead: boolean;
   created_at: Date;
   points: PointLite[];
+  members: { id: string; name: string }[];
 };
 
 export async function listCases(me: User): Promise<CaseListRow[]> {
@@ -26,10 +27,12 @@ export async function listCases(me: User): Promise<CaseListRow[]> {
     `select c.id::text as id, c.subject, c.company, c.from_name, c.priority, c.deadline::text as deadline,
             c.owner_id, u.name as owner_name, u.role = 'lead' as owner_lead, c.created_at,
             coalesce(json_agg(json_build_object('id', p.id::text, 'status', p.status, 'due', p.due::text, 'text', p.text) order by p.position, p.id)
-                     filter (where p.id is not null), '[]') as points
+                     filter (where p.id is not null), '[]') as points,
+            (select coalesce(json_agg(json_build_object('id', mu.id, 'name', mu.name) order by lower(mu.name)), '[]')
+               from case_members cm join users mu on mu.id = cm.user_id where cm.case_id = c.id) as members
        from cases c join users u on u.id = c.owner_id
        left join points p on p.case_id = c.id
-      where ($1::uuid is null or c.owner_id = $1)
+      where ($1::uuid is null or c.owner_id = $1 or exists (select 1 from case_members cm where cm.case_id = c.id and cm.user_id = $1))
       group by c.id, u.name, u.role
       order by c.created_at desc`,
     [scopeOwner(me)],
@@ -86,7 +89,10 @@ export type CaseFull = {
   created_at: Date;
   points: PointFull[];
   emails: CaseEmail[];
+  members: CaseMember[];
 };
+
+export type CaseMember = { id: string; name: string; role: "lead" | "member"; added_by_name: string | null; added_at: Date };
 
 export type CaseEmail = {
   id: string;
@@ -107,12 +113,12 @@ export type CaseEmail = {
 
 export async function getCase(me: User, id: string): Promise<CaseFull | null> {
   if (!/^\d{1,12}$/.test(id)) return null;
-  const c = await one<Omit<CaseFull, "points" | "emails">>(
+  const c = await one<Omit<CaseFull, "points" | "emails" | "members">>(
     `select c.id::text as id, c.owner_id, o.name as owner_name, o.role = 'lead' as owner_lead, cb.name as created_by_name, c.subject, c.summary,
             c.from_name, c.from_email, c.company, c.priority, c.deadline::text as deadline, c.email_to, c.email_sent,
             c.email_body, c.source, c.file_name, c.details, c.created_at
        from cases c join users o on o.id = c.owner_id left join users cb on cb.id = c.created_by
-      where c.id = $1 and ($2::uuid is null or c.owner_id = $2)`,
+      where c.id = $1 and ($2::uuid is null or c.owner_id = $2 or exists (select 1 from case_members cm where cm.case_id = c.id and cm.user_id = $2))`,
     [id, scopeOwner(me)],
   );
   if (!c) return null;
@@ -145,7 +151,13 @@ export async function getCase(me: User, id: string): Promise<CaseFull | null> {
       )
     : [];
   const withFiles = events.map((e) => ({ ...e, files: files.filter((f) => f.event_id === e.id).map(({ event_id: _e, ...f }) => (void _e, f)) }));
-  return { ...c, emails, points: points.map((p) => ({ ...p, events: withFiles.filter((e) => e.point_id === p.id) })) };
+  const members = await q<CaseMember>(
+    `select u.id, u.name, u.role, ab.name as added_by_name, cm.added_at
+       from case_members cm join users u on u.id = cm.user_id left join users ab on ab.id = cm.added_by
+      where cm.case_id = $1 order by lower(u.name)`,
+    [id],
+  );
+  return { ...c, emails, members, points: points.map((p) => ({ ...p, events: withFiles.filter((e) => e.point_id === p.id) })) };
 }
 
 export type BoardPoint = {
@@ -172,7 +184,7 @@ export async function listPoints(me: User): Promise<BoardPoint[]> {
             (select e.text from point_events e where e.point_id = p.id and e.kind = 'update' order by e.created_at desc limit 1) as last_update,
             (select max(e.created_at) from point_events e where e.point_id = p.id) as last_at
        from points p join cases c on c.id = p.case_id join users u on u.id = c.owner_id
-      where ($1::uuid is null or c.owner_id = $1)
+      where ($1::uuid is null or c.owner_id = $1 or exists (select 1 from case_members cm where cm.case_id = c.id and cm.user_id = $1))
       order by p.due nulls last, p.id`,
     [scopeOwner(me)],
   );
@@ -185,7 +197,7 @@ export async function recentRemarks(me: User, limit = 4): Promise<RemarkRow[]> {
     `select e.id::text as id, e.text, e.created_at, p.id::text as point_id, p.text as point_text, c.id::text as case_id, u.name as user_name
        from point_events e join points p on p.id = e.point_id join cases c on c.id = p.case_id
        left join users u on u.id = e.user_id
-      where e.kind = 'remark' and c.owner_id = $1
+      where e.kind = 'remark' and (c.owner_id = $1 or exists (select 1 from case_members cm where cm.case_id = c.id and cm.user_id = $1))
       order by e.created_at desc limit $2`,
     [me.id, limit],
   );
@@ -199,7 +211,7 @@ export async function recentActivity(me: User, limit = 6): Promise<ActivityRow[]
             p.id::text as point_id, p.text as point_text, c.id::text as case_id
        from point_events e join points p on p.id = e.point_id join cases c on c.id = p.case_id
        left join users u on u.id = e.user_id
-      where ($1::uuid is null or c.owner_id = $1) and e.kind <> 'created'
+      where ($1::uuid is null or c.owner_id = $1 or exists (select 1 from case_members cm where cm.case_id = c.id and cm.user_id = $1)) and e.kind <> 'created'
       order by e.created_at desc limit $2`,
     [scopeOwner(me), limit],
   );
@@ -211,8 +223,9 @@ export async function assignees(): Promise<Assignee[]> {
   return q<Assignee>(`select id, name, role from users where status = 'active' and role <> 'admin' order by (role = 'lead') desc, lower(name)`);
 }
 
-/** The Lead's name, for hints like "Irfan approves". */
+/** Who approves, for wording like "Irfan approves": the Lead's first name, or "a Lead" when there are several. */
 export async function leadName(): Promise<string> {
-  const r = await one<{ name: string }>("select name from users where role = 'lead' order by (status = 'active') desc, created_at limit 1");
-  return r?.name ?? "the Lead";
+  const rows = await q<{ name: string }>("select name from users where role = 'lead' and status = 'active' order by created_at");
+  if (rows.length === 1) return rows[0].name.trim().split(/\s+/)[0] || "the Lead";
+  return rows.length ? "a Lead" : "the Lead";
 }

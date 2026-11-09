@@ -12,7 +12,7 @@ export async function editablePoint(user: User, pointId: string): Promise<{ id: 
   if (user.role === "admin" || !/^\d{1,12}$/.test(pointId)) return null;
   return one<{ id: string; case_id: string }>(
     `select p.id::text as id, p.case_id::text as case_id from points p join cases c on c.id = p.case_id
-      where p.id = $1 and ($2::uuid is null or c.owner_id = $2)`,
+      where p.id = $1 and ($2::uuid is null or c.owner_id = $2 or exists (select 1 from case_members cm where cm.case_id = c.id and cm.user_id = $2))`,
     [pointId, user.role === "member" ? user.id : null],
   );
 }

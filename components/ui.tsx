@@ -83,3 +83,4 @@ export function DueTag({ due, status, today }: { due: string | null; status: str
 
 export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 export const firstName = (name: string | null | undefined) => (name ?? "").trim().split(/\s+/)[0] || "Someone";
+export const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);

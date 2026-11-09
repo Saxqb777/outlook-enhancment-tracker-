@@ -105,8 +105,8 @@ export async function acceptInvite(_prev: FormState, form: FormData): Promise<Fo
   try {
     outcome = await tx<Outcome>(async (c) => {
       const inv = (
-        await c.query<{ user_id: string | null; created_by: string | null }>(
-          "select user_id, created_by from invites where token_hash = $1 and expires_at > now() for update",
+        await c.query<{ user_id: string | null; created_by: string | null; role: string }>(
+          "select user_id, created_by, role from invites where token_hash = $1 and expires_at > now() for update",
           [hashToken(token)],
         )
       ).rows[0];
@@ -127,10 +127,11 @@ export async function acceptInvite(_prev: FormState, form: FormData): Promise<Fo
       } else {
         const res = await c.query<{ id: string }>(
           `insert into users (email, name, role, status, password_hash, created_by, activated_at)
-           values ($1, $2, 'member', 'active', $3, $4, now()) returning id`,
-          [email, name, hash, inv.created_by],
+           values ($1, $2, $3, 'active', $4, $5, now()) returning id`,
+          [email, name, inv.role === "lead" ? "lead" : "member", hash, inv.created_by],
         );
         id = res.rows[0].id;
+        role = inv.role === "lead" ? "lead" : "member";
       }
       await c.query("delete from invites where token_hash = $1", [hashToken(token)]);
       return { id, role };

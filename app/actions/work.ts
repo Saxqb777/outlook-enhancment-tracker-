@@ -106,7 +106,7 @@ export async function matchCases(raw: string): Promise<CaseMatch[]> {
             coalesce((select string_agg(e.subject, ' | ') from case_emails e where e.case_id = c.id), '') as subjects,
             left(coalesce((select e.body from case_emails e where e.case_id = c.id and e.position = 0), ''), 4000) as body
        from cases c
-      where ($1::uuid is null or c.owner_id = $1)
+      where ($1::uuid is null or c.owner_id = $1 or exists (select 1 from case_members cm where cm.case_id = c.id and cm.user_id = $1))
         and exists (select 1 from points p where p.case_id = c.id and p.status <> 'approved')
       order by c.updated_at desc limit 300`,
     [me.role === "member" ? me.id : null],
@@ -139,7 +139,17 @@ export type NewCase = {
   ownerId: string;
   details: { label: string; value: string }[];
   points: { text: string; due: string; quote: string }[];
+  /** Other people working on this case with the owner. */
+  shareWith?: string[];
 };
+
+/** Active Leads and Members from `ids`, minus the owner. Used for shared cases. */
+async function teammates(ids: unknown, ownerId: string): Promise<string[]> {
+  const list = (Array.isArray(ids) ? ids : []).map(String).filter((x) => /^[0-9a-f-]{36}$/.test(x) && x !== ownerId).slice(0, 12);
+  if (!list.length) return [];
+  const rows = await q<{ id: string }>("select id from users where id = any($1::uuid[]) and status = 'active' and role <> 'admin'", [list]);
+  return rows.map((r) => r.id);
+}
 
 export async function createCase(input: NewCase, files?: FormData): Promise<ActionResult> {
   const me = await requireUser();
@@ -162,6 +172,7 @@ export async function createCase(input: NewCase, files?: FormData): Promise<Acti
   }
 
   const mail = splitEmail(raw);
+  const shared = await teammates(input.shareWith, ownerId);
   const file = input.source === "file" ? await fileFrom(files) : null;
   const details = (Array.isArray(input.details) ? input.details : [])
     .map((d) => ({ label: String(d?.label ?? "").trim().slice(0, 60), value: String(d?.value ?? "").trim().slice(0, 200) }))
@@ -206,6 +217,9 @@ export async function createCase(input: NewCase, files?: FormData): Promise<Acti
     if (file) {
       await c.query("insert into email_files (email_id, name, mime, size, data) values ($1, $2, $3, $4, $5)", [emailId, file.name, file.mime, file.size, file.data]);
     }
+    for (const uid of shared) {
+      await c.query("insert into case_members (case_id, user_id, added_by) values ($1, $2, $3) on conflict do nothing", [id, uid, me.id]);
+    }
     for (let i = 0; i < points.length; i++) {
       const p = points[i];
       const pr = await c.query<{ id: string }>(
@@ -228,7 +242,7 @@ type CaseCtx = { id: string; subject: string; summary: string; deadline: string 
 async function caseFor(me: User, caseId: string): Promise<CaseCtx | null> {
   if (!/^\d{1,12}$/.test(String(caseId))) return null;
   return one<CaseCtx>(
-    "select id::text as id, subject, summary, deadline::text as deadline from cases where id = $1 and ($2::uuid is null or owner_id = $2)",
+    "select id::text as id, subject, summary, deadline::text as deadline from cases where id = $1 and ($2::uuid is null or owner_id = $2 or exists (select 1 from case_members cm where cm.case_id = cases.id and cm.user_id = $2))",
     [caseId, me.role === "member" ? me.id : null],
   );
 }
@@ -422,7 +436,7 @@ async function pointFor(me: User, pointId: string): Promise<PointCtx | null> {
   return one<PointCtx>(
     `select p.id::text as id, p.case_id::text as case_id, p.status, c.owner_id
        from points p join cases c on c.id = p.case_id
-      where p.id = $1 and ($2::uuid is null or c.owner_id = $2)`,
+      where p.id = $1 and ($2::uuid is null or c.owner_id = $2 or exists (select 1 from case_members cm where cm.case_id = c.id and cm.user_id = $2))`,
     [pointId, me.role === "member" ? me.id : null],
   );
 }
@@ -504,7 +518,7 @@ export async function setCaseDeadline(caseId: string, due: string | null): Promi
   if (me.role === "admin") return VIEW_ONLY;
   if (!/^\d{1,12}$/.test(String(caseId))) return { ok: false, error: "That case isn't available." };
   const d = due && isISODate(due) ? due : null;
-  const rows = await q("update cases set deadline = $1, updated_at = now() where id = $2 and ($3::uuid is null or owner_id = $3) returning id", [
+  const rows = await q("update cases set deadline = $1, updated_at = now() where id = $2 and ($3::uuid is null or owner_id = $3 or exists (select 1 from case_members cm where cm.case_id = cases.id and cm.user_id = $3)) returning id", [
     d,
     caseId,
     me.role === "member" ? me.id : null,
@@ -541,7 +555,7 @@ export async function addPoint(caseId: string, text: string, due: string | null)
   const body = String(text ?? "").trim().slice(0, 300);
   if (!body) return { ok: false, error: "Say what needs to be done." };
   if (!/^\d{1,12}$/.test(String(caseId))) return { ok: false, error: "That case isn't available." };
-  const c = await one<{ id: string }>("select id::text as id from cases where id = $1 and ($2::uuid is null or owner_id = $2)", [
+  const c = await one<{ id: string }>("select id::text as id from cases where id = $1 and ($2::uuid is null or owner_id = $2 or exists (select 1 from case_members cm where cm.case_id = cases.id and cm.user_id = $2))", [
     caseId,
     me.role === "member" ? me.id : null,
   ]);
@@ -555,6 +569,32 @@ export async function addPoint(caseId: string, text: string, due: string | null)
       due && isISODate(due) ? due : null,
     ]);
     await t.query("insert into point_events (point_id, user_id, kind) values ($1, $2, 'created')", [pr.rows[0].id, me.id]);
+  });
+  touch(c.id);
+  return { ok: true };
+}
+
+// ------------------------------------------------------------------ shared cases
+
+/** Sets who works on a case with its owner. The Lead can do this on any case; a Member only on cases they own. */
+export async function setCaseMembers(caseId: string, userIds: string[]): Promise<ActionResult> {
+  const me = await requireUser();
+  if (me.role === "admin") return VIEW_ONLY;
+  if (!/^\d{1,12}$/.test(String(caseId))) return { ok: false, error: "That case isn't available." };
+  const c = await one<{ id: string; owner_id: string }>(
+    `select id::text as id, owner_id from cases c
+      where c.id = $1 and ($2::uuid is null or c.owner_id = $2 or exists (select 1 from case_members cm where cm.case_id = c.id and cm.user_id = $2))`,
+    [caseId, me.role === "member" ? me.id : null],
+  );
+  if (!c) return { ok: false, error: "That case isn't available." };
+  if (me.role !== "lead" && c.owner_id !== me.id) return { ok: false, error: "Only the Lead or the case owner can change who's on this case." };
+  const keep = await teammates(userIds, c.owner_id);
+  await tx(async (t) => {
+    await t.query("delete from case_members where case_id = $1 and not (user_id = any($2::uuid[]))", [c.id, keep]);
+    for (const uid of keep) {
+      await t.query("insert into case_members (case_id, user_id, added_by) values ($1, $2, $3) on conflict do nothing", [c.id, uid, me.id]);
+    }
+    await t.query("update cases set updated_at = now() where id = $1", [c.id]);
   });
   touch(c.id);
   return { ok: true };

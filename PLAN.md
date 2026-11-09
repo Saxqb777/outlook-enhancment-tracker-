@@ -173,6 +173,11 @@ Each step stops for the owner's review.
   - File `Agthia-cases-<day>-<Mon>-<year>.xlsx` with tabs: **Summary** (who exported and when, totals, table per person), **Cases** (one row per case), **Points** (one row per point, status colours, days late, which email it came from), **Change log** (every change in order; Excel doesn't allow a tab called "History"), **Emails** (if ticked)
   - Header rows frozen with filters, real Excel dates in UAE time, Case IDs link back to the app, no merged cells
   - Members can only export their own cases (checked on the server too); Lead and Admin can export any
+- [~] **Several Leads, Admin invite links, shared cases, What's new** (2026-11-09). **Live, waiting for the owner's review.**
+  - The team can have several Leads. Every Lead sees every case and can approve. Wording for Members says "a Lead approves" when there's more than one Lead
+  - Admin can make invite links on the Team page, choosing **Member** or **Lead**, and cancel unused links. Only the Admin can invite a Lead; the Lead invites Members. Everything else stays view only for the Admin
+  - **Shared cases**: a case has an owner plus people working on it (`case_members`). Any Lead, or the case owner, can add or remove people from the case page ("Add people" / "Edit"). When adding an email, anyone can pick teammates under "Working with". Everyone on a case sees it and can update its points, attach files and add replies. Lists show a "Shared" tag; Member home shows "With …"; Excel has a "Shared with" column
+  - **What's new** pop-up (bottom right, above the bottom bar on phones) explaining attachments and shared cases, with role-specific lines. Shown once per account (`users.seen_news`, version in `lib/news.ts`); bump `NEWS_VERSION` for the next announcement
 - [~] **Attachments on points** (2026-11-09). **Live, waiting for the owner's review.**
   - Choosing **Done** or **Waiting** opens a small step: note (optional), reason (Waiting), **Attach files**. Other statuses still change in one click; dragging on the Board still works without files
   - The update / remark box has **Attach** too (a file on its own is fine)
@@ -229,6 +234,7 @@ Each step stops for the owner's review.
 | 2026-11-07 | Admin is view only by owner's choice: no acting as people, just seeing their view. Admin account hidden from the Lead's Team page |
 | 2026-11-07 | Owner asked for a case-wise Excel export (pick cases or select all). Built with exceljs, tested (25 checks, including opening the file), deployed |
 | 2026-11-09 | Owner asked for attachments when moving a status. Built with private Vercel Blob storage (Dubai), tested (24 checks), deployed. Invites stay with Irfan (owner didn't pick another option) |
+| 2026-11-09 | Owner approved several Leads (all Leads see all cases), Admin invite links for Member or Lead, shared (group) cases, and a What's new pop-up. Owner said build without asking for another go. Built, tested (27 checks), deployed |
 
 ---
 

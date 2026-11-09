@@ -12,7 +12,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const f = await one<{ name: string; mime: string; data: Buffer }>(
     `select f.name, f.mime, f.data
        from email_files f join case_emails e on e.id = f.email_id join cases c on c.id = e.case_id
-      where f.email_id = $1 and ($2::uuid is null or c.owner_id = $2)`,
+      where f.email_id = $1 and ($2::uuid is null or c.owner_id = $2 or exists (select 1 from case_members cm where cm.case_id = c.id and cm.user_id = $2))`,
     [id, user.role === "member" ? user.id : null],
   );
   if (!f) return new Response("Not found.", { status: 404 });

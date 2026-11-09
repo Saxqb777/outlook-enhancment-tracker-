@@ -37,7 +37,7 @@ export default function BoardView({ points, role, leadName, today }: { points: B
   const [list, move] = useOptimistic(points, (state, m: { id: string; status: Status; why?: string }) =>
     state.map((p) => (p.id === m.id ? { ...p, status: m.status, wait_reason: m.why ?? p.wait_reason } : p)),
   );
-  const lf = firstName(leadName);
+  const lf = leadName;
   const viewOnly = useViewOnly();
 
   const owners = useMemo(() => {

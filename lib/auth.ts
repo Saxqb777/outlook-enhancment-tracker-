@@ -5,7 +5,7 @@ import { createHash, randomBytes, scrypt as scryptCb, timingSafeEqual } from "no
 import { one, q } from "@/lib/db";
 
 export type Role = "lead" | "member" | "admin";
-export type User = { id: string; email: string; name: string; role: Role };
+export type User = { id: string; email: string; name: string; role: Role; seen_news?: number };
 
 export const SESSION_COOKIE = "ae_session";
 /** Set only for the Admin: whose view they are looking at. Ignored for everyone else. */
@@ -86,7 +86,7 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
   return one<User>(
-    `select u.id, u.email, u.name, u.role
+    `select u.id, u.email, u.name, u.role, u.seen_news
        from sessions s join users u on u.id = s.user_id
       where s.id = $1 and s.expires_at > now() and u.status = 'active'`,
     [hashToken(token)],

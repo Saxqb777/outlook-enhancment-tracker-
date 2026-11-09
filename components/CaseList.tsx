@@ -20,6 +20,7 @@ export type CaseItem = {
   owner_lead: boolean;
   created_at: string;
   points: { id: string; status: Status; due: string | null; text?: string }[];
+  members?: { id: string; name: string }[];
 };
 
 type Filter = "open" | "late" | "review" | "closed" | "all";
@@ -54,13 +55,13 @@ export default function CaseList({ cases, role, today, initial = "open" }: { cas
     all: () => true,
   };
 
-  let list = lead && owner !== "all" ? cases.filter((c) => c.owner_id === owner) : cases;
+  let list = lead && owner !== "all" ? cases.filter((c) => c.owner_id === owner || c.members?.some((m) => m.id === owner)) : cases;
   const counts = Object.fromEntries(LABELS.map(([k]) => [k, list.filter(tests[k]).length])) as Record<Filter, number>;
   list = list.filter(tests[filter]);
   const needle = q.trim().toLowerCase();
   if (needle) {
     list = list.filter((c) =>
-      `${caseRef(c.id)} ${c.subject} ${c.from_name} ${c.company} ${c.owner_name} ${c.points.map((p) => p.text ?? "").join(" ")}`.toLowerCase().includes(needle),
+      `${caseRef(c.id)} ${c.subject} ${c.from_name} ${c.company} ${c.owner_name} ${(c.members ?? []).map((m) => m.name).join(" ")} ${c.points.map((p) => p.text ?? "").join(" ")}`.toLowerCase().includes(needle),
     );
   }
   const nextDue = (c: CaseItem) =>
@@ -132,12 +133,21 @@ export default function CaseList({ cases, role, today, initial = "open" }: { cas
                   <span className="c-from">
                     <span className="cid cid-m">{caseRef(c.id)}</span>
                     <span className="trunc">{c.company || c.from_name || "Unknown sender"}</span>
+                    {!!c.members?.length && (
+                      <span className="shared-tag" title={`Shared with ${c.members.map((m) => m.name).join(", ")}`}>
+                        <Icon name="team" size={12} />
+                        Shared
+                      </span>
+                    )}
                   </span>
                 </span>
                 {lead && (
                   <span className="c-mem">
                     <Avatar name={c.owner_name} lead={c.owner_lead} size="xs" />
-                    <span>{firstName(c.owner_name)}</span>
+                    <span>
+                      {firstName(c.owner_name)}
+                      {c.members?.length ? ` +${c.members.length}` : ""}
+                    </span>
                   </span>
                 )}
                 <span className="c-prog">

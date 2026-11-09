@@ -139,15 +139,32 @@ export function CopyLink({ link }: { link: string }) {
   );
 }
 
-export function InviteLinkForm() {
+export function InviteLinkForm({ canPickRole = false }: { canPickRole?: boolean }) {
   const [state, action] = useActionState(createInviteLink, undefined);
+  const [role, setRole] = useState<"member" | "lead">("member");
   const formRef = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (state?.link) formRef.current?.reset();
   }, [state]);
   return (
     <div className="invite">
-      <form ref={formRef} action={action} className="invite-form two" noValidate>
+      <form ref={formRef} action={action} className={`invite-form ${canPickRole ? "three" : "two"}`} noValidate>
+        {canPickRole && (
+          <div className="field">
+            <span className="flabel" id="inv-role-l">
+              Joins as
+            </span>
+            <input type="hidden" name="role" value={role} />
+            <div className="seg" role="radiogroup" aria-labelledby="inv-role-l">
+              <button type="button" role="radio" aria-checked={role === "member"} onClick={() => setRole("member")}>
+                Member
+              </button>
+              <button type="button" role="radio" aria-checked={role === "lead"} onClick={() => setRole("lead")}>
+                Lead
+              </button>
+            </div>
+          </div>
+        )}
         <div className="field">
           <label htmlFor="inv-label">Who is it for? (optional, only you see this)</label>
           <input id="inv-label" name="label" className="inp" autoComplete="off" placeholder="e.g. Sara from imports" />
@@ -157,12 +174,15 @@ export function InviteLinkForm() {
           Create invite link
         </SubmitButton>
       </form>
+      {canPickRole && role === "lead" && <p className="hint">A Lead sees every case, approves finished work and invites Members.</p>}
       <FormError state={state} />
       {state?.link && (
         <div className="invite-done" role="status">
           <p>
-            <b>Invite link ready{state.name ? ` for ${state.name}` : ""}.</b> Send it to the person joining. They open it, type their name and email, and set a password.
-            It works once and expires in 7 days.
+            <b>
+              {state.role === "lead" ? "Lead" : "Member"} invite link ready{state.name ? ` for ${state.name}` : ""}.
+            </b>{" "}
+            Send it to the person joining. They open it, type their name and email, and set a password. It works once and expires in 7 days.
           </p>
           <CopyLink link={state.link} />
         </div>

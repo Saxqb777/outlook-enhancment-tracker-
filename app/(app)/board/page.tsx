@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import BoardView from "@/components/BoardView";
 import { Icon } from "@/components/Icon";
-import { firstName } from "@/components/ui";
+import { cap } from "@/components/ui";
 import { getViewer } from "@/lib/auth";
 import { todayISO } from "@/lib/time";
 import { leadName, listPoints } from "@/lib/work";
@@ -25,7 +25,7 @@ export default async function BoardPage() {
               ? "Every point by status. View only."
               : me.role !== "member"
               ? "Every point by status. Drag a card to move it, or drop it on Approved to sign it off."
-              : `Your points by status. Drag a card to move it. ${firstName(lead)} approves points you mark done.`}
+              : `Your points by status. Drag a card to move it. ${cap(lead)} approves points you mark done.`}
           </p>
         </div>
         <div className="ph-act">

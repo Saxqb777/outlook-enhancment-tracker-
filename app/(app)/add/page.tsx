@@ -27,6 +27,7 @@ export default async function AddPage() {
       </div>
     );
   }
-  const people = me.role === "lead" ? await assignees() : [];
+  // Everyone active, so a case can be shared ("Working with"); only the Lead picks another owner.
+  const people = await assignees();
   return <AddEmail role={me.role} meId={me.id} people={people} today={todayISO()} />;
 }

@@ -20,7 +20,7 @@ type Person = {
   open_points: number;
 };
 
-type OpenInvite = { key: string; label: string | null; created_at: Date; expires_at: Date };
+type OpenInvite = { key: string; label: string | null; role: "lead" | "member"; created_at: Date; expires_at: Date };
 
 const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
 function ago(d: Date): string {
@@ -33,8 +33,10 @@ function ago(d: Date): string {
 const day = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Asia/Dubai" });
 
 export default async function TeamPage() {
-  const { me, viewOnly } = await getViewer();
+  const { me, real, viewOnly, viewingAs } = await getViewer();
   if (me.role === "member") redirect("/");
+  // The Lead invites Members; the Admin (view only otherwise) can invite Members or Leads.
+  const canInvite = (me.role === "lead" && !viewOnly) || (real.role === "admin" && !viewingAs);
   const [people, open] = await Promise.all([
     q<Person>(
       `select u.id, u.name, u.email, u.role, u.status, u.last_login_at, i.expires_at as invite_expires,
@@ -43,7 +45,7 @@ export default async function TeamPage() {
         where u.role <> 'admin'
         order by (u.role = 'lead') desc, (u.status = 'invited') desc, lower(u.name)`,
     ),
-    q<OpenInvite>("select token_hash as key, label, created_at, expires_at from invites where user_id is null and expires_at > now() order by created_at desc"),
+    q<OpenInvite>("select token_hash as key, label, role, created_at, expires_at from invites where user_id is null and expires_at > now() order by created_at desc"),
   ]);
   const members = people.filter((p) => p.role === "member");
 
@@ -53,31 +55,35 @@ export default async function TeamPage() {
         <div>
           <h1 className="h1">Team</h1>
           <p className="lede opt">
-            {viewOnly
-              ? "Everyone on the team. View only: invites and access are managed by the Lead."
-              : "Members see only their own cases. You see everything, and only you can approve points."}
+            {real.role === "admin" && !viewingAs
+              ? "Everyone on the team. You can make invite links for Members and Leads; everything else here is view only."
+              : viewOnly
+                ? "Everyone on the team. View only."
+                : "Members see their own cases and the cases they share. Leads see everything and approve finished work."}
           </p>
         </div>
       </header>
 
       <section className="panel">
         <div className="panel-h">
-          <h2>{viewOnly ? "Invite links" : "Invite someone"}</h2>
-          <span className="hint">{viewOnly ? "Links the Lead has made that haven't been used yet." : "Create a link, send it to them, and they set up their own account."}</span>
+          <h2>{canInvite ? "Invite someone" : "Invite links"}</h2>
+          <span className="hint">{canInvite ? "Create a link, send it to them, and they set up their own account." : "Links that haven't been used yet."}</span>
         </div>
-        {!viewOnly && <InviteLinkForm />}
+        {canInvite && <InviteLinkForm canPickRole={real.role === "admin"} />}
         {open.length > 0 && (
           <div className="open-inv">
             <div className="open-inv-h">Links not used yet</div>
             {open.map((o) => (
               <div className="open-inv-r" key={o.key}>
                 <span>
-                  <b>{o.label ?? "Invite link"}</b>
+                  <b>
+                    {o.label ?? "Invite link"} <span className={`tag-st${o.role === "lead" ? " lead" : ""}`}>{o.role === "lead" ? "Lead" : "Member"}</span>
+                  </b>
                   <span className="muted small">
                     Created {day(o.created_at)} · works until {day(o.expires_at)}
                   </span>
                 </span>
-                {!viewOnly && (
+                {canInvite && (
                   <ConfirmButton action={cancelOpenInvite} userId="" extra={{ key: o.key }} label="Cancel link" confirm="Stop this link working?" danger />
                 )}
               </div>

@@ -1,7 +1,7 @@
 export type FormState = { error?: string; fields?: Record<string, string> } | undefined;
 
 export type InviteState =
-  | { error?: string; link?: string; name?: string; email?: string; fields?: Record<string, string> }
+  | { error?: string; link?: string; name?: string; email?: string; role?: "lead" | "member"; fields?: Record<string, string> }
   | undefined;
 
 const EMAIL_RX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;

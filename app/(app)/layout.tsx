@@ -3,8 +3,10 @@ import { AttachProvider } from "@/components/Attach";
 import BottomNav from "@/components/BottomNav";
 import { Icon } from "@/components/Icon";
 import TopBar from "@/components/TopBar";
+import WhatsNew from "@/components/WhatsNew";
 import { Toasts, ViewOnlyProvider } from "@/components/work";
 import { getViewer } from "@/lib/auth";
+import { NEWS_VERSION, newsFor } from "@/lib/news";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +37,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </main>
       <BottomNav role={navRole} viewOnly={viewOnly} />
       <Toasts />
+      {(real.seen_news ?? 0) < NEWS_VERSION && <WhatsNew items={newsFor(real.role)} version={NEWS_VERSION} />}
       </AttachProvider>
     </ViewOnlyProvider>
   );

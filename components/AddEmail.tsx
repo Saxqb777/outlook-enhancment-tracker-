@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createCase, matchCases, readEmail, type CaseMatch } from "@/app/actions/work";
 import { EmailInputPanel, handOff, Highlighted, MailReader, useEmailSource, useFileUrl } from "@/components/EmailInput";
-import { Icon } from "@/components/Icon";
+import { Avatar, Icon } from "@/components/Icon";
 import { Prio } from "@/components/ui";
 import type { Role } from "@/lib/auth";
 import { MAX_EMAIL_CHARS, parseAddress, splitEmail } from "@/lib/email";
@@ -24,6 +24,7 @@ type Draft = {
   priority: Priority;
   deadline: string;
   ownerId: string;
+  shareWith: string[];
   points: DraftPoint[];
   details: { label: string; value: string }[];
   ai: boolean;
@@ -97,6 +98,7 @@ export default function AddEmail({ role, meId, people, today }: { role: Role; me
       priority: x?.priority ?? "normal",
       deadline: x?.caseDeadline ?? "",
       ownerId: meId,
+      shareWith: [],
       points: (x?.points ?? []).map((p) => ({ key: nextKey(), text: p.text, due: p.due, quote: p.quote })),
       details: x?.details ?? [],
       ai: !!x,
@@ -191,6 +193,7 @@ export default function AddEmail({ role, meId, people, today }: { role: Role; me
           priority: draft.priority,
           deadline: draft.deadline,
           ownerId: draft.ownerId,
+          shareWith: draft.shareWith.filter((id) => id !== draft.ownerId),
           details: draft.details,
           points: draft.points.map(({ text, due, quote }) => ({ text, due, quote })),
         }, fd);
@@ -386,7 +389,12 @@ export default function AddEmail({ role, meId, people, today }: { role: Role; me
               {lead && (
                 <div className="field">
                   <label htmlFor="dp-owner">Owner</label>
-                  <select id="dp-owner" className="inp" value={draft.ownerId} onChange={(e) => update({ ownerId: e.target.value })}>
+                  <select
+                    id="dp-owner"
+                    className="inp"
+                    value={draft.ownerId}
+                    onChange={(e) => update({ ownerId: e.target.value, shareWith: draft.shareWith.filter((id) => id !== e.target.value) })}
+                  >
                     {owners.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name}
@@ -394,6 +402,33 @@ export default function AddEmail({ role, meId, people, today }: { role: Role; me
                       </option>
                     ))}
                   </select>
+                </div>
+              )}
+              {people.filter((p) => p.id !== draft.ownerId && p.role !== "admin").length > 0 && (
+                <div className="field">
+                  <div className="flabel-row">
+                    <span className="flabel">Working with (optional)</span>
+                    <span className="hint">They&apos;ll see this case and can update it too</span>
+                  </div>
+                  <div className="chips" role="group" aria-label="Working with">
+                    {people
+                      .filter((p) => p.id !== draft.ownerId && p.role !== "admin")
+                      .map((p) => {
+                        const on = draft.shareWith.includes(p.id);
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            className="chip"
+                            aria-pressed={on}
+                            onClick={() => update({ shareWith: on ? draft.shareWith.filter((x) => x !== p.id) : [...draft.shareWith, p.id] })}
+                          >
+                            <Avatar name={p.name} lead={p.role === "lead"} size="xs" />
+                            {p.name}
+                          </button>
+                        );
+                      })}
+                  </div>
                 </div>
               )}
               <div className="field">

@@ -16,6 +16,7 @@ type CaseRow = {
   deadline: string | null;
   created_at: Date;
   owner: string;
+  shared: string | null;
   replies: number;
   last_at: Date | null;
 };
@@ -147,10 +148,11 @@ export async function buildWorkbook(me: User, requested: string[], opts: ExportO
   const cases = await q<CaseRow>(
     `select c.id::text as id, c.subject, c.summary, c.from_name, c.from_email, c.company, c.priority, c.deadline::text as deadline,
             c.created_at, u.name as owner,
+            (select string_agg(mu.name, ', ' order by lower(mu.name)) from case_members cm join users mu on mu.id = cm.user_id where cm.case_id = c.id) as shared,
             (select count(*)::int from case_emails e where e.case_id = c.id and e.position > 0) as replies,
             greatest(c.updated_at, (select max(x.created_at) from point_events x join points p on p.id = x.point_id where p.case_id = c.id)) as last_at
        from cases c join users u on u.id = c.owner_id
-      where c.id = any($1::bigint[]) and ($2::uuid is null or c.owner_id = $2)
+      where c.id = any($1::bigint[]) and ($2::uuid is null or c.owner_id = $2 or exists (select 1 from case_members cm where cm.case_id = c.id and cm.user_id = $2))
       order by c.id`,
     [requested, scope],
   );
@@ -286,6 +288,7 @@ export async function buildWorkbook(me: User, requested: string[], opts: ExportO
     { header: "From", key: "from", width: 22, wrap: true },
     { header: "Company", key: "company", width: 22, wrap: true },
     { header: "Owner", key: "owner", width: 18 },
+    { header: "Shared with", key: "shared", width: 22, wrap: true },
     { header: "Priority", key: "priority", width: 10 },
     { header: "State", key: "state", width: 10 },
     { header: "Case deadline", key: "deadline", width: 14, fmt: "d mmm yyyy" },
@@ -311,6 +314,7 @@ export async function buildWorkbook(me: User, requested: string[], opts: ExportO
       from: c.from_name || c.from_email,
       company: c.company,
       owner: c.owner,
+      shared: c.shared ?? "",
       priority: PRIORITY_LABEL[c.priority],
       state: closed(c.id) ? "Closed" : "Open",
       deadline: day(c.deadline),

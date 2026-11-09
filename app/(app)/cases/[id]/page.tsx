@@ -4,7 +4,7 @@ import CaseView from "@/components/CaseView";
 import { getViewer } from "@/lib/auth";
 import { caseRef } from "@/lib/status";
 import { todayISO } from "@/lib/time";
-import { getCase, leadName } from "@/lib/work";
+import { assignees, getCase, leadName } from "@/lib/work";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +19,7 @@ export default async function CasePage({ params, searchParams }: Props) {
   const { me } = await getViewer();
   const { id } = await params;
   const { email } = await searchParams;
-  const [c, lead] = await Promise.all([getCase(me, id), leadName()]);
+  const [c, lead, people] = await Promise.all([getCase(me, id), leadName(), assignees()]);
 
   if (!c) {
     return (
@@ -44,8 +44,20 @@ export default async function CasePage({ params, searchParams }: Props) {
     ...c,
     created_at: iso(c.created_at),
     emails: c.emails.map((e) => ({ ...e, created_at: iso(e.created_at) })),
+    members: c.members.map((m) => ({ ...m, added_at: iso(m.added_at) })),
     points: c.points.map((p) => ({ ...p, events: p.events.map((e) => ({ ...e, created_at: iso(e.created_at) })) })),
   };
   const start = email && /^\d{1,4}$/.test(email) ? Number(email) : null;
-  return <CaseView c={data} role={me.role === "member" ? "member" : "lead"} leadName={lead} today={todayISO()} startEmail={start} />;
+  const canManage = me.role === "lead" || c.owner_id === me.id;
+  return (
+    <CaseView
+      c={data}
+      role={me.role === "member" ? "member" : "lead"}
+      leadName={lead}
+      today={todayISO()}
+      startEmail={start}
+      people={people}
+      canManage={canManage}
+    />
+  );
 }

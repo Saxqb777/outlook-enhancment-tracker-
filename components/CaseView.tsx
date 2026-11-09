@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { addPoint, postNote, reopenPoint, setPointStatus } from "@/app/actions/work";
+import { AttachPicker, FileList, useAttach, type FileView } from "@/components/Attach";
 import { Highlighted, MailReader, type ReaderEmail } from "@/components/EmailInput";
 import { Avatar, Icon } from "@/components/Icon";
 import { Glyph, plural, Prio, SegBar, firstName } from "@/components/ui";
@@ -22,6 +23,7 @@ export type EventView = {
   created_at: string;
   user_name: string | null;
   user_role: "lead" | "member" | "admin" | null;
+  files: FileView[];
 };
 export type PointView = {
   id: string;
@@ -418,6 +420,9 @@ function PointCard({
   viewOnly: boolean;
 }) {
   const ups = p.events.filter((e) => e.kind === "update").length;
+  const fileCount = p.events.reduce((n, e) => n + e.files.length, 0);
+  const doneEvent = p.status === "done" ? [...p.events].reverse().find((e) => e.kind === "status" && e.status === "done") : undefined;
+  const doneFiles = doneEvent?.files ?? [];
   const rms = p.events.filter((e) => e.kind === "remark").length;
   const appr = p.status === "approved" ? [...p.events].reverse().find((e) => e.kind === "status" && e.status === "approved") : undefined;
   const [pending, start] = useTransition();
@@ -458,6 +463,12 @@ function PointCard({
                 From Reply {fromReply}
               </span>
             )}
+            {fileCount > 0 && (
+              <span className="pt-count" title="Files attached to this point">
+                <Icon name="clip" size={14} />
+                {fileCount}
+              </span>
+            )}
             {ups + rms > 0 && (
               <span className="pt-count">
                 <Icon name="msg" size={14} />
@@ -484,7 +495,7 @@ function PointCard({
               <div className={`review${pending ? " is-busy" : ""}`}>
                 <Glyph s="done" />
                 <span>
-                  <b>{firstName(ownerName)}</b> marked this done.
+                  <b>{firstName(ownerName)}</b> marked this done{doneFiles.length ? ` with ${plural(doneFiles.length, "file")}` : ""}.
                 </span>
                 <span className="sp" />
                 <button type="button" className="btn btn-sm" onClick={() => start(async () => void (await run(reopenPoint(p.id))))}>
@@ -509,6 +520,11 @@ function PointCard({
                 <span>Marked done. Waiting for {leadName} to approve it.</span>
               </div>
             ))}
+          {doneFiles.length > 0 && (
+            <div className="review-files">
+              <FileList files={doneFiles} />
+            </div>
+          )}
           {p.events.length ? (
             <ol className="tl">
               {p.events.map((e) => (
@@ -546,7 +562,8 @@ function TimelineItem({ e, today, reply }: { e: EventView; today: string; reply:
             <span className={`kind${e.kind === "remark" ? " remark" : ""}`}>{e.kind === "remark" ? "Remark" : "Update"}</span>
             {when}
           </div>
-          <div className="txt">{e.text}</div>
+          {e.text ? <div className="txt">{e.text}</div> : <div className="txt muted">Attached {plural(e.files.length, "file")}</div>}
+          <FileList files={e.files} />
         </div>
       </li>
     );
@@ -601,12 +618,15 @@ function TimelineItem({ e, today, reply }: { e: EventView; today: string; reply:
     text = <>{who} added this point</>;
   }
   return (
-    <li className="sys">
+    <li className={`sys${e.files.length ? " has-files" : ""}`}>
       <span className="sys-g">{glyph}</span>
-      <div className="who">
-        <span>{text}</span>
-        {via}
-        {when}
+      <div>
+        <div className="who">
+          <span>{text}</span>
+          {via}
+          {when}
+        </div>
+        <FileList files={e.files} />
       </div>
     </li>
   );
@@ -615,13 +635,18 @@ function TimelineItem({ e, today, reply }: { e: EventView; today: string; reply:
 function Composer({ pointId, lead, ownerName }: { pointId: string; lead: boolean; ownerName: string }) {
   const [text, setText] = useState("");
   const [pending, start] = useTransition();
+  const att = useAttach(pointId);
   const ref = useRef<HTMLFormElement>(null);
   const id = `cmp-${pointId}`;
   const submit = () => {
     const body = text.trim();
-    if (!body || pending) return;
+    const files = att.uploaded;
+    if ((!body && !files.length) || pending || att.busy) return;
     start(async () => {
-      if (await run(postNote(pointId, body))) setText("");
+      if (await run(postNote(pointId, body, files))) {
+        setText("");
+        att.clear();
+      }
     });
   };
   return (
@@ -652,10 +677,12 @@ function Composer({ pointId, lead, ownerName }: { pointId: string; lead: boolean
         placeholder={lead ? `Add a remark for ${firstName(ownerName)}` : "What changed? Post an update"}
       />
       <div className="comp-f">
+        <AttachPicker att={att} compact />
+        <span className="sp" />
         <span className="hint m-hide">Ctrl + Enter to post</span>
-        <button className="btn btn-sm btn-primary" type="submit" disabled={pending || !text.trim()} aria-busy={pending}>
+        <button className="btn btn-sm btn-primary" type="submit" disabled={pending || att.busy || (!text.trim() && !att.uploaded.length)} aria-busy={pending}>
           {pending ? <span className="spinner" aria-hidden="true" /> : null}
-          {lead ? "Add remark" : "Post update"}
+          {att.busy ? "Uploading…" : lead ? "Add remark" : "Post update"}
         </button>
       </div>
     </form>

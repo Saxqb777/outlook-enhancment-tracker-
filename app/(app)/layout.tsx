@@ -1,4 +1,5 @@
 import { stopViewAs } from "@/app/actions/admin";
+import { AttachProvider } from "@/components/Attach";
 import BottomNav from "@/components/BottomNav";
 import { Icon } from "@/components/Icon";
 import TopBar from "@/components/TopBar";
@@ -12,6 +13,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const navRole = viewingAs ? viewingAs.role : real.role;
   return (
     <ViewOnlyProvider value={viewOnly}>
+      <AttachProvider local={!process.env.BLOB_READ_WRITE_TOKEN}>
       <TopBar me={{ name: real.name, email: real.email, role: real.role }} navRole={navRole} viewOnly={viewOnly} />
       {viewingAs && (
         <div className="viewas" role="status">
@@ -33,6 +35,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </main>
       <BottomNav role={navRole} viewOnly={viewOnly} />
       <Toasts />
+      </AttachProvider>
     </ViewOnlyProvider>
   );
 }

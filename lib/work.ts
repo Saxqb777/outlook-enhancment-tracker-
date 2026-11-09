@@ -36,10 +36,13 @@ export async function listCases(me: User): Promise<CaseListRow[]> {
   );
 }
 
+export type FileLite = { id: string; name: string; mime: string; size: number };
+
 export type PointEvent = {
   id: string;
   point_id: string;
   email_id: string | null;
+  files: FileLite[];
   kind: "created" | "status" | "update" | "remark" | "due" | "reopen" | "reply";
   text: string | null;
   status: Status | null;
@@ -127,7 +130,7 @@ export async function getCase(me: User, id: string): Promise<CaseFull | null> {
     [id],
   );
   const events = points.length
-    ? await q<PointEvent>(
+    ? await q<Omit<PointEvent, "files">>(
         `select e.id::text as id, e.point_id::text as point_id, e.email_id::text as email_id, e.kind, e.text, e.status, e.due::text as due, e.created_at,
                 u.name as user_name, u.role as user_role
            from point_events e left join users u on u.id = e.user_id
@@ -135,7 +138,14 @@ export async function getCase(me: User, id: string): Promise<CaseFull | null> {
         [points.map((p) => p.id)],
       )
     : [];
-  return { ...c, emails, points: points.map((p) => ({ ...p, events: events.filter((e) => e.point_id === p.id) })) };
+  const files = points.length
+    ? await q<FileLite & { event_id: string | null }>(
+        "select id::text as id, event_id::text as event_id, name, mime, size from attachments where case_id = $1 order by id",
+        [id],
+      )
+    : [];
+  const withFiles = events.map((e) => ({ ...e, files: files.filter((f) => f.event_id === e.id).map(({ event_id: _e, ...f }) => (void _e, f)) }));
+  return { ...c, emails, points: points.map((p) => ({ ...p, events: withFiles.filter((e) => e.point_id === p.id) })) };
 }
 
 export type BoardPoint = {

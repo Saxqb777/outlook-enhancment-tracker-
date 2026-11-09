@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useLayoutEffect, useOptimistic, u
 import { createPortal } from "react-dom";
 import { reopenPoint, setCaseDeadline, setPointDue, setPointStatus, type ActionResult } from "@/app/actions/work";
 import { Icon } from "@/components/Icon";
+import { AttachPicker, useAttach } from "@/components/Attach";
 import { DueTag, Glyph, Pill } from "@/components/ui";
 import type { Role } from "@/lib/auth";
 import { STATUSES, STATUS_LABEL, type Status } from "@/lib/status";
@@ -82,9 +83,12 @@ export function Pop({ anchor, onClose, children, label }: { anchor: HTMLElement 
       setPos({ top, left });
     };
     place();
+    const ro = typeof ResizeObserver !== "undefined" && ref.current ? new ResizeObserver(place) : null;
+    if (ro && ref.current) ro.observe(ref.current);
     window.addEventListener("resize", place);
     window.addEventListener("scroll", place, true);
     return () => {
+      ro?.disconnect();
       window.removeEventListener("resize", place);
       window.removeEventListener("scroll", place, true);
     };
@@ -136,8 +140,10 @@ export function StatusControl({
   variant?: "pill" | "icon";
 }) {
   const [open, setOpen] = useState(false);
-  const [asking, setAsking] = useState(false);
+  const [asking, setAsking] = useState<Status | null>(null);
   const [reason, setReason] = useState("");
+  const [note, setNote] = useState("");
+  const att = useAttach(pointId);
   const btn = useRef<HTMLButtonElement>(null);
   const [pending, start] = useTransition();
   const [shown, setShown] = useOptimistic(status);
@@ -145,23 +151,28 @@ export function StatusControl({
   const viewOnly = useViewOnly();
   const close = () => {
     setOpen(false);
-    setAsking(false);
+    setAsking(null);
   };
 
-  const choose = (s: Status, why?: string) => {
-    if (s === "wait" && !why) {
-      setAsking(true);
-      return;
-    }
+  const apply = (s: Status, why?: string) => {
     close();
     btn.current?.focus();
-    if (s === status && s !== "wait") return;
+    const files = att.uploaded;
+    const text = note.trim();
+    if (s === status && s !== "wait" && !text && !files.length) return;
     start(async () => {
       setShown(s);
-      const ok = await run(setPointStatus(pointId, s, why));
-      if (ok && s === "approved") toast("Approved.");
+      const ok = await run(setPointStatus(pointId, s, why, { note: text, files }));
+      if (!ok) return;
+      setReason("");
+      setNote("");
+      att.clear();
+      if (s === "approved") toast("Approved.");
+      else if (files.length) toast(`${STATUS_LABEL[s]}, with ${files.length} file${files.length === 1 ? "" : "s"} attached.`);
     });
   };
+  // Done and Waiting ask for a little more: a reason for Waiting, and an optional note and files for both.
+  const choose = (s: Status) => (s === "wait" || s === "done" ? setAsking(s) : apply(s));
 
   if (viewOnly) return variant === "icon" ? null : <Pill s={status} />;
 
@@ -188,6 +199,7 @@ export function StatusControl({
       </button>
     );
 
+  const wait = asking === "wait";
   return (
     <>
       {trigger}
@@ -195,23 +207,49 @@ export function StatusControl({
         <Pop anchor={btn.current} onClose={close} label="Set status">
           {asking ? (
             <form
-              className="menu-form"
+              className="menu-form wide"
               onSubmit={(e) => {
                 e.preventDefault();
-                const why = reason.trim();
-                if (!why) return;
-                choose("wait", why);
-                setReason("");
+                if (wait && !reason.trim()) return;
+                if (att.busy) return;
+                apply(asking, wait ? reason.trim() : undefined);
               }}
             >
-              <label htmlFor={`why-${pointId}`}>What is it waiting on?</label>
-              <input id={`why-${pointId}`} className="inp" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Customs to release the permit" maxLength={200} autoComplete="off" />
+              <div className="menu-form-h">
+                <Glyph s={asking} />
+                <b>{wait ? "Set to Waiting" : "Mark as done"}</b>
+              </div>
+              {wait && (
+                <>
+                  <label htmlFor={`why-${pointId}`}>What is it waiting on?</label>
+                  <input
+                    id={`why-${pointId}`}
+                    className="inp"
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    placeholder="e.g. Customs to release the permit"
+                    maxLength={200}
+                    autoComplete="off"
+                  />
+                </>
+              )}
+              <label htmlFor={`note-${pointId}`}>{wait ? "Note (optional)" : "What was done? (optional)"}</label>
+              <textarea
+                id={`note-${pointId}`}
+                className="inp"
+                rows={2}
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder={wait ? "Anything the team should know" : "e.g. Permit sent to the broker, copy attached"}
+                maxLength={2000}
+              />
+              <AttachPicker att={att} />
               <div className="form-f">
-                <button type="button" className="btn btn-sm btn-ghost" onClick={() => setAsking(false)}>
+                <button type="button" className="btn btn-sm btn-ghost" onClick={() => setAsking(null)}>
                   Back
                 </button>
-                <button type="submit" className="btn btn-sm btn-primary" disabled={!reason.trim()}>
-                  Set to Waiting
+                <button type="submit" className="btn btn-sm btn-primary" disabled={(wait && !reason.trim()) || att.busy}>
+                  {att.busy ? "Uploading…" : wait ? "Set to Waiting" : "Mark done"}
                 </button>
               </div>
             </form>
@@ -232,7 +270,15 @@ export function StatusControl({
                   >
                     <Glyph s={s} />
                     <span>{STATUS_LABEL[s]}</span>
-                    {dis ? <span className="hint">{leadName} approves</span> : shown === s ? <Icon name="check" size={15} /> : null}
+                    {dis ? (
+                      <span className="hint">{leadName} approves</span>
+                    ) : s === "done" || s === "wait" ? (
+                      <span className="hint">
+                        <Icon name="clip" size={13} />
+                      </span>
+                    ) : shown === s ? (
+                      <Icon name="check" size={15} />
+                    ) : null}
                   </button>
                 );
               })}

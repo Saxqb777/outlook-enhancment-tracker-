@@ -2,6 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { PoolClient } from "pg";
+import type { Uploaded } from "@/lib/attach-rules";
+import { verifyUploads, type Verified } from "@/lib/attachments";
 import { requireUser, type User } from "@/lib/auth";
 import { one, q, tx } from "@/lib/db";
 import { MAX_EMAIL_CHARS, parseAddress, splitEmail } from "@/lib/email";
@@ -424,7 +427,19 @@ async function pointFor(me: User, pointId: string): Promise<PointCtx | null> {
   );
 }
 
-export async function setPointStatus(pointId: string, status: string, reason?: string): Promise<ActionResult> {
+export type StatusExtra = { note?: string; files?: Uploaded[] };
+
+async function saveAttachments(c: PoolClient, me: User, p: { id: string; case_id: string }, eventId: string, files: Verified[]) {
+  for (const f of files) {
+    await c.query(
+      `insert into attachments (case_id, point_id, event_id, uploaded_by, name, mime, size, storage, url, pathname)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [p.case_id, p.id, eventId, me.id, f.name, f.mime, f.size, f.storage, f.url, f.pathname],
+    );
+  }
+}
+
+export async function setPointStatus(pointId: string, status: string, reason?: string, extra?: StatusExtra): Promise<ActionResult> {
   const me = await requireUser();
   if (me.role === "admin") return VIEW_ONLY;
   if (!isStatus(status)) return { ok: false, error: "That status doesn't exist." };
@@ -434,10 +449,22 @@ export async function setPointStatus(pointId: string, status: string, reason?: s
   if (blocked) return { ok: false, error: blocked };
   const why = status === "wait" ? String(reason ?? "").trim().slice(0, 200) : "";
   if (status === "wait" && !why) return { ok: false, error: "Say what it's waiting on." };
-  if (p.status === status && status !== "wait") return { ok: true };
+  const note = String(extra?.note ?? "").trim().slice(0, 2000);
+  const files = extra?.files?.length ? await verifyUploads(p.id, extra.files) : [];
+  if (!Array.isArray(files)) return { ok: false, error: files.error };
+  if (p.status === status && status !== "wait" && !note && !files.length) return { ok: true };
   await tx(async (c) => {
-    await c.query("update points set status = $1, wait_reason = $2, updated_at = now() where id = $3", [status, why || null, p.id]);
-    await c.query("insert into point_events (point_id, user_id, kind, status, text) values ($1, $2, 'status', $3, $4)", [p.id, me.id, status, why || null]);
+    if (p.status !== status || status === "wait") {
+      await c.query("update points set status = $1, wait_reason = $2, updated_at = now() where id = $3", [status, why || null, p.id]);
+    }
+    const ev = await c.query<{ id: string }>(
+      "insert into point_events (point_id, user_id, kind, status, text) values ($1, $2, 'status', $3, $4) returning id::text as id",
+      [p.id, me.id, status, why || null],
+    );
+    await saveAttachments(c, me, p, ev.rows[0].id, files);
+    if (note) {
+      await c.query("insert into point_events (point_id, user_id, kind, text) values ($1, $2, $3, $4)", [p.id, me.id, me.role === "lead" ? "remark" : "update", note]);
+    }
     await c.query("update cases set updated_at = now() where id = $1", [p.case_id]);
   });
   touch(p.case_id);
@@ -487,14 +514,23 @@ export async function setCaseDeadline(caseId: string, due: string | null): Promi
   return { ok: true };
 }
 
-export async function postNote(pointId: string, text: string): Promise<ActionResult> {
+export async function postNote(pointId: string, text: string, files?: Uploaded[]): Promise<ActionResult> {
   const me = await requireUser();
   if (me.role === "admin") return VIEW_ONLY;
   const body = String(text ?? "").trim().slice(0, 2000);
-  if (!body) return { ok: false, error: me.role === "lead" ? "Write the remark first." : "Write the update first." };
   const p = await pointFor(me, pointId);
   if (!p) return { ok: false, error: "That point isn't available." };
-  await q("insert into point_events (point_id, user_id, kind, text) values ($1, $2, $3, $4)", [p.id, me.id, me.role === "lead" ? "remark" : "update", body]);
+  const checked = files?.length ? await verifyUploads(p.id, files) : [];
+  if (!Array.isArray(checked)) return { ok: false, error: checked.error };
+  if (!body && !checked.length) return { ok: false, error: me.role === "lead" ? "Write the remark first." : "Write the update first." };
+  await tx(async (c) => {
+    const ev = await c.query<{ id: string }>(
+      "insert into point_events (point_id, user_id, kind, text) values ($1, $2, $3, $4) returning id::text as id",
+      [p.id, me.id, me.role === "lead" ? "remark" : "update", body || null],
+    );
+    await saveAttachments(c, me, p, ev.rows[0].id, checked);
+    await c.query("update cases set updated_at = now() where id = $1", [p.case_id]);
+  });
   touch(p.case_id);
   return { ok: true };
 }

@@ -113,6 +113,7 @@ A tracker that turns emails into work you can follow.
 | Code | GitHub `Saxqb777/outlook-enhancment-tracker-`, branch `claude/nice-babbage-j31aej` (also the repo's default branch) | Every push to this branch deploys to production |
 | Hosting | Vercel project `agthia-enhancements` (team "saxqb777's projects") | Functions in `fra1` (Frankfurt), Node 22. Vercel login wall only on preview links |
 | Database | Neon project `agthia-enhancements` (`delicate-flower-67324386`), region AWS Frankfurt, Postgres 17, database `agthia` | Free plan. Schema in `db/migrations/` |
+| Attachments | Vercel Blob store `agthia-attachments` (`store_KHKAbOECu9DjS5bD`), **private**, region Dubai (dxb1). Env `BLOB_READ_WRITE_TOKEN` added by Vercel | Browser uploads straight to storage with a 10-minute permission from `/api/attachments` (checks the person can edit that point). Files are only served through `/attachments/<id>` to people who can see the case. Without the token (local testing) files go to the `attachment_local` table instead. `POST /api/attachments/selftest` with header `x-setup-code` checks storage end to end |
 | Original email files | Neon table `email_files` (up to 2.5 MB each), served only to people who can see the case at `/files/<email id>` | Neon free plan has about 0.5 GB, roughly a few hundred PDFs. Move to Vercel Blob or a paid Neon plan if it fills up |
 | Secrets | Vercel environment variables `DATABASE_URL`, `SETUP_CODE`, `ANTHROPIC_API_KEY` (all sensitive) | Never commit these. `.env.example` lists the names. The Claude key was given by the owner on 2026-11-06 |
 | Sandbox mode | Vercel environment variable `SANDBOX_MODE=1` (currently **on**) | Home page shows the no-login demo (`public/sandbox.html`, sample data, Lead / Member switch) to anyone not signed in. `/login` and `/setup` still work. To turn off: delete the variable in Vercel and redeploy. Rebuild the demo from `design/preview.html` with `npm run sandbox:build` |
@@ -172,6 +173,12 @@ Each step stops for the owner's review.
   - File `Agthia-cases-<day>-<Mon>-<year>.xlsx` with tabs: **Summary** (who exported and when, totals, table per person), **Cases** (one row per case), **Points** (one row per point, status colours, days late, which email it came from), **Change log** (every change in order; Excel doesn't allow a tab called "History"), **Emails** (if ticked)
   - Header rows frozen with filters, real Excel dates in UAE time, Case IDs link back to the app, no merged cells
   - Members can only export their own cases (checked on the server too); Lead and Admin can export any
+- [~] **Attachments on points** (2026-11-09). **Live, waiting for the owner's review.**
+  - Choosing **Done** or **Waiting** opens a small step: note (optional), reason (Waiting), **Attach files**. Other statuses still change in one click; dragging on the Board still works without files
+  - The update / remark box has **Attach** too (a file on its own is fine)
+  - Up to 5 files at a time, 10 MB each: PDF, photos, Excel, Word, Outlook .msg / .eml, text. Programs and other risky files are refused
+  - Files show in the point's history (photo previews, file chips), a 📎 count on the point, and in the Lead's review bar ("marked this done with 2 files") right above Approve
+  - Excel export: Points tab has a Files count, Change log lists file names
 - [ ] **Step 5** — Dashboards and analytics
 - [ ] **Step 6** — Alerts (in-app + email)
 - [ ] **Step 7** — Launch polish (custom domain if wanted, final checks). The app is already live on Vercel from Step 2.
@@ -221,6 +228,7 @@ Each step stops for the owner's review.
 | 2026-11-07 | Owner approved replies + Admin, and added: keep the real email (file) viewable, make it bigger (Expand), and label every reply so the log is clear. Built, tested (49 + 11 checks), deployed |
 | 2026-11-07 | Admin is view only by owner's choice: no acting as people, just seeing their view. Admin account hidden from the Lead's Team page |
 | 2026-11-07 | Owner asked for a case-wise Excel export (pick cases or select all). Built with exceljs, tested (25 checks, including opening the file), deployed |
+| 2026-11-09 | Owner asked for attachments when moving a status. Built with private Vercel Blob storage (Dubai), tested (24 checks), deployed. Invites stay with Irfan (owner didn't pick another option) |
 
 ---
 

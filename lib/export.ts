@@ -30,6 +30,7 @@ type PointRow = {
   last_note: string | null;
   last_at: Date | null;
   approved_at: Date | null;
+  files: number;
 };
 type EventRow = {
   created_at: Date;
@@ -41,6 +42,7 @@ type EventRow = {
   due: string | null;
   name: string | null;
   email_pos: number | null;
+  files: string | null;
 };
 type EmailRow = {
   case_id: string;
@@ -158,7 +160,8 @@ export async function buildWorkbook(me: User, requested: string[], opts: ExportO
       `select p.id::text as id, p.case_id::text as case_id, p.text, p.status, p.wait_reason, p.due::text as due, e.position as email_pos,
               (select x.text from point_events x where x.point_id = p.id and x.kind in ('update', 'remark', 'reply') order by x.created_at desc limit 1) as last_note,
               (select max(x.created_at) from point_events x where x.point_id = p.id) as last_at,
-              (select max(x.created_at) from point_events x where x.point_id = p.id and x.kind = 'status' and x.status = 'approved') as approved_at
+              (select max(x.created_at) from point_events x where x.point_id = p.id and x.kind = 'status' and x.status = 'approved') as approved_at,
+              (select count(*)::int from attachments a where a.point_id = p.id) as files
          from points p left join case_emails e on e.id = p.email_id
         where p.case_id = any($1::bigint[])
         order by p.case_id, p.position, p.id`,
@@ -167,7 +170,8 @@ export async function buildWorkbook(me: User, requested: string[], opts: ExportO
     opts.history
       ? q<EventRow>(
           `select x.created_at, p.case_id::text as case_id, p.id::text as point_id, x.kind, x.text, x.status, x.due::text as due,
-                  u.name, e.position as email_pos
+                  u.name, e.position as email_pos,
+                  (select string_agg(a.name, ', ' order by a.id) from attachments a where a.event_id = x.id) as files
              from point_events x join points p on p.id = x.point_id
              left join users u on u.id = x.user_id left join case_emails e on e.id = x.email_id
             where p.case_id = any($1::bigint[])
@@ -342,6 +346,7 @@ export async function buildWorkbook(me: User, requested: string[], opts: ExportO
     { header: "Latest update or remark", key: "note", width: 50, wrap: true },
     { header: "Last change", key: "last", width: 17, fmt: "d mmm yyyy hh:mm" },
     { header: "Approved on", key: "approved", width: 15, fmt: "d mmm yyyy" },
+    { header: "Files", key: "files", width: 8, align: "center" },
   ];
   const ps = sheet(wb, "Points", pointCols);
   for (const p of points) {
@@ -359,6 +364,7 @@ export async function buildWorkbook(me: User, requested: string[], opts: ExportO
       note: p.last_note ?? "",
       last: local(p.last_at),
       approved: p.approved_at && p.status === "approved" ? local(p.approved_at) : null,
+      files: p.files || null,
     });
     link(row.getCell("case"), caseRef(p.case_id), caseUrl(p.case_id));
     statusCell(row.getCell("status"), p.status);
@@ -380,6 +386,7 @@ export async function buildWorkbook(me: User, requested: string[], opts: ExportO
       { header: "Type", key: "type", width: 16 },
       { header: "Detail", key: "detail", width: 60, wrap: true },
       { header: "From email", key: "from", width: 12 },
+      { header: "Files attached", key: "files", width: 34, wrap: true },
     ];
     const hs = sheet(wb, "Change log", histCols);
     const TYPE: Record<EventRow["kind"], string> = {
@@ -398,6 +405,7 @@ export async function buildWorkbook(me: User, requested: string[], opts: ExportO
       if (e.kind === "due") detail = e.due ? `Deadline set to ${e.due.split("-").reverse().join("/")}` : "Deadline removed";
       if (e.kind === "reopen") detail = "Reopened by the Lead";
       if (e.kind === "created") detail = e.email_pos === null ? "Added by hand" : `From the ${emailName(e.email_pos).toLowerCase()} email`;
+      if ((e.kind === "update" || e.kind === "remark") && !e.text && e.files) detail = "Attached files";
       const row = hs.addRow({
         when: local(e.created_at),
         case: caseRef(e.case_id),
@@ -407,6 +415,7 @@ export async function buildWorkbook(me: User, requested: string[], opts: ExportO
         type: TYPE[e.kind],
         detail,
         from: e.email_pos && e.email_pos > 0 ? `Reply ${e.email_pos}` : "",
+        files: e.files ?? "",
       });
       link(row.getCell("case"), caseRef(e.case_id), caseUrl(e.case_id));
       if (e.kind === "remark") row.getCell("type").font = { name: FONT, size: 11, bold: true };

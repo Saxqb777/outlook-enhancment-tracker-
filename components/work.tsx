@@ -99,6 +99,7 @@ export function Pop({ anchor, onClose, children, label }: { anchor: HTMLElement 
     const down = (e: PointerEvent) => {
       const t = e.target as Node;
       if (ref.current?.contains(t) || anchor?.contains(t)) return;
+      if (t instanceof Element && t.closest(".pop") && t.closest(".pop") !== ref.current) return;
       closeRef.current();
     };
     const key = (e: KeyboardEvent) => {

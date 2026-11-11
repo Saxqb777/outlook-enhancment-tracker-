@@ -104,15 +104,42 @@ export function decodeEml(src: string): string {
   return `${head}\n\n${partText(h, body).trim()}`.trim();
 }
 
-/** Outlook .msg files are binary; this pulls out the longest readable text run, which is almost always the body. */
-export function readMsg(buf: ArrayBuffer): string {
+/** Rough fallback for .msg files the proper reader can't open: the longest readable text run. */
+function roughMsg(buf: ArrayBuffer): string {
   const u16 = new TextDecoder("utf-16le").decode(buf);
-  let runs = (u16.match(/[\x20-\x7E -ɏ‘-”–—\r\n\t]{30,}/g) || []).map((s) => s.trim()).filter(Boolean);
+  let runs = (u16.match(/[\x20-\x7E\u00A0-\u024F\u2018-\u201D\u2013\u2014\r\n\t]{30,}/g) || []).map((s) => s.trim()).filter(Boolean);
   runs.sort((a, b) => b.length - a.length);
   if (runs.length) return runs[0];
   const a8 = new TextDecoder("windows-1252").decode(buf);
   runs = (a8.match(/[\x20-\x7E\r\n\t]{40,}/g) || []).sort((a, b) => b.length - a.length);
   return (runs[0] || "").trim();
+}
+
+/** Outlook .msg: sender, recipients, subject, date and body, read from the file's own fields. */
+export async function readMsg(buf: ArrayBuffer): Promise<string> {
+  try {
+    const { default: MsgReader } = await import("@kenjiuno/msgreader");
+    const d = new MsgReader(buf).getFileData();
+    const body = (d.body ?? "").replace(/\r\n?/g, "\n").trim();
+    if (!body) return roughMsg(buf);
+    const from = [d.senderName, d.senderSmtpAddress || (d.senderEmail?.includes("@") ? d.senderEmail : "")].filter(Boolean);
+    const to = (d.recipients ?? [])
+      .map((r) => [r.name, r.smtpAddress || (r.email?.includes("@") ? r.email : "")].filter(Boolean))
+      .map((r) => (r.length === 2 ? `${r[0]} <${r[1]}>` : r[0]))
+      .filter(Boolean)
+      .slice(0, 12)
+      .join("; ");
+    const when = d.clientSubmitTime || d.messageDeliveryTime;
+    const head = [
+      from.length ? `From: ${from.length === 2 ? `${from[0]} <${from[1]}>` : from[0]}` : "",
+      when ? `Sent: ${new Date(when).toLocaleString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}` : "",
+      to ? `To: ${to}` : "",
+      d.subject ? `Subject: ${d.subject}` : "",
+    ].filter(Boolean);
+    return `${head.join("\n")}\n\n${body}`.trim();
+  } catch {
+    return roughMsg(buf);
+  }
 }
 
 /** Pulls the text out of a PDF (e.g. an email or thread printed to PDF). Scanned pages have no text and come back empty. */
@@ -180,8 +207,8 @@ export async function readEmailFile(file: File): Promise<{ text: string; note: s
     }
     if (file.size > 5_000_000) return { error: "That file is over 5 MB. Paste the email text instead." };
     if (ext === "msg") {
-      const text = readMsg(await file.arrayBuffer());
-      return text ? { text, note: "Outlook file. Check the text below looks right." } : { error: "That file has no readable text. Paste the email instead." };
+      const text = await readMsg(await file.arrayBuffer());
+      return text ? { text, note: "Outlook email. Sender, date and subject were read from the file." } : { error: "That file has no readable text. Paste the email instead." };
     }
     const raw = await file.text();
     if (looksBinary(raw)) return { error: `That file isn't an email this page can read. ${SUPPORTED}` };

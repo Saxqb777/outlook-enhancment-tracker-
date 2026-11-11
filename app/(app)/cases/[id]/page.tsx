@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import CaseView from "@/components/CaseView";
 import { getViewer } from "@/lib/auth";
+import { one } from "@/lib/db";
 import { caseRef } from "@/lib/status";
 import { todayISO } from "@/lib/time";
 import { assignees, getCase, leadName } from "@/lib/work";
@@ -49,6 +50,14 @@ export default async function CasePage({ params, searchParams }: Props) {
   };
   const start = email && /^\d{1,4}$/.test(email) ? Number(email) : null;
   const canManage = me.role === "lead" || c.owner_id === me.id;
+  const unread =
+    (
+      await one<{ n: number }>(
+        `select count(*)::int as n from case_messages m where m.case_id = $1 and m.user_id is distinct from $2
+            and m.created_at > coalesce((select r.last_read_at from case_reads r where r.case_id = $1 and r.user_id = $2), 'epoch')`,
+        [c.id, me.id],
+      )
+    )?.n ?? 0;
   return (
     <CaseView
       c={data}
@@ -56,6 +65,7 @@ export default async function CasePage({ params, searchParams }: Props) {
       leadName={lead}
       today={todayISO()}
       startEmail={start}
+      unread={unread}
       people={people}
       canManage={canManage}
     />

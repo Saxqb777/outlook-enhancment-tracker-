@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.1.0",
+    "@kenjiuno/msgreader": "1.29.0",
     "@vercel/blob": "2.8.2",
     "exceljs": "4.4.0",
     "next": "16.4.2",

@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createCase, matchCases, readEmail, type CaseMatch } from "@/app/actions/work";
-import { EmailInputPanel, handOff, Highlighted, MailReader, useEmailSource, useFileUrl } from "@/components/EmailInput";
+import { EmailInputPanel, handOff, Highlighted, MailReader, takeHandoff, useEmailSource, useFileUrl } from "@/components/EmailInput";
 import { Avatar, Icon } from "@/components/Icon";
 import { Prio } from "@/components/ui";
 import type { Role } from "@/lib/auth";
@@ -73,6 +73,18 @@ export default function AddEmail({ role, meId, people, today }: { role: Role; me
   const [saving, startSave] = useTransition();
   const [errKind, setErrKind] = useState<"file" | "read">("read");
   const reading = useRef(0);
+
+  // An email dropped on another page arrives here already opened.
+  useEffect(() => {
+    const h = takeHandoff();
+    if (!h) return;
+    src.setRaw(h.raw);
+    if (h.file) {
+      src.setFile(h.file);
+      src.setTab("upload");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const mail = useMemo(() => splitEmail(raw), [raw]);
   const words = src.words;

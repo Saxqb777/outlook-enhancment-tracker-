@@ -73,7 +73,7 @@ export default function TopBar({ me, navRole, viewOnly, badges }: { me: Me; navR
         <span className="tab-thumb" ref={thumbRef} aria-hidden="true" />
         <span className="tab-links">
           {items.map((it) => (
-            <Link key={it.href} href={it.href} aria-current={isActive(pathname, it.href) ? "page" : undefined}>
+            <Link key={it.href} href={it.href} aria-current={isActive(pathname, it.href) ? "page" : undefined} data-tour={it.href === "/" ? "home" : it.href.slice(1)}>
               {it.label}
               {it.href === "/" && badges.review > 0 && <span className="nav-badge" title={`${badges.review} waiting for approval`}>{badges.review}</span>}
               {it.href === "/cases" && badges.unread > 0 && <span className="nav-badge blue" title={`${badges.unread} new chat messages`}>{badges.unread}</span>}
@@ -82,12 +82,12 @@ export default function TopBar({ me, navRole, viewOnly, badges }: { me: Me; navR
         </span>
       </nav>
       <div className="top-r">
-        <form className="top-find" action="/cases" role="search">
+        <form className="top-find" action="/cases" role="search" data-tour="search">
           <Icon name="search" size={15} />
           <input name="q" type="search" placeholder="Search cases, BL, container…" aria-label="Search cases" autoComplete="off" />
         </form>
         {!viewOnly && (
-          <Link className="btn btn-primary btn-sm add-top" href="/add" aria-current={pathname === "/add" ? "page" : undefined}>
+          <Link className="btn btn-primary btn-sm add-top" data-tour="add" href="/add" aria-current={pathname === "/add" ? "page" : undefined}>
             <Icon name="plus" size={15} />
             Add email
           </Link>

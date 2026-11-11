@@ -116,7 +116,7 @@ A tracker that turns emails into work you can follow.
 | Attachments | Vercel Blob store `agthia-attachments` (`store_KHKAbOECu9DjS5bD`), **private**, region Dubai (dxb1). Env `BLOB_READ_WRITE_TOKEN` added by Vercel | Browser uploads straight to storage with a 10-minute permission from `/api/attachments` (checks the person can edit that point). Files are only served through `/attachments/<id>` to people who can see the case. Without the token (local testing) files go to the `attachment_local` table instead. `POST /api/attachments/selftest` with header `x-setup-code` checks storage end to end |
 | Original email files | Neon table `email_files` (up to 2.5 MB each), served only to people who can see the case at `/files/<email id>` | Neon free plan has about 0.5 GB, roughly a few hundred PDFs. Move to Vercel Blob or a paid Neon plan if it fills up |
 | Secrets | Vercel environment variables `DATABASE_URL`, `SETUP_CODE`, `ANTHROPIC_API_KEY` (all sensitive) | Never commit these. `.env.example` lists the names. The Claude key was given by the owner on 2026-11-06 |
-| Sandbox mode | Vercel environment variable `SANDBOX_MODE=1` (currently **on**) | Home page shows the no-login demo (`public/sandbox.html`, sample data, Lead / Member switch) to anyone not signed in. `/login` and `/setup` still work. To turn off: delete the variable in Vercel and redeploy. Rebuild the demo from `design/preview.html` with `npm run sandbox:build` |
+| Demo | Always at `/demo` (the `SANDBOX_MODE` variable is no longer used) | Was: home page shows the no-login demo (`public/sandbox.html`, sample data, Lead / Member switch) to anyone not signed in. `/login` and `/setup` still work. To turn off: delete the variable in Vercel and redeploy. Rebuild the demo from `design/preview.html` with `npm run sandbox:build` |
 
 **Running it locally**
 - `npm install`
@@ -178,6 +178,18 @@ Each step stops for the owner's review.
   - Admin can make invite links on the Team page, choosing **Member** or **Lead**, and cancel unused links. Only the Admin can invite a Lead; the Lead invites Members. Everything else stays view only for the Admin
   - **Shared cases**: a case has an owner plus people working on it (`case_members`). Any Lead, or the case owner, can add or remove people from the case page ("Add people" / "Edit"). When adding an email, anyone can pick teammates under "Working with". Everyone on a case sees it and can update its points, attach files and add replies. Lists show a "Shared" tag; Member home shows "With …"; Excel has a "Shared with" column
   - **What's new** pop-up (bottom right, above the bottom bar on phones) explaining attachments and shared cases, with role-specific lines. Shown once per account (`users.seen_news`, version in `lib/news.ts`); bump `NEWS_VERSION` for the next announcement
+- [~] **Big update: dashboard, chat with AI, hand-over, phone, tour** (2026-11-11). **Live, waiting for the owner's review.**
+  - **Lead dashboard** (`/dashboard`, Leads and Admin): 6 key numbers, waiting-for-approval and past-due lists (approve from there), workload by person, weekly added vs done, blocked points, per-person table, quietest cases, companies. A point counts for its assignee, else the case owner
+  - **Case chat** (Chat tab on each case): messages between the people on the case (+ Leads, Admin read-only), mixed with a live feed of status changes, updates, replies and hand-overs. Polls every 4 s. "Change a status" from the chat. Unread badge on Cases and a blue dot per case (`case_reads`)
+  - **Ask AI** in the chat: answers from that case only (emails, points, history, chat), visible to everyone on the case, marked AI. It can offer buttons (mark a point done, move a deadline, add a point); a person must press them. Never approves. Logged in `ai_reads` kind `chat`; 40 AI calls per person per hour
+  - **Hand over / assign**: People button on a case changes the owner (note, keep old owner), adds teammates; each point on a shared case can be given to a person; Cases → Select → hand several cases to one person (Leads)
+  - **Edit details** of a case (title, summary, company, priority): Lead or owner
+  - **Forgot password**: Lead (for Members) or Admin (for anyone) makes a 24-hour reset link on the Team page
+  - **Drop an email anywhere**: on a case → reply; elsewhere → new case. Outlook .msg read with `@kenjiuno/msgreader` (sender, recipients, date, subject, body), old rough reader as fallback
+  - **Phones**: solid panels, bigger text and buttons, menus slide up from the bottom, summary collapses, 5-item bottom bar (Team and Admin moved to the user menu)
+  - **Update tour + ? help**: spotlight tour per role, once per account per `NEWS_VERSION` (`lib/news.ts`, now 2), replay from the ? button; ? on every page shows a short guide for that page (`helpFor`)
+  - Also: search box in the top bar (IDs, senders, BL / container numbers), approval badge on Home for Leads, loading skeleton, board drag to Done / Waiting opens the note + files step, demo moved to `/demo` (signed-out visitors get sign-in)
+  - **Not done yet (said to the owner):** @mentions, keeping the files attached *inside* an email, dropping several emails at once, moving old email originals from the database to file storage, a saved automated test suite, email reminders
 - [~] **Attachments on points** (2026-11-09). **Live, waiting for the owner's review.**
   - Choosing **Done** or **Waiting** opens a small step: note (optional), reason (Waiting), **Attach files**. Other statuses still change in one click; dragging on the Board still works without files
   - The update / remark box has **Attach** too (a file on its own is fine)
@@ -235,6 +247,8 @@ Each step stops for the owner's review.
 | 2026-11-07 | Owner asked for a case-wise Excel export (pick cases or select all). Built with exceljs, tested (25 checks, including opening the file), deployed |
 | 2026-11-09 | Owner asked for attachments when moving a status. Built with private Vercel Blob storage (Dubai), tested (24 checks), deployed. Invites stay with Irfan (owner didn't pick another option) |
 | 2026-11-09 | Owner approved several Leads (all Leads see all cases), Admin invite links for Member or Lead, shared (group) cases, and a What's new pop-up. Owner said build without asking for another go. Built, tested (27 checks), deployed |
+| 2026-11-11 | Session moved to a newer model. Review found: approvals not happening (16 Done, 0 approved), remarks/replies barely used, no forgot-password, rough .msg reading, hard-to-read phone screens. Owner approved the full plan plus a strong Lead dashboard and a ? help on every page, and said to build without waiting. Shipped in two releases, tested (27 + 26 checks) |
+| 2026-11-11 | AI answers in chat are shared with everyone on the case (owner didn't ask for private). Chat AI uses the same model as email reading |
 
 ---
 

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { setCaseOwner, setPointAssignee, updateCase } from "@/app/actions/manage";
 import { addPoint, postNote, reopenPoint, setCaseMembers, setPointStatus } from "@/app/actions/work";
 import { AttachPicker, FileList, useAttach, type FileView } from "@/components/Attach";
+import ChatPanel from "@/components/ChatPanel";
 import { Highlighted, MailReader, type ReaderEmail } from "@/components/EmailInput";
 import { Avatar, Icon } from "@/components/Icon";
 import { Glyph, plural, Prio, SegBar, firstName } from "@/components/ui";
@@ -83,6 +84,7 @@ export default function CaseView({
   leadName,
   today,
   startEmail,
+  unread,
   people,
   canManage,
 }: {
@@ -91,12 +93,14 @@ export default function CaseView({
   leadName: string;
   today: string;
   startEmail: number | null;
+  unread: number;
   people: Person[];
   canManage: boolean;
 }) {
   const lead = role === "lead";
   const viewOnly = useViewOnly();
-  const [tab, setTab] = useState<"points" | "email">("points");
+  const [tab, setTab] = useState<"points" | "email" | "chat">("points");
+  const [side, setSide] = useState<"points" | "chat">("points");
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [lit, setLit] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
@@ -286,8 +290,13 @@ export default function CaseView({
           <Icon name="mail" size={15} />
           {emails.length > 1 ? `Emails ${emails.length}` : "Email"}
         </button>
-        <button type="button" aria-pressed={tab === "points"} onClick={() => setTab("points")}>
+        <button type="button" aria-pressed={tab === "points"} onClick={() => (setTab("points"), setSide("points"))}>
           Points<span className="n">{total}</span>
+        </button>
+        <button type="button" aria-pressed={tab === "chat"} onClick={() => (setTab("chat"), setSide("chat"))} data-tour="chat">
+          <Icon name="chat" size={15} />
+          Chat
+          {unread > 0 && <span className="nav-badge blue">{unread}</span>}
         </button>
       </div>
 
@@ -372,7 +381,20 @@ export default function CaseView({
           {reader !== null && <MailReader emails={readerEmails} start={reader.i} startView={reader.view} onClose={() => setReader(null)} />}
         </section>
 
-        <section className="case-pts" aria-label="Points">
+        <section className={`case-pts side-${side}`} aria-label="Points and chat">
+          <div className="seg side-tabs" role="group" aria-label="Show">
+            <button type="button" aria-pressed={side === "points"} onClick={() => (setSide("points"), setTab("points"))}>
+              Points<span className="n">{total}</span>
+            </button>
+            <button type="button" aria-pressed={side === "chat"} onClick={() => (setSide("chat"), setTab("chat"))} data-tour="chat">
+              <Icon name="chat" size={15} />
+              Chat
+              {unread > 0 && <span className="nav-badge blue">{unread}</span>}
+            </button>
+          </div>
+          <div className="chat-slot">
+            <ChatPanel caseId={c.id} points={c.points.map((p) => ({ id: p.id, text: p.text, status: p.status }))} role={role} leadName={lf} today={today} active={side === "chat"} />
+          </div>
           <div className="pts-h">
             <h2>
               Points <span className="count">{total}</span>

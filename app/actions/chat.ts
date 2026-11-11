@@ -1,0 +1,110 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { requireUser } from "@/lib/auth";
+import { canSeeCase, markRead } from "@/lib/chat";
+import { one, q } from "@/lib/db";
+import { askCase } from "@/lib/extract";
+import { STATUS_LABEL, type Status } from "@/lib/status";
+import { todayISO } from "@/lib/time";
+
+type Result = { ok: true } | { ok: false; error: string };
+const VIEW_ONLY = { ok: false as const, error: "Admin is view only, so nothing can be posted from this account." };
+
+export async function postMessage(caseId: string, text: string, pointId?: string | null): Promise<Result> {
+  const me = await requireUser();
+  if (me.role === "admin") return VIEW_ONLY;
+  const body = String(text ?? "").trim().slice(0, 4000);
+  if (!body) return { ok: false, error: "Write a message first." };
+  if (!(await canSeeCase(me, String(caseId)))) return { ok: false, error: "That case isn't available." };
+  const pid = pointId && /^\d{1,12}$/.test(pointId) ? ((await one<{ id: string }>("select id::text as id from points where id = $1 and case_id = $2", [pointId, caseId]))?.id ?? null) : null;
+  await q("insert into case_messages (case_id, user_id, kind, body, point_id) values ($1, $2, 'text', $3, $4)", [caseId, me.id, body, pid]);
+  await markRead(me.id, String(caseId));
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** Posts the question, then the AI's answer. Everyone on the case sees both. */
+export async function askAI(caseId: string, question: string): Promise<Result> {
+  const me = await requireUser();
+  if (me.role === "admin") return VIEW_ONLY;
+  const ask = String(question ?? "").trim().slice(0, 2000);
+  if (!ask) return { ok: false, error: "Type your question first." };
+  const id = String(caseId);
+  if (!(await canSeeCase(me, id))) return { ok: false, error: "That case isn't available." };
+  const used = await one<{ n: number }>("select count(*)::int as n from ai_reads where user_id = $1 and created_at > now() - interval '1 hour'", [me.id]);
+  if ((used?.n ?? 0) >= 40) return { ok: false, error: "That's a lot of AI questions in one hour. Wait a little, then try again." };
+
+  const [c, emails, points, history, chat] = await Promise.all([
+    one<{ subject: string; summary: string; company: string; owner: string; deadline: string | null }>(
+      "select c.subject, c.summary, c.company, u.name as owner, c.deadline::text as deadline from cases c join users u on u.id = c.owner_id where c.id = $1",
+      [id],
+    ),
+    q<{ position: number; from_name: string; email_sent: string; body: string }>("select position, from_name, email_sent, body from case_emails where case_id = $1 order by position", [id]),
+    q<{ text: string; status: Status; due: string | null; wait_reason: string | null; who: string | null }>(
+      "select p.text, p.status, p.due::text as due, p.wait_reason, a.name as who from points p left join users a on a.id = p.assignee_id where p.case_id = $1 order by p.position, p.id",
+      [id],
+    ),
+    q<{ line: string }>(
+      `select to_char(e.created_at at time zone 'Asia/Dubai', 'DD Mon HH24:MI') || ' ' || coalesce(u.name, 'Someone') || ' [' || e.kind || coalesce(' ' || e.status, '') || '] ' || coalesce(e.text, '') as line
+         from point_events e join points p on p.id = e.point_id left join users u on u.id = e.user_id
+        where p.case_id = $1 and e.kind <> 'created' order by e.id desc limit 40`,
+      [id],
+    ),
+    q<{ line: string }>(
+      `select coalesce(u.name, case when m.kind = 'ai' then 'AI' else 'System' end) || ': ' || left(m.body, 600) as line
+         from case_messages m left join users u on u.id = m.user_id where m.case_id = $1 order by m.id desc limit 20`,
+      [id],
+    ),
+  ]);
+  if (!c) return { ok: false, error: "That case isn't available." };
+  const budget = Math.floor(240_000 / Math.max(1, emails.length));
+  const context = `<case>
+Title: ${c.subject}
+Company: ${c.company}
+Owner: ${c.owner}
+Case deadline: ${c.deadline ?? "none"}
+Summary: ${c.summary}
+Points:
+${points.map((p, i) => `${i + 1}. [${STATUS_LABEL[p.status]}${p.due ? `, due ${p.due}` : ""}${p.who ? `, ${p.who}` : ""}] ${p.text}${p.wait_reason && p.status === "wait" ? ` (waiting on: ${p.wait_reason})` : ""}`).join("\n") || "(none)"}
+</case>
+
+<emails>
+${emails.map((e) => `--- ${e.position === 0 ? "Original" : `Reply ${e.position}`} from ${e.from_name}, sent ${e.email_sent}\n${e.body.slice(0, budget)}`).join("\n\n")}
+</emails>
+
+<history newest_first="true">
+${history.map((h) => h.line).join("\n")}
+</history>
+
+<chat newest_first="true">
+${chat.map((h) => h.line).join("\n")}
+</chat>
+
+Asked by: ${me.name} (${me.role === "lead" ? "Lead" : "Member"})`;
+
+  await q("insert into case_messages (case_id, user_id, kind, body) values ($1, $2, 'text', $3)", [id, me.id, ask]);
+  const started = Date.now();
+  let r: Awaited<ReturnType<typeof askCase>>;
+  try {
+    r = await askCase(context, ask, points.length, todayISO());
+  } catch (err) {
+    console.error("askAI", err);
+    r = { ok: false, error: "The AI couldn't answer right now. Try again in a moment." };
+  }
+  await q("insert into ai_reads (user_id, kind, ok, ms, chars, points, error) values ($1, 'chat', $2, $3, $4, $5, $6)", [
+    me.id,
+    r.ok,
+    Date.now() - started,
+    context.length,
+    r.ok ? r.actions.length : null,
+    r.ok ? null : r.error.slice(0, 300),
+  ]).catch(() => {});
+  if (!r.ok) {
+    await q("insert into case_messages (case_id, kind, body) values ($1, 'system', $2)", [id, `The AI couldn't answer: ${r.error}`]);
+    return { ok: true };
+  }
+  await q("insert into case_messages (case_id, kind, body, actions) values ($1, 'ai', $2, $3::jsonb)", [id, r.answer, JSON.stringify(r.actions)]);
+  await markRead(me.id, id);
+  return { ok: true };
+}

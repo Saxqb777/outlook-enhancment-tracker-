@@ -18,7 +18,7 @@ export default function BottomNav({ role, viewOnly, badges }: { role: Role; view
   return (
     <nav className="bnav" aria-label="Pages">
       {bottomItems(role, viewOnly).map((it) => (
-        <Link key={it.href} href={it.href} aria-current={isActive(pathname, it.href) ? "page" : undefined}>
+        <Link key={it.href} href={it.href} aria-current={isActive(pathname, it.href) ? "page" : undefined} data-tour={it.href === "/" ? "home" : it.href.slice(1)}>
           <span className="bnav-i">
             <Icon name={it.icon} />
             {it.href === "/" && badges.review > 0 && <span className="nav-badge">{badges.review}</span>}

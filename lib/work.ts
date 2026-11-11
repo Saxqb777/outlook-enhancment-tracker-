@@ -5,7 +5,7 @@ import type { Priority, Status } from "@/lib/status";
 // Members only ever see their own cases; the Lead sees everything.
 const scopeOwner = (me: User) => (me.role === "member" ? me.id : null);
 
-export type PointLite = { id: string; status: Status; due: string | null; text: string };
+export type PointLite = { id: string; status: Status; due: string | null; text: string; assignee_id: string | null };
 
 export type CaseListRow = {
   id: string;
@@ -20,13 +20,18 @@ export type CaseListRow = {
   created_at: Date;
   points: PointLite[];
   members: { id: string; name: string }[];
+  refs: string;
+  unread: number;
 };
 
 export async function listCases(me: User): Promise<CaseListRow[]> {
   return q<CaseListRow>(
     `select c.id::text as id, c.subject, c.company, c.from_name, c.priority, c.deadline::text as deadline,
             c.owner_id, u.name as owner_name, u.role = 'lead' as owner_lead, c.created_at,
-            coalesce(json_agg(json_build_object('id', p.id::text, 'status', p.status, 'due', p.due::text, 'text', p.text) order by p.position, p.id)
+            (select coalesce(string_agg(d->>'value', ' '), '') from jsonb_array_elements(c.details) d) as refs,
+            (select count(*)::int from case_messages m where m.case_id = c.id and m.user_id is distinct from $2
+               and m.created_at > coalesce((select r.last_read_at from case_reads r where r.case_id = c.id and r.user_id = $2), c.created_at)) as unread,
+            coalesce(json_agg(json_build_object('id', p.id::text, 'status', p.status, 'due', p.due::text, 'text', p.text, 'assignee_id', p.assignee_id) order by p.position, p.id)
                      filter (where p.id is not null), '[]') as points,
             (select coalesce(json_agg(json_build_object('id', mu.id, 'name', mu.name) order by lower(mu.name)), '[]')
                from case_members cm join users mu on mu.id = cm.user_id where cm.case_id = c.id) as members
@@ -35,7 +40,7 @@ export async function listCases(me: User): Promise<CaseListRow[]> {
       where ($1::uuid is null or c.owner_id = $1 or exists (select 1 from case_members cm where cm.case_id = c.id and cm.user_id = $1))
       group by c.id, u.name, u.role
       order by c.created_at desc`,
-    [scopeOwner(me)],
+    [scopeOwner(me), me.id],
   );
 }
 
@@ -64,6 +69,8 @@ export type PointFull = {
   status: Status;
   wait_reason: string | null;
   due: string | null;
+  assignee_id: string | null;
+  assignee_name: string | null;
   events: PointEvent[];
 };
 
@@ -131,8 +138,9 @@ export async function getCase(me: User, id: string): Promise<CaseFull | null> {
     [id],
   );
   const points = await q<Omit<PointFull, "events">>(
-    `select id::text as id, email_id::text as email_id, position, text, source_quote, status, wait_reason, due::text as due
-       from points where case_id = $1 order by position, id`,
+    `select p.id::text as id, p.email_id::text as email_id, p.position, p.text, p.source_quote, p.status, p.wait_reason, p.due::text as due,
+            p.assignee_id, a.name as assignee_name
+       from points p left join users a on a.id = p.assignee_id where p.case_id = $1 order by p.position, p.id`,
     [id],
   );
   const events = points.length
@@ -173,6 +181,9 @@ export type BoardPoint = {
   owner_id: string;
   owner_name: string;
   owner_lead: boolean;
+  assignee_id: string | null;
+  assignee_name: string | null;
+  shared: boolean;
   last_update: string | null;
   last_at: Date | null;
 };
@@ -181,9 +192,10 @@ export async function listPoints(me: User): Promise<BoardPoint[]> {
   return q<BoardPoint>(
     `select p.id::text as id, p.case_id::text as case_id, p.position, p.text, p.status, p.wait_reason, p.due::text as due,
             c.subject, c.priority, c.owner_id, u.name as owner_name, u.role = 'lead' as owner_lead,
+            p.assignee_id, a.name as assignee_name, exists (select 1 from case_members x where x.case_id = c.id) as shared,
             (select e.text from point_events e where e.point_id = p.id and e.kind = 'update' order by e.created_at desc limit 1) as last_update,
             (select max(e.created_at) from point_events e where e.point_id = p.id) as last_at
-       from points p join cases c on c.id = p.case_id join users u on u.id = c.owner_id
+       from points p join cases c on c.id = p.case_id join users u on u.id = c.owner_id left join users a on a.id = p.assignee_id
       where ($1::uuid is null or c.owner_id = $1 or exists (select 1 from case_members cm where cm.case_id = c.id and cm.user_id = $1))
       order by p.due nulls last, p.id`,
     [scopeOwner(me)],

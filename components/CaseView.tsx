@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { setCaseOwner, setPointAssignee, updateCase } from "@/app/actions/manage";
 import { addPoint, postNote, reopenPoint, setCaseMembers, setPointStatus } from "@/app/actions/work";
 import { AttachPicker, FileList, useAttach, type FileView } from "@/components/Attach";
 import { Highlighted, MailReader, type ReaderEmail } from "@/components/EmailInput";
@@ -10,7 +11,7 @@ import { Glyph, plural, Prio, SegBar, firstName } from "@/components/ui";
 import { DueControl, Pop, run, StatusControl, toast, useViewOnly } from "@/components/work";
 import type { Role } from "@/lib/auth";
 import { segmentBody, type Segment } from "@/lib/highlight";
-import { caseRef, STATUS_LABEL, type Priority, type Status } from "@/lib/status";
+import { caseRef, PRIORITIES, STATUS_LABEL, type Priority, type Status } from "@/lib/status";
 import { fmtDay, fmtShort, fmtWhen, todayISO } from "@/lib/time";
 
 export type EventView = {
@@ -33,6 +34,8 @@ export type PointView = {
   status: Status;
   wait_reason: string | null;
   due: string | null;
+  assignee_id: string | null;
+  assignee_name: string | null;
   events: EventView[];
 };
 export type EmailView = {
@@ -97,6 +100,12 @@ export default function CaseView({
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [lit, setLit] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [moreSum, setMoreSum] = useState(false);
+  const team: Person[] = [
+    { id: c.owner_id, name: c.owner_name, role: c.owner_lead ? "lead" : "member" },
+    ...c.members.map((m) => ({ id: m.id, name: m.name, role: m.role })),
+  ];
   const [reader, setReader] = useState<{ i: number; view: "text" | "file" } | null>(null);
   const emails = c.emails;
   const last = emails.length ? emails[emails.length - 1].position : 0;
@@ -200,6 +209,12 @@ export default function CaseView({
           <span className="cid big">{caseRef(c.id)}</span>
           {closed && <span className="stamp sm">Closed</span>}
           <span className="sp" />
+          {canManage && !viewOnly && !editing && (
+            <button type="button" className="btn btn-sm btn-ghost" onClick={() => setEditing(true)}>
+              <Icon name="edit" size={14} />
+              <span className="m-hide">Edit details</span>
+            </button>
+          )}
           {!viewOnly && (
             <Link className="btn btn-sm" href={`/cases/${c.id}/reply`}>
               <Icon name="reply" size={15} />
@@ -207,8 +222,18 @@ export default function CaseView({
             </Link>
           )}
         </div>
-        <h1 className="h1">{c.subject}</h1>
-        {c.summary && <p className="lede">{c.summary}</p>}
+        {editing ? (
+          <EditDetails c={c} onDone={() => setEditing(false)} />
+        ) : (
+          <>
+            <h1 className="h1">{c.subject}</h1>
+            {c.summary && (
+              <p className={`lede case-sum${moreSum ? " all" : ""}`} onClick={() => setMoreSum((v) => !v)}>
+                {c.summary}
+              </p>
+            )}
+          </>
+        )}
         <dl className="case-meta">
           <div>
             <dt>From</dt>
@@ -375,6 +400,7 @@ export default function CaseView({
                   ownerName={c.owner_name}
                   today={today}
                   viewOnly={viewOnly}
+                  team={team}
                 />
               );
             })}
@@ -409,6 +435,7 @@ function PointCard({
   ownerName,
   today,
   viewOnly,
+  team,
 }: {
   p: PointView;
   n: number | null;
@@ -425,6 +452,7 @@ function PointCard({
   ownerName: string;
   today: string;
   viewOnly: boolean;
+  team: Person[];
 }) {
   const ups = p.events.filter((e) => e.kind === "update").length;
   const fileCount = p.events.reduce((n, e) => n + e.files.length, 0);
@@ -464,6 +492,7 @@ function PointCard({
           <div className="pt-meta">
             <StatusControl pointId={p.id} status={p.status} role={role} leadName={leadName} />
             <DueControl due={p.due} status={p.status} today={today} pointId={p.id} />
+            {team.length > 1 && <AssignControl p={p} team={team} disabled={viewOnly} />}
             {fromReply && (
               <span className="from-reply" title={`This point came from Reply ${fromReply}`}>
                 <Icon name="reply" size={13} />
@@ -734,18 +763,24 @@ function AddPointForm({ caseId, onDone }: { caseId: string; onDone: () => void }
 function PeopleControl({ c, people, canManage, today }: { c: CaseViewData; people: Person[]; canManage: boolean; today: string }) {
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(new Set(c.members.map((m) => m.id)));
+  const [owner, setOwner] = useState(c.owner_id);
+  const [keep, setKeep] = useState(true);
+  const [note, setNote] = useState("");
   const [pending, start] = useTransition();
   const btn = useRef<HTMLButtonElement>(null);
-  const choices = people.filter((p) => p.id !== c.owner_id && p.role !== "admin");
+  const everyone = people.filter((p) => p.role !== "admin");
+  const choices = everyone.filter((p) => p.id !== owner);
   const names = [firstName(c.owner_name), ...c.members.map((m) => firstName(m.name))];
+  const moving = owner !== c.owner_id;
   const save = () =>
     start(async () => {
-      const ids = [...picked];
+      if (moving && !(await run(setCaseOwner(c.id, owner, keep, note)))) return;
+      const ids = [...picked].filter((id) => id !== owner);
+      if (moving && keep) ids.push(c.owner_id);
       if (await run(setCaseMembers(c.id, ids))) {
         setOpen(false);
-        const added = ids.filter((id) => !c.members.some((m) => m.id === id)).length;
-        const removed = c.members.filter((m) => !picked.has(m.id)).length;
-        toast(added || removed ? "People on this case updated." : "No changes.");
+        setNote("");
+        toast(moving ? `Handed over to ${firstName(everyone.find((p) => p.id === owner)?.name)}.` : "People on this case updated.");
       }
     });
   return (
@@ -765,47 +800,66 @@ function PeopleControl({ c, people, canManage, today }: { c: CaseViewData; peopl
             className={`btn btn-sm btn-ghost people-btn${pending ? " is-busy" : ""}`}
             onClick={() => {
               setPicked(new Set(c.members.map((m) => m.id)));
+              setOwner(c.owner_id);
               setOpen((v) => !v);
             }}
             aria-haspopup="dialog"
             aria-expanded={open}
           >
-            <Icon name={c.members.length ? "edit" : "plus"} size={13} />
-            {c.members.length ? "Edit" : "Add people"}
+            <Icon name="team" size={13} />
+            People
           </button>
           {open && (
             <Pop anchor={btn.current} onClose={() => setOpen(false)} label="People on this case">
               <div className="menu-form wide">
                 <div className="menu-form-h">
                   <Icon name="team" size={16} />
-                  <b>Who works on this case?</b>
+                  <b>People on this case</b>
                 </div>
-                <span className="hint">
-                  {firstName(c.owner_name)} owns it. Everyone you tick can see the case, update its points and attach files.
-                </span>
-                {choices.length ? (
+                <label htmlFor="pc-owner">Owner</label>
+                <select id="pc-owner" className="inp" value={owner} onChange={(e) => setOwner(e.target.value)}>
+                  {everyone.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                      {p.id === c.owner_id ? " (now)" : ""}
+                    </option>
+                  ))}
+                </select>
+                {moving && (
+                  <>
+                    <label className="chg-row">
+                      <input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} />
+                      <span>Keep {firstName(c.owner_name)} on the case</span>
+                    </label>
+                    <input className="inp" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Handover note (optional)" maxLength={300} />
+                  </>
+                )}
+                <label>Also working on it</label>
+                {choices.filter((p) => !(moving && p.id === c.owner_id)).length ? (
                   <ul className="pick-list">
-                    {choices.map((p) => (
-                      <li key={p.id}>
-                        <label className="chg-row">
-                          <input
-                            type="checkbox"
-                            checked={picked.has(p.id)}
-                            onChange={(e) =>
-                              setPicked((s) => {
-                                const n = new Set(s);
-                                if (e.target.checked) n.add(p.id);
-                                else n.delete(p.id);
-                                return n;
-                              })
-                            }
-                          />
-                          <Avatar name={p.name} lead={p.role === "lead"} size="xs" />
-                          <span>{p.name}</span>
-                          <span className="hint">{p.role === "lead" ? "Lead" : "Member"}</span>
-                        </label>
-                      </li>
-                    ))}
+                    {choices
+                      .filter((p) => !(moving && p.id === c.owner_id))
+                      .map((p) => (
+                        <li key={p.id}>
+                          <label className="chg-row">
+                            <input
+                              type="checkbox"
+                              checked={picked.has(p.id)}
+                              onChange={(e) =>
+                                setPicked((s) => {
+                                  const n = new Set(s);
+                                  if (e.target.checked) n.add(p.id);
+                                  else n.delete(p.id);
+                                  return n;
+                                })
+                              }
+                            />
+                            <Avatar name={p.name} lead={p.role === "lead"} size="xs" />
+                            <span>{p.name}</span>
+                            <span className="hint">{p.role === "lead" ? "Lead" : "Member"}</span>
+                          </label>
+                        </li>
+                      ))}
                   </ul>
                 ) : (
                   <p className="hint">Nobody else on the team yet.</p>
@@ -815,7 +869,7 @@ function PeopleControl({ c, people, canManage, today }: { c: CaseViewData; peopl
                     Cancel
                   </button>
                   <button type="button" className="btn btn-sm btn-primary" onClick={save} disabled={pending}>
-                    Save
+                    {moving ? "Hand over" : "Save"}
                   </button>
                 </div>
               </div>
@@ -824,5 +878,95 @@ function PeopleControl({ c, people, canManage, today }: { c: CaseViewData; peopl
         </>
       )}
     </span>
+  );
+}
+
+/** Who is doing this point (shared cases). */
+function AssignControl({ p, team, disabled }: { p: PointView; team: Person[]; disabled: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [pending, start] = useTransition();
+  const btn = useRef<HTMLButtonElement>(null);
+  const label = p.assignee_name ? firstName(p.assignee_name) : "Assign";
+  if (disabled) return p.assignee_name ? <span className="assignee">{label}</span> : null;
+  const pick = (id: string | null) => {
+    setOpen(false);
+    start(async () => void (await run(setPointAssignee(p.id, id))));
+  };
+  return (
+    <>
+      <button ref={btn} type="button" className={`assignee${p.assignee_id ? "" : " none"}${pending ? " is-busy" : ""}`} onClick={() => setOpen((v) => !v)} aria-haspopup="menu" aria-expanded={open} title="Who is doing this point">
+        {p.assignee_name ? <Avatar name={p.assignee_name} size="xs" /> : <Icon name="plus" size={12} />}
+        {label}
+      </button>
+      {open && (
+        <Pop anchor={btn.current} onClose={() => setOpen(false)} label="Who is doing this point">
+          <div className="menu-h">Who is doing this?</div>
+          {team.map((m) => (
+            <button key={m.id} type="button" className={`mi${p.assignee_id === m.id ? " cur" : ""}`} onClick={() => pick(m.id)}>
+              <Avatar name={m.name} lead={m.role === "lead"} size="xs" />
+              <span>{m.name}</span>
+              {p.assignee_id === m.id && <Icon name="check" size={15} />}
+            </button>
+          ))}
+          {p.assignee_id && (
+            <button type="button" className="mi danger" onClick={() => pick(null)}>
+              No one in particular
+            </button>
+          )}
+        </Pop>
+      )}
+    </>
+  );
+}
+
+function EditDetails({ c, onDone }: { c: CaseViewData; onDone: () => void }) {
+  const [subject, setSubject] = useState(c.subject);
+  const [summary, setSummary] = useState(c.summary);
+  const [company, setCompany] = useState(c.company);
+  const [priority, setPriority] = useState<Priority>(c.priority);
+  const [pending, start] = useTransition();
+  return (
+    <form
+      className="panel edit-case"
+      onSubmit={(e) => {
+        e.preventDefault();
+        start(async () => {
+          if (await run(updateCase(c.id, { subject, summary, company, priority }))) onDone();
+        });
+      }}
+    >
+      <div className="field">
+        <label htmlFor="ec-t">Title</label>
+        <input id="ec-t" className="inp inp-lg" value={subject} onChange={(e) => setSubject(e.target.value)} maxLength={200} required autoFocus />
+      </div>
+      <div className="field">
+        <label htmlFor="ec-s">Summary</label>
+        <textarea id="ec-s" className="inp" rows={3} value={summary} onChange={(e) => setSummary(e.target.value)} maxLength={800} />
+      </div>
+      <div className="fields-row">
+        <div className="field">
+          <label htmlFor="ec-c">Company</label>
+          <input id="ec-c" className="inp" value={company} onChange={(e) => setCompany(e.target.value)} maxLength={120} />
+        </div>
+        <div className="field">
+          <span className="flabel">Priority</span>
+          <div className="seg" role="radiogroup" aria-label="Priority">
+            {PRIORITIES.map((v) => (
+              <button key={v} type="button" role="radio" aria-checked={priority === v} onClick={() => setPriority(v)}>
+                <Prio level={v} />
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="form-f" style={{ padding: 0, border: 0 }}>
+        <button type="button" className="btn btn-ghost" onClick={onDone}>
+          Cancel
+        </button>
+        <button type="submit" className="btn btn-primary" disabled={pending || !subject.trim()}>
+          Save details
+        </button>
+      </div>
+    </form>
   );
 }

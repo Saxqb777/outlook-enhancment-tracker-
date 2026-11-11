@@ -325,7 +325,8 @@ async function MemberHome({ me, viewOnly }: { me: User; viewOnly: boolean }) {
   const lf = lead;
   const severalLeads = lead === "a Lead";
 
-  const work = points.filter((p) => p.status !== "approved" && p.status !== "done");
+  // On shared cases, points assigned to someone else aren't mine to do.
+  const work = points.filter((p) => p.status !== "approved" && p.status !== "done" && (!p.assignee_id || p.assignee_id === me.id));
   const late = work.filter((p) => isLate(p, today));
   const dueToday = work.filter((p) => p.due && diffDays(p.due, today) === 0);
   const week = work.filter((p) => p.due && !isLate(p, today) && diffDays(p.due, today) <= 6);

@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { reopenPoint, setCaseDeadline, setPointDue, setPointStatus, type ActionResult } from "@/app/actions/work";
 import { Icon } from "@/components/Icon";
 import { AttachPicker, useAttach } from "@/components/Attach";
+import type { Uploaded } from "@/lib/attach-rules";
 import { cap, DueTag, Glyph, Pill } from "@/components/ui";
 import type { Role } from "@/lib/auth";
 import { STATUSES, STATUS_LABEL, type Status } from "@/lib/status";
@@ -384,8 +385,21 @@ export function DueControl({
 
 // ------------------------------------------------------------------ waiting reason (board drops)
 
-export function ReasonDialog({ onCancel, onSave }: { onCancel: () => void; onSave: (why: string) => void }) {
+export function StatusDialog({
+  pointId,
+  to,
+  onCancel,
+  onSave,
+}: {
+  pointId: string;
+  to: "wait" | "done";
+  onCancel: () => void;
+  onSave: (why: string | undefined, extra: { note: string; files: Uploaded[] }) => void;
+}) {
   const [why, setWhy] = useState("");
+  const [note, setNote] = useState("");
+  const att = useAttach(pointId);
+  const wait = to === "wait";
   useEffect(() => {
     const key = (e: KeyboardEvent) => e.key === "Escape" && onCancel();
     document.addEventListener("keydown", key);
@@ -400,17 +414,22 @@ export function ReasonDialog({ onCancel, onSave }: { onCancel: () => void; onSav
         aria-labelledby="why-h"
         onSubmit={(e) => {
           e.preventDefault();
-          if (why.trim()) onSave(why.trim());
+          if ((wait && !why.trim()) || att.busy) return;
+          onSave(wait ? why.trim() : undefined, { note: note.trim(), files: att.uploaded });
         }}
       >
-        <h2 id="why-h">What is it waiting on?</h2>
-        <input className="inp" value={why} onChange={(e) => setWhy(e.target.value)} placeholder="e.g. Customs to release the permit" maxLength={200} autoFocus autoComplete="off" />
+        <h2 id="why-h">{wait ? "What is it waiting on?" : "Mark as done"}</h2>
+        {wait && (
+          <input className="inp" value={why} onChange={(e) => setWhy(e.target.value)} placeholder="e.g. Customs to release the permit" maxLength={200} autoFocus autoComplete="off" />
+        )}
+        <textarea className="inp" rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder={wait ? "Note (optional)" : "What was done? (optional)"} maxLength={2000} autoFocus={!wait} />
+        <AttachPicker att={att} />
         <div className="form-f">
           <button type="button" className="btn btn-ghost" onClick={onCancel}>
             Cancel
           </button>
-          <button type="submit" className="btn btn-primary" disabled={!why.trim()}>
-            Set to Waiting
+          <button type="submit" className="btn btn-primary" disabled={(wait && !why.trim()) || att.busy}>
+            {att.busy ? "Uploading…" : wait ? "Set to Waiting" : "Mark done"}
           </button>
         </div>
       </form>

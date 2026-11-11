@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo, useState, useTransition } from "react";
+import { bulkSetOwner } from "@/app/actions/manage";
+import { toast, useViewOnly } from "@/components/work";
 import { Avatar, Icon } from "@/components/Icon";
 import { DueTag, firstName, Prio, SegBar } from "@/components/ui";
 import type { Role } from "@/lib/auth";
@@ -21,6 +24,8 @@ export type CaseItem = {
   created_at: string;
   points: { id: string; status: Status; due: string | null; text?: string }[];
   members?: { id: string; name: string }[];
+  refs?: string;
+  unread?: number;
 };
 
 type Filter = "open" | "late" | "review" | "closed" | "all";
@@ -34,11 +39,48 @@ const LABELS: [Filter, string][] = [
 
 export const caseClosed = (c: CaseItem) => c.points.length > 0 && c.points.every((p) => p.status === "approved");
 
-export default function CaseList({ cases, role, today, initial = "open" }: { cases: CaseItem[]; role: Role; today: string; initial?: Filter }) {
+export default function CaseList({
+  cases,
+  role,
+  today,
+  initial = "open",
+  initialQ = "",
+  people = [],
+}: {
+  cases: CaseItem[];
+  role: Role;
+  today: string;
+  initial?: Filter;
+  initialQ?: string;
+  people?: { id: string; name: string }[];
+}) {
   const lead = role === "lead";
-  const [filter, setFilter] = useState<Filter>(initial);
+  const viewOnly = useViewOnly();
+  const router = useRouter();
+  const [filter, setFilter] = useState<Filter>(initialQ ? "all" : initial);
   const [owner, setOwner] = useState("all");
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(initialQ);
+  const [selecting, setSelecting] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [to, setTo] = useState("");
+  const [moving, startMove] = useTransition();
+  const canBulk = lead && !viewOnly && people.length > 1;
+  const toggle = (id: string) =>
+    setPicked((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  const moveAll = () =>
+    startMove(async () => {
+      const r = await bulkSetOwner([...picked], to);
+      if (!r.ok) return toast(r.error);
+      toast(`${r.moved} case${r.moved === 1 ? "" : "s"} handed to ${people.find((p) => p.id === to)?.name ?? "them"}.`);
+      setPicked(new Set());
+      setSelecting(false);
+      router.refresh();
+    });
 
   const owners = useMemo(() => {
     const m = new Map<string, { id: string; name: string; lead: boolean }>();
@@ -61,7 +103,7 @@ export default function CaseList({ cases, role, today, initial = "open" }: { cas
   const needle = q.trim().toLowerCase();
   if (needle) {
     list = list.filter((c) =>
-      `${caseRef(c.id)} ${c.subject} ${c.from_name} ${c.company} ${c.owner_name} ${(c.members ?? []).map((m) => m.name).join(" ")} ${c.points.map((p) => p.text ?? "").join(" ")}`.toLowerCase().includes(needle),
+      `${caseRef(c.id)} ${c.subject} ${c.from_name} ${c.company} ${c.owner_name} ${c.refs ?? ""} ${(c.members ?? []).map((m) => m.name).join(" ")} ${c.points.map((p) => p.text ?? "").join(" ")}`.toLowerCase().includes(needle),
     );
   }
   const nextDue = (c: CaseItem) =>
@@ -103,6 +145,11 @@ export default function CaseList({ cases, role, today, initial = "open" }: { cas
             ))}
           </div>
         )}
+        {canBulk && (
+          <button type="button" className={`btn btn-sm${selecting ? " btn-primary" : ""}`} onClick={() => (setSelecting((v) => !v), setPicked(new Set()))}>
+            {selecting ? "Done selecting" : "Select"}
+          </button>
+        )}
         <label className="find">
           <Icon name="search" size={15} />
           <span className="sr">Filter cases</span>
@@ -126,10 +173,24 @@ export default function CaseList({ cases, role, today, initial = "open" }: { cas
             const appr = c.points.filter((p) => p.status === "approved").length;
             const closed = caseClosed(c);
             return (
-              <Link key={c.id} className={`crow${lead ? "" : " nm"}`} href={`/cases/${c.id}`}>
-                <span className="c-id cid">{caseRef(c.id)}</span>
+              <Link
+                key={c.id}
+                className={`crow${lead ? "" : " nm"}${selecting && picked.has(c.id) ? " picked" : ""}`}
+                href={`/cases/${c.id}`}
+                onClick={(e) => {
+                  if (!selecting) return;
+                  e.preventDefault();
+                  toggle(c.id);
+                }}
+              >
+                <span className="c-id cid">
+                  {selecting ? <input type="checkbox" readOnly checked={picked.has(c.id)} tabIndex={-1} aria-label={`Select ${caseRef(c.id)}`} /> : caseRef(c.id)}
+                </span>
                 <span className="c-main">
-                  <span className="c-subj">{c.subject}</span>
+                  <span className="c-subj">
+                    {!!c.unread && <span className="unread-dot" title={`${c.unread} new in chat`} />}
+                    {c.subject}
+                  </span>
                   <span className="c-from">
                     <span className="cid cid-m">{caseRef(c.id)}</span>
                     <span className="trunc">{c.company || c.from_name || "Unknown sender"}</span>
@@ -173,6 +234,26 @@ export default function CaseList({ cases, role, today, initial = "open" }: { cas
               </Link>
             );
           })}
+          {selecting && (
+            <div className="bulk-bar">
+              <b>{picked.size} selected</b>
+              <span className="sp" />
+              <label className="sr" htmlFor="bulk-to">
+                Hand over to
+              </label>
+              <select id="bulk-to" className="inp" value={to} onChange={(e) => setTo(e.target.value)}>
+                <option value="">Hand over to…</option>
+                {people.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              <button type="button" className="btn btn-primary btn-sm" disabled={!picked.size || !to || moving} onClick={moveAll}>
+                Hand over
+              </button>
+            </div>
+          )}
           {!list.length && (
             <p className="empty">
               {cases.length ? "No cases match. Try another filter." : lead ? "No cases yet. Add an email to create the first one." : "No cases yet. Add an email to start tracking your work."}

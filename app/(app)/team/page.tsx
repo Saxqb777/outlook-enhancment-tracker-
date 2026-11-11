@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { cancelInvite, cancelOpenInvite, setMemberAccess } from "@/app/actions/team";
-import { ConfirmButton, InviteLinkForm, NewLinkButton } from "@/components/forms";
+import { ConfirmButton, InviteLinkForm, NewLinkButton, ResetLinkButton } from "@/components/forms";
 import { Avatar } from "@/components/Icon";
 import { redirect } from "next/navigation";
 import { getViewer } from "@/lib/auth";
@@ -141,6 +141,7 @@ export default async function TeamPage() {
                       <ConfirmButton action={cancelInvite} userId={p.id} label="Cancel invite" confirm="Remove this invite?" danger />
                     </>
                   )}
+                  {canInvite && p.status === "active" && p.id !== real.id && (p.role === "member" || real.role === "admin") && <ResetLinkButton userId={p.id} />}
                   {!viewOnly && p.role === "member" && p.status === "active" && (
                     <ConfirmButton
                       action={setMemberAccess}

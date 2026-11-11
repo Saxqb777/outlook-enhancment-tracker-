@@ -4,17 +4,17 @@ import CaseList from "@/components/CaseList";
 import { Icon } from "@/components/Icon";
 import { getViewer } from "@/lib/auth";
 import { todayISO } from "@/lib/time";
-import { listCases } from "@/lib/work";
+import { assignees, listCases } from "@/lib/work";
 
 export const metadata: Metadata = { title: "Cases" };
 export const dynamic = "force-dynamic";
 
 const SHOW = ["open", "late", "review", "closed", "all"] as const;
 
-export default async function CasesPage({ searchParams }: { searchParams: Promise<{ show?: string }> }) {
+export default async function CasesPage({ searchParams }: { searchParams: Promise<{ show?: string; q?: string }> }) {
   const { me, viewOnly } = await getViewer();
-  const { show } = await searchParams;
-  const rows = await listCases(me);
+  const { show, q } = await searchParams;
+  const [rows, people] = await Promise.all([listCases(me), me.role === "lead" ? assignees() : Promise.resolve([])]);
   const cases = rows.map((c) => ({ ...c, created_at: new Date(c.created_at).toISOString() }));
   const initial = SHOW.find((s) => s === show) ?? "open";
 
@@ -49,7 +49,7 @@ export default async function CasesPage({ searchParams }: { searchParams: Promis
           )}
         </div>
       </header>
-      <CaseList cases={cases} role={me.role === "member" ? "member" : "lead"} today={todayISO()} initial={initial} />
+      <CaseList cases={cases} role={me.role === "member" ? "member" : "lead"} today={todayISO()} initial={initial} initialQ={String(q ?? "").slice(0, 80)} people={people} />
     </div>
   );
 }

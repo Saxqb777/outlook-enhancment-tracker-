@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { acceptInvite, login, setupLead } from "@/app/actions/auth";
-import { createInviteLink, newInviteLink } from "@/app/actions/team";
+import { acceptInvite, login, resetPassword, setupLead } from "@/app/actions/auth";
+import { createInviteLink, makeResetLink, newInviteLink } from "@/app/actions/team";
 import { Icon } from "@/components/Icon";
 import { MIN_PASSWORD, type FormState, type InviteState } from "@/lib/forms";
 
@@ -59,6 +59,7 @@ export function LoginForm({ showSetup }: { showSetup: boolean }) {
       <PasswordField id="password" label="Password" autoComplete="current-password" />
       <FormError state={state} />
       <SubmitButton pending="Signing in">Sign in</SubmitButton>
+      <p className="auth-note">Forgot your password? Ask your Lead for a reset link.</p>
       {showSetup && (
         <p className="auth-note">
           First time here? <Link href="/setup">Set up the Lead account</Link>
@@ -112,6 +113,41 @@ export function AcceptInviteForm({ token, name, email }: { token: string; name: 
       <FormError state={state} />
       <SubmitButton pending="Setting up">Join the team</SubmitButton>
     </form>
+  );
+}
+
+export function ResetForm({ token }: { token: string }) {
+  const [state, action] = useActionState(resetPassword, undefined);
+  return (
+    <form action={action} className="auth-form" noValidate>
+      <input type="hidden" name="token" value={token} />
+      <PasswordField id="password" label={`New password (at least ${MIN_PASSWORD} characters)`} autoComplete="new-password" />
+      <PasswordField id="confirm" label="Type it again" autoComplete="new-password" />
+      <FormError state={state} />
+      <SubmitButton pending="Saving">Save and sign in</SubmitButton>
+    </form>
+  );
+}
+
+export function ResetLinkButton({ userId }: { userId: string }) {
+  const [state, action] = useActionState(makeResetLink, undefined);
+  return (
+    <div className="newlink">
+      <form action={action}>
+        <input type="hidden" name="userId" value={userId} />
+        <SubmitButton pending="Making link" className="btn btn-sm btn-ghost">
+          <Icon name="lock" size={14} />
+          Reset password
+        </SubmitButton>
+      </form>
+      {state?.error && <span className="form-err sm">{state.error}</span>}
+      {state?.link && (
+        <div className="newlink-out">
+          <CopyLink link={state.link} />
+          <span className="hint">Send this to {state.name}. It works once, for 24 hours.</span>
+        </div>
+      )}
+    </div>
   );
 }
 

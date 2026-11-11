@@ -89,3 +89,17 @@ export async function setMemberAccess(form: FormData): Promise<void> {
   }
   revalidatePath("/team");
 }
+
+/** A one-time link for someone who forgot their password. A Lead can make one for Members; the Admin for anyone. Works for 24 hours. */
+export async function makeResetLink(_prev: InviteState, form: FormData): Promise<InviteState> {
+  const by = await requireInviter();
+  const userId = String(form.get("userId") ?? "");
+  const user = await one<{ id: string; name: string; role: string }>("select id, name, role from users where id = $1 and status = 'active'", [userId]);
+  if (!user || user.role === "admin" || (by.role === "lead" && user.role !== "member")) return { error: "You can't reset this person's password." };
+  const token = newToken();
+  await tx(async (c) => {
+    await c.query("delete from password_resets where user_id = $1", [user.id]);
+    await c.query("insert into password_resets (token_hash, user_id, created_by, expires_at) values ($1, $2, $3, now() + interval '24 hours')", [hashToken(token), user.id, by.id]);
+  });
+  return { link: `${await siteOrigin()}/reset/${token}`, name: user.name };
+}

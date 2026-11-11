@@ -5,7 +5,8 @@ import { useMemo, useOptimistic, useState, useTransition } from "react";
 import { setPointStatus } from "@/app/actions/work";
 import { Avatar, Icon } from "@/components/Icon";
 import { DueTag, firstName, Glyph, Prio } from "@/components/ui";
-import { ReasonDialog, run, StatusControl, toast, useViewOnly } from "@/components/work";
+import { run, StatusControl, StatusDialog, toast, useViewOnly } from "@/components/work";
+import type { Uploaded } from "@/lib/attach-rules";
 import type { Role } from "@/lib/auth";
 import { caseRef, statusBlocked, STATUSES, STATUS_LABEL, closedStatus, type Priority, type Status } from "@/lib/status";
 import { diffDays, fmtShort, todayISO } from "@/lib/time";
@@ -22,6 +23,8 @@ export type BoardCard = {
   owner_id: string;
   owner_name: string;
   owner_lead: boolean;
+  assignee_id?: string | null;
+  assignee_name?: string | null;
   last_at: string | null;
 };
 
@@ -32,7 +35,7 @@ export default function BoardView({ points, role, leadName, today }: { points: B
   const [show, setShow] = useState<Status>("todo");
   const [over, setOver] = useState<Status | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
-  const [asking, setAsking] = useState<string | null>(null);
+  const [asking, setAsking] = useState<{ id: string; to: "wait" | "done" } | null>(null);
   const [, start] = useTransition();
   const [list, move] = useOptimistic(points, (state, m: { id: string; status: Status; why?: string }) =>
     state.map((p) => (p.id === m.id ? { ...p, status: m.status, wait_reason: m.why ?? p.wait_reason } : p)),
@@ -49,15 +52,15 @@ export default function BoardView({ points, role, leadName, today }: { points: B
   const shown = lead && owner !== "all" ? list.filter((p) => p.owner_id === owner) : list;
   const late = (p: BoardCard) => !closedStatus(p.status) && !!p.due && diffDays(p.due, today) < 0;
 
-  const doMove = (id: string, to: Status, why?: string) => {
+  const doMove = (id: string, to: Status, why?: string, extra?: { note: string; files: Uploaded[] }) => {
     const p = list.find((x) => x.id === id);
     if (!p || p.status === to) return;
     const blocked = statusBlocked(role, p.status, to);
     if (blocked) return toast(blocked);
-    if (to === "wait" && !why) return setAsking(id);
+    if ((to === "wait" || to === "done") && !extra) return setAsking({ id, to });
     start(async () => {
       move({ id, status: to, why });
-      if ((await run(setPointStatus(id, to, why))) && to === "approved") toast("Approved.");
+      if ((await run(setPointStatus(id, to, why, extra))) && to === "approved") toast("Approved.");
     });
   };
 
@@ -176,8 +179,8 @@ export default function BoardView({ points, role, leadName, today }: { points: B
                         <div className="card-f">
                           {lead ? (
                             <span className="c-mem small">
-                              <Avatar name={p.owner_name} lead={p.owner_lead} size="xs" />
-                              {firstName(p.owner_name)}
+                              <Avatar name={p.assignee_name ?? p.owner_name} lead={!p.assignee_name && p.owner_lead} size="xs" />
+                              {firstName(p.assignee_name ?? p.owner_name)}
                             </span>
                           ) : (
                             <span />
@@ -204,12 +207,14 @@ export default function BoardView({ points, role, leadName, today }: { points: B
       </div>
       {!viewOnly && <p className="hint m-hide">Tip: open a card&apos;s menu if you&apos;d rather not drag. Click a card to open its case.</p>}
       {asking && (
-        <ReasonDialog
+        <StatusDialog
+          pointId={asking.id}
+          to={asking.to}
           onCancel={() => setAsking(null)}
-          onSave={(why) => {
-            const id = asking;
+          onSave={(why, extra) => {
+            const a = asking;
             setAsking(null);
-            doMove(id, "wait", why);
+            doMove(a.id, a.to, why, extra);
           }}
         />
       )}

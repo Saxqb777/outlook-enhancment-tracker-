@@ -24,9 +24,17 @@ function touch(caseId?: string) {
   revalidatePath("/");
   revalidatePath("/cases");
   revalidatePath("/board");
+  revalidatePath("/dashboard");
   revalidatePath("/admin");
   if (caseId) revalidatePath(`/cases/${caseId}`);
 }
+
+/** Stops runaway AI use: 40 reads per person per hour. */
+async function overLimit(userId: string): Promise<boolean> {
+  const r = await one<{ n: number }>("select count(*)::int as n from ai_reads where user_id = $1 and created_at > now() - interval '1 hour'", [userId]);
+  return (r?.n ?? 0) >= 40;
+}
+const SLOW_DOWN = { ok: false as const, error: "That's a lot of emails in one hour. Wait a little, then try again." };
 
 async function logRead(userId: string, kind: "new" | "reply", started: number, chars: number, r: { ok: boolean; error?: string }, points: number | null) {
   try {
@@ -70,6 +78,7 @@ export async function readEmail(raw: string): Promise<{ ok: true; data: Extracti
   const text = String(raw ?? "").trim();
   if (!text) return { ok: false, error: "Paste the email first." };
   if (text.length > MAX_EMAIL) return { ok: false, error: TOO_LONG };
+  if (await overLimit(me.id)) return SLOW_DOWN;
   const started = Date.now();
   let r: Awaited<ReturnType<typeof extractEmail>>;
   try {
@@ -283,6 +292,7 @@ export async function readReply(caseId: string, raw: string): Promise<{ ok: true
     "select body, email_sent, from_name from case_emails where case_id = $1 order by position desc limit 1",
     [c.id],
   );
+  if (await overLimit(me.id)) return SLOW_DOWN;
   const started = Date.now();
   let r: Awaited<ReturnType<typeof extractReply>>;
   try {

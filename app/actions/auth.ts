@@ -145,3 +145,24 @@ export async function acceptInvite(_prev: FormState, form: FormData): Promise<Fo
   await createSession(outcome.id);
   redirect(outcome.role === "admin" ? "/admin" : "/");
 }
+
+export async function resetPassword(_prev: FormState, form: FormData): Promise<FormState> {
+  const token = String(form.get("token") ?? "");
+  const password = String(form.get("password") ?? "");
+  const confirm = String(form.get("confirm") ?? "");
+  const problem = passwordProblem(password, confirm);
+  if (problem) return { error: problem };
+  const hash = await hashPassword(password);
+  const id = await tx<string | null>(async (c) => {
+    const r = (await c.query<{ user_id: string }>("select user_id from password_resets where token_hash = $1 and expires_at > now() for update", [hashToken(token)])).rows[0];
+    if (!r) return null;
+    await c.query("update users set password_hash = $1 where id = $2 and status = 'active'", [hash, r.user_id]);
+    await c.query("delete from password_resets where user_id = $1", [r.user_id]);
+    await c.query("delete from sessions where user_id = $1", [r.user_id]);
+    await c.query("delete from login_attempts where lower(email) = (select lower(email) from users where id = $1)", [r.user_id]);
+    return r.user_id;
+  });
+  if (!id) return { error: "This reset link has expired or was already used. Ask your Lead for a new one." };
+  await createSession(id);
+  redirect("/");
+}

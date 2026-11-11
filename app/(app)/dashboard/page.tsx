@@ -148,7 +148,9 @@ export default async function DashboardPage() {
                     <div className="sub">
                       <span className="cid">{caseRef(p.case_id)}</span>
                       <span>{firstName(p.person)}</span>
-                      <span className={daysSince(p.status_at) >= 2 ? "warn-t" : ""}>waiting {age(daysSince(p.status_at))}</span>
+                      <span className={daysSince(p.status_at) >= 2 ? "warn-t" : ""}>
+                        done {p.status_at ? fmtShort(todayISO(new Date(p.status_at))) : ""} · waiting {age(daysSince(p.status_at))}
+                      </span>
                     </div>
                     {p.last_update && <div className="quote">{p.last_update}</div>}
                   </div>
@@ -183,7 +185,9 @@ export default async function DashboardPage() {
                       <span>{STATUS_LABEL[p.status]}</span>
                     </div>
                   </div>
-                  <span className="late-chip">{age(-diffDays(p.due!, today))} late</span>
+                  <span className="late-chip">
+                    due {fmtShort(p.due!)} · {age(-diffDays(p.due!, today))} late
+                  </span>
                 </div>
               ))}
             </div>

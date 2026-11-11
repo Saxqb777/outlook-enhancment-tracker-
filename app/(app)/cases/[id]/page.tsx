@@ -9,7 +9,7 @@ import { assignees, getCase, leadName } from "@/lib/work";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ email?: string }> };
+type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ email?: string; tab?: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function CasePage({ params, searchParams }: Props) {
   const { me } = await getViewer();
   const { id } = await params;
-  const { email } = await searchParams;
+  const { email, tab } = await searchParams;
   const [c, lead, people] = await Promise.all([getCase(me, id), leadName(), assignees()]);
 
   if (!c) {
@@ -65,6 +65,7 @@ export default async function CasePage({ params, searchParams }: Props) {
       leadName={lead}
       today={todayISO()}
       startEmail={start}
+      startChat={tab === "chat"}
       unread={unread}
       people={people}
       canManage={canManage}

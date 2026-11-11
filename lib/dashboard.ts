@@ -9,6 +9,7 @@ export type DashPoint = {
   text: string;
   subject: string;
   company: string;
+  case_added: Date;
   status: Status;
   due: string | null;
   wait_reason: string | null;
@@ -26,7 +27,7 @@ export type DashCase = { id: string; subject: string; owner: string; open: numbe
 export async function dashboardData(today: string) {
   const [points, people, weeks, done, quiet] = await Promise.all([
     q<DashPoint>(
-      `select p.id::text as id, p.case_id::text as case_id, p.text, c.subject, c.company, p.status, p.due::text as due, p.wait_reason,
+      `select p.id::text as id, p.case_id::text as case_id, p.text, c.subject, c.company, c.created_at as case_added, p.status, p.due::text as due, p.wait_reason,
               coalesce(p.assignee_id, c.owner_id) as person_id, coalesce(a.name, o.name) as person,
               (select max(e.created_at) from point_events e where e.point_id = p.id and e.kind in ('status', 'reopen')) as status_at,
               (select max(e.created_at) from point_events e where e.point_id = p.id) as last_at,

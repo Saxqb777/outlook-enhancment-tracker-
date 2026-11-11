@@ -45,6 +45,14 @@ export default function ChatPanel({ caseId, points, role, leadName, today, activ
 
   // Live: check for new messages every few seconds while this tab is on screen.
   useEffect(() => {
+    const w = window as unknown as { __chatOpen?: string | null };
+    if (active) w.__chatOpen = caseId;
+    return () => {
+      if (w.__chatOpen === caseId) w.__chatOpen = null;
+    };
+  }, [active, caseId]);
+
+  useEffect(() => {
     void load();
     const t = setInterval(() => document.visibilityState === "visible" && void load(), active ? 4000 : 15000);
     return () => clearInterval(t);

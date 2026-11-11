@@ -84,6 +84,7 @@ export default function CaseView({
   leadName,
   today,
   startEmail,
+  startChat,
   unread,
   people,
   canManage,
@@ -93,14 +94,15 @@ export default function CaseView({
   leadName: string;
   today: string;
   startEmail: number | null;
+  startChat: boolean;
   unread: number;
   people: Person[];
   canManage: boolean;
 }) {
   const lead = role === "lead";
   const viewOnly = useViewOnly();
-  const [tab, setTab] = useState<"points" | "email" | "chat">("points");
-  const [side, setSide] = useState<"points" | "chat">("points");
+  const [tab, setTab] = useState<"points" | "email" | "chat">(startChat ? "chat" : "points");
+  const [side, setSide] = useState<"points" | "chat">(startChat ? "chat" : "points");
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [lit, setLit] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
@@ -219,6 +221,19 @@ export default function CaseView({
               <span className="m-hide">Edit details</span>
             </button>
           )}
+          <button
+            type="button"
+            className={`btn btn-sm chat-open${side === "chat" ? " on" : ""}`}
+            onClick={() => {
+              setSide("chat");
+              setTab("chat");
+              requestAnimationFrame(() => document.querySelector(".chat")?.scrollIntoView({ block: "center", behavior: "smooth" }));
+            }}
+          >
+            <Icon name="chat" size={15} />
+            Chat
+            {unread > 0 && <span className="nav-badge blue">{unread}</span>}
+          </button>
           {!viewOnly && (
             <Link className="btn btn-sm" href={`/cases/${c.id}/reply`}>
               <Icon name="reply" size={15} />
@@ -829,7 +844,7 @@ function PeopleControl({ c, people, canManage, today }: { c: CaseViewData; peopl
             aria-expanded={open}
           >
             <Icon name="team" size={13} />
-            People
+            {c.members.length ? "Assign people" : "Assign people"}
           </button>
           {open && (
             <Pop anchor={btn.current} onClose={() => setOpen(false)} label="People on this case">

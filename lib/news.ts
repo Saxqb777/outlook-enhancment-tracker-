@@ -55,8 +55,8 @@ export function helpFor(path: string, role: R): HelpPage {
         ["Email and points", "The email is on the left. Each numbered point is one thing to get done; click a number to see the sentence it came from."],
         ["Status", "Click a point's status to change it. Done and Waiting let you add a note and attach files."],
         ["Updates", "Open a point to post an update or attach a file. " + (lead ? "Leads add remarks and approve finished points." : "A Lead approves points you mark Done.")],
-        ["Chat", "Talk with the people on this case. Press Ask AI to ask about the case or draft a reply email."],
-        ["People", "Add teammates to the case" + (lead ? ", hand it to a new owner," : "") + " and give each point to a person."],
+        ["Chat", "Press Chat at the top to talk with the people on this case. They get a pop-up when you write. Press Ask AI to ask about the case or draft a reply email."],
+        ["Assign people", "Add teammates to the case" + (lead ? ", hand it to a new owner," : "") + " and give each point to a person."],
         ["Add a reply", "When a new email arrives on this subject, add it here so everything stays together."],
       ],
     };

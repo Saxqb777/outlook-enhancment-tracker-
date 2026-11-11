@@ -9,7 +9,7 @@ import { Avatar, Icon } from "@/components/Icon";
 import { DueTag, firstName, Prio, SegBar } from "@/components/ui";
 import type { Role } from "@/lib/auth";
 import { caseRef, closedStatus, type Priority, type Status } from "@/lib/status";
-import { diffDays } from "@/lib/time";
+import { diffDays, fmtShort, todayISO } from "@/lib/time";
 
 export type CaseItem = {
   id: string;
@@ -166,6 +166,7 @@ export default function CaseList({
             <span className="c-prog">Points approved</span>
             <span className="c-due">Next deadline</span>
             <span className="c-prio">Priority</span>
+            <span className="row-chat">Chat</span>
           </div>
           {list.map((c) => {
             const open = c.points.filter((p) => !closedStatus(p.status));
@@ -194,6 +195,7 @@ export default function CaseList({
                   <span className="c-from">
                     <span className="cid cid-m">{caseRef(c.id)}</span>
                     <span className="trunc">{c.company || c.from_name || "Unknown sender"}</span>
+                    <span className="added">Added {fmtShort(todayISO(new Date(c.created_at)))}</span>
                     {!!c.members?.length && (
                       <span className="shared-tag" title={`Shared with ${c.members.map((m) => m.name).join(", ")}`}>
                         <Icon name="team" size={12} />
@@ -230,6 +232,20 @@ export default function CaseList({
                 </span>
                 <span className="c-prio">
                   <Prio level={c.priority} />
+                </span>
+                <span
+                  className={`chat-link row-chat${c.unread ? " new" : ""}`}
+                  role="link"
+                  tabIndex={0}
+                  title="Open the chat for this case"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    router.push(`/cases/${c.id}?tab=chat`);
+                  }}
+                >
+                  <Icon name="chat" size={14} />
+                  {c.unread ? c.unread : ""}
                 </span>
               </Link>
             );

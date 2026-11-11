@@ -66,11 +66,10 @@ export function dueInfo(due: string | null, status: string, today: string): DueI
   if (!due) return { cls: "none", text: "No deadline" };
   const n = diffDays(due, today);
   const closed = status === "done" || status === "approved";
-  if (!closed && n < 0) return { cls: "late", text: `${-n} day${n === -1 ? "" : "s"} late`, title: `Was due ${fmtDay(due)}` };
-  if (n === 0) return { cls: closed ? "" : "soon", text: "Today" };
-  if (n === 1) return { cls: closed ? "" : "soon", text: "Tomorrow" };
-  if (n > 1 && n < 7) return { cls: !closed && n <= 2 ? "soon" : "", text: fmtDay(due) };
-  return { cls: "", text: fmtShort(due) };
+  if (!closed && n < 0) return { cls: "late", text: `${fmtDay(due)} · ${-n} day${n === -1 ? "" : "s"} late`, title: `Was due ${fmtDay(due)}` };
+  if (n === 0) return { cls: closed ? "" : "soon", text: `${fmtDay(due)} · today` };
+  if (n === 1) return { cls: closed ? "" : "soon", text: `${fmtDay(due)} · tomorrow` };
+  return { cls: !closed && n <= 2 ? "soon" : "", text: fmtDay(due) };
 }
 
 /** "Today, 09:05" / "Yesterday, 16:20" / "5 Nov, 09:05" in the team's time zone. */

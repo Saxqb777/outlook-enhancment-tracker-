@@ -6,7 +6,7 @@ import { Clip, DueControl, ReviewButtons, StatusControl } from "@/components/wor
 import { getViewer, type User } from "@/lib/auth";
 import { one } from "@/lib/db";
 import { caseRef, closedStatus } from "@/lib/status";
-import { diffDays, fmtDay, fmtWhen, todayISO } from "@/lib/time";
+import { diffDays, fmtDay, fmtShort, fmtWhen, todayISO } from "@/lib/time";
 import { leadName, listCases, listPoints, recentActivity, recentRemarks, type ActivityRow, type BoardPoint } from "@/lib/work";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +31,11 @@ function PointRow({ p, lead, actions, extra }: { p: BoardPoint; lead: boolean; a
         <div className="sub">
           <span className="cid">{caseRef(p.case_id)}</span>
           <span className="trunc">{p.subject}</span>
+          <span className="added">Added {fmtShort(todayISO(new Date(p.case_added)))}</span>
+          <Link className={`chat-link${p.unread ? " new" : ""}`} href={`/cases/${p.case_id}?tab=chat`} title="Open the chat for this case">
+            <Icon name="chat" size={13} />
+            {p.unread ? `${p.unread} new` : "Chat"}
+          </Link>
         </div>
         {extra}
       </div>
@@ -506,6 +511,7 @@ async function MemberHome({ me, viewOnly }: { me: User; viewOnly: boolean }) {
                         <div className="sub">
                           <span className="cid">{caseRef(c.id)}</span>
                           <span className="trunc">{c.company || c.from_name}</span>
+                          <span className="added">Added {fmtShort(todayISO(new Date(c.created_at)))}</span>
                           {(c.members.length > 0 || c.owner_id !== me.id) && (
                             <span className="shared-tag">
                               <Icon name="team" size={12} />

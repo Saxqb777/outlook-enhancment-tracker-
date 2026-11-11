@@ -23,6 +23,7 @@ export type BoardCard = {
   owner_id: string;
   owner_name: string;
   owner_lead: boolean;
+  case_added?: string;
   assignee_id?: string | null;
   assignee_name?: string | null;
   last_at: string | null;
@@ -165,6 +166,7 @@ export default function BoardView({ points, role, leadName, today }: { points: B
                       >
                         <div className="card-top">
                           <span className="cid">{caseRef(p.case_id)}</span>
+                          {p.case_added && <span className="added">Added {fmtShort(todayISO(new Date(p.case_added)))}</span>}
                           {p.priority === "high" && <Prio level="high" />}
                           {canMove && <StatusControl pointId={p.id} status={p.status} role={role} leadName={lf} variant="icon" />}
                         </div>

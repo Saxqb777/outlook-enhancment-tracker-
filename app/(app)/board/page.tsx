@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function BoardPage() {
   const { me, viewOnly } = await getViewer();
   const [rows, lead] = await Promise.all([listPoints(me), leadName()]);
-  const points = rows.map((p) => ({ ...p, last_at: p.last_at ? new Date(p.last_at).toISOString() : null }));
+  const points = rows.map((p) => ({ ...p, last_at: p.last_at ? new Date(p.last_at).toISOString() : null, case_added: new Date(p.case_added).toISOString() }));
 
   return (
     <div className="page-in">

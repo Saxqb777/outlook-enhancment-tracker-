@@ -249,6 +249,7 @@ Each step stops for the owner's review.
 | 2026-11-09 | Owner approved several Leads (all Leads see all cases), Admin invite links for Member or Lead, shared (group) cases, and a What's new pop-up. Owner said build without asking for another go. Built, tested (27 checks), deployed |
 | 2026-11-11 | Session moved to a newer model. Review found: approvals not happening (16 Done, 0 approved), remarks/replies barely used, no forgot-password, rough .msg reading, hard-to-read phone screens. Owner approved the full plan plus a strong Lead dashboard and a ? help on every page, and said to build without waiting. Shipped in two releases, tested (27 + 26 checks) |
 | 2026-11-11 | AI answers in chat are shared with everyone on the case (owner didn't ask for private). Chat AI uses the same model as email reading |
+| 2026-11-11 | Team feedback: no dates on Home, and no pop-up when someone writes in a chat. Added: real dates on every deadline ("Sat 7 Nov · 4 days late") plus "Added 6 Nov" on Home, Cases, Board and Dashboard; a pop-up on any page for new chat messages (people on the case + Leads, not the sender, not when that chat is open), unread count in the tab title, optional desktop notification (`/api/notify`, `components/Notifier.tsx`, polls every 6 s); Chat button at the top of each case and chat shortcuts on Home and Cases rows (`?tab=chat`); the People button is now "Assign people". Email alerts for people with the app closed are still not built |
 
 ---
 

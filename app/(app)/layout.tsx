@@ -5,6 +5,7 @@ import { Icon } from "@/components/Icon";
 import TopBar from "@/components/TopBar";
 import GlobalDrop from "@/components/GlobalDrop";
 import Guide from "@/components/Guide";
+import Notifier from "@/components/Notifier";
 import { Toasts, ViewOnlyProvider } from "@/components/work";
 import { getViewer } from "@/lib/auth";
 import { one } from "@/lib/db";
@@ -52,6 +53,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <Toasts />
       <Guide role={real.role} autoTour={(real.seen_news ?? 0) < NEWS_VERSION} version={NEWS_VERSION} />
       {!viewOnly && <GlobalDrop />}
+      {!viewOnly && <Notifier />}
       </AttachProvider>
     </ViewOnlyProvider>
   );

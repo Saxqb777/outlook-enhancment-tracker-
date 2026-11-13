@@ -122,8 +122,13 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
         <section className="panel ap-signers" aria-label="Signatures">
           <div className="panel-h">
             <h2>Signatures</h2>
-            <span className="small muted">
-              {a.signers.filter((s) => s.state === "signed").length} of {a.signers.length}
+            <span className="ap-bar small muted">
+              <span className="segbar" aria-hidden="true">
+                {a.signers.map((s) => (
+                  <i key={s.id} className={s.state} />
+                ))}
+              </span>
+              {a.signers.filter((s) => s.state === "signed").length} of {a.signers.length} signed
             </span>
           </div>
           <ul className="ap-sigs">

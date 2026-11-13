@@ -246,7 +246,7 @@ async function LeadHome({ me, viewOnly }: { me: User; viewOnly: boolean }) {
           <span className="val">{open.length}</span>
           <span className="ctx">across {plural(openCases.length, "open case")}</span>
         </Link>
-        <Link className="stat" href="/cases?show=review">
+        <Link className={`stat${review.length ? " attn" : ""}`} href="/cases?show=review">
           <span className="lab" style={{ display: "flex", alignItems: "center", gap: 7 }}>
             <Glyph s="done" />
             Ready for review
@@ -254,7 +254,7 @@ async function LeadHome({ me, viewOnly }: { me: User; viewOnly: boolean }) {
           <span className="val">{review.length}</span>
           <span className="ctx">{review.length ? `from ${plural(reviewers, "person")}`.replace("persons", "people") : "All caught up"}</span>
         </Link>
-        <Link className="stat" href="/cases?show=late">
+        <Link className={`stat${late.length ? " bad" : ""}`} href="/cases?show=late">
           <span className="lab" style={{ display: "flex", alignItems: "center", gap: 7 }}>
             {late.length > 0 && <i className="dot" />}
             Past due
@@ -419,7 +419,7 @@ async function MemberHome({ me, viewOnly }: { me: User; viewOnly: boolean }) {
               <span className="val">{week.length}</span>
               <span className="ctx">in the next 7 days</span>
             </Link>
-            <Link className="stat" href="/cases?show=late">
+            <Link className={`stat${late.length ? " bad" : ""}`} href="/cases?show=late">
               <span className="lab" style={{ display: "flex", alignItems: "center", gap: 7 }}>
                 {late.length > 0 && <i className="dot" />}
                 Past due
@@ -427,7 +427,7 @@ async function MemberHome({ me, viewOnly }: { me: User; viewOnly: boolean }) {
               <span className="val">{late.length}</span>
               <span className="ctx">{late.length ? `oldest is ${plural(Math.max(...late.map((p) => -diffDays(p.due!, today))), "day")} late` : "You're on time"}</span>
             </Link>
-            <Link className="stat m-hide" href="/cases?show=review">
+            <Link className={`stat m-hide${withLead.length ? " attn" : ""}`} href="/cases?show=review">
               <span className="lab" style={{ display: "flex", alignItems: "center", gap: 7 }}>
                 <Glyph s="done" />
                 With {lf} for review

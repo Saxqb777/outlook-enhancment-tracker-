@@ -5149,3 +5149,41 @@ button.assignee:hover {
 .ap-st[class*="rq-"]::before {
   background: currentColor;
 }
+
+/* next step line, sandbox tags, admin test area */
+.rq-next {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.rq-next.big {
+  margin: 8px 0 0;
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: inset 0 0 0 1px var(--hair);
+  font-size: 13.5px;
+}
+.ap-ver.sbx {
+  background: rgba(224, 161, 0, 0.18);
+  color: #6f4f00;
+  white-space: normal;
+  height: auto;
+  min-height: 20px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+.h1 .ap-ver.sbx {
+  font-size: 12px;
+  letter-spacing: 0;
+  vertical-align: middle;
+}
+.sbx-panel {
+  box-shadow: inset 0 0 0 1.5px rgba(224, 161, 0, 0.4), var(--sh-1);
+}
+.sbx-panel .list {
+  padding: 0;
+}

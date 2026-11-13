@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { stopViewVendor } from "@/app/actions/admin";
 import { portalLogout } from "@/app/actions/portal";
 import { AttachProvider } from "@/components/Attach";
 import { Icon, Logo } from "@/components/Icon";
@@ -28,19 +29,36 @@ export default async function PortalLayout({ children }: { children: React.React
             <b>{v.vendor}</b>
             <span>{v.name}</span>
           </span>
-          <form action={portalLogout}>
+          {!v.admin && (
+            <form action={portalLogout}>
+              <button className="btn btn-sm" type="submit">
+                <Icon name="logout" size={15} />
+                <span className="m-hide">Sign out</span>
+              </button>
+            </form>
+          )}
+        </div>
+      </header>
+      {v.admin && (
+        <div className="viewas" role="status">
+          <Icon name="eye" size={16} />
+          <span>
+            Viewing the portal as <b>{v.vendor}</b> · {v.viewOnly ? "view only" : "sandbox, you can try everything"}
+          </span>
+          <span className="sp" />
+          <form action={stopViewVendor}>
             <button className="btn btn-sm" type="submit">
-              <Icon name="logout" size={15} />
-              <span className="m-hide">Sign out</span>
+              <Icon name="back" size={14} />
+              Back to Admin
             </button>
           </form>
         </div>
-      </header>
+      )}
       <main className="page portal-page" id="main">
         {children}
       </main>
       <Toasts />
-      <PortalNotifier />
+      {!v.admin && <PortalNotifier />}
     </AttachProvider>
   );
 }

@@ -56,7 +56,7 @@ export default async function PortalHome() {
     <div className="page-in">
       <header className="ph">
         <div>
-          <h1 className="h1">Hello, {v.name.split(/\s+/)[0]}</h1>
+          <h1 className="h1">{v.admin ? `${v.vendor}: their portal` : `Hello, ${v.name.split(/\s+/)[0]}`}</h1>
           <p className="lede">Requests from Agthia for {v.vendor}. Open one to send your price, say you can&apos;t do it, or chat about it.</p>
         </div>
       </header>

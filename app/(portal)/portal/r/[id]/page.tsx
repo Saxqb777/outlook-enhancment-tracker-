@@ -51,7 +51,7 @@ export default async function PortalRequest({ params }: { params: Promise<{ id: 
           </p>
         </div>
       </header>
-      <PortalReply id={r.id} result={r.result} today={today} quote={{ state: r.state, price: r.price, currency: r.currency, validUntil: r.valid_until ?? "", readyOn: r.ready_on ?? "", note: r.note ?? "", declineReason: r.decline_reason }} />
+      <PortalReply id={r.id} result={r.result} today={today} viewOnly={v.viewOnly} sandbox={v.sandbox} quote={{ state: r.state, price: r.price, currency: r.currency, validUntil: r.valid_until ?? "", readyOn: r.ready_on ?? "", note: r.note ?? "", declineReason: r.decline_reason }} />
       <div className="rq-grid">
         <section className="panel" aria-label="The request">
           <div className="panel-h">
@@ -87,7 +87,7 @@ export default async function PortalRequest({ params }: { params: Promise<{ id: 
           <div className="panel-h">
             <h2>Chat with Agthia</h2>
           </div>
-          <PortalChat id={r.id} canWrite={r.result !== "cancelled" && r.result !== "lost"} />
+          <PortalChat id={r.id} canWrite={!v.viewOnly && r.result !== "cancelled" && r.result !== "lost"} />
         </section>
       </div>
     </div>

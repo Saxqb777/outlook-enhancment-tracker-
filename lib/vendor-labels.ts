@@ -24,3 +24,16 @@ export function cleanFields(v: unknown): Field[] {
   }
   return out;
 }
+
+/** One plain line saying who the request is waiting on. */
+export function nextStep(r: { status: RfqStatus; vendors: number; replied: number; quoted: number; winner?: string | null }): string {
+  if (r.status === "pending_award") return "Waiting for a Lead to approve the choice";
+  if (r.status === "awarded") return `Waiting for ${r.winner ?? "the vendor"} to confirm the job`;
+  if (r.status === "confirmed") return "Job confirmed. Mark it done when it's finished";
+  if (r.status === "done") return "Finished";
+  if (r.status === "cancelled") return "Cancelled";
+  const left = r.vendors - r.replied;
+  if (r.replied === 0) return r.vendors === 1 ? "Waiting for the vendor to reply" : `Waiting for ${r.vendors} vendors to reply`;
+  if (left > 0) return r.quoted ? `${r.quoted} quote${r.quoted === 1 ? "" : "s"} in, waiting for ${left} more vendor${left === 1 ? "" : "s"}` : `Waiting for ${left} more vendor${left === 1 ? "" : "s"}`;
+  return r.quoted ? "All replies are in. Choose a vendor" : "No vendor can do it. Add more vendors";
+}

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Avatar, Icon } from "@/components/Icon";
 import { PersonToggle, VendorTools } from "@/components/Vendors";
+import { viewVendor } from "@/app/actions/admin";
 import { getViewer } from "@/lib/auth";
 import { fmtShort, fmtWhen, todayISO } from "@/lib/time";
 import { money, QUOTE_STATE, rqRef } from "@/lib/vendor-labels";
@@ -15,8 +16,9 @@ const val = (fields: { label: string; value: string }[], label: string) => field
 
 export default async function VendorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { me, viewOnly } = await getViewer();
-  const v = await getVendor(id);
+  const { me, real, viewOnly, viewingAs } = await getViewer();
+  const admin = real.role === "admin" && !viewingAs;
+  const v = await getVendor(id, admin);
   if (!v) notFound();
   const today = todayISO();
   const prices = v.past.filter((p) => p.state === "quoted" && p.price);
@@ -34,7 +36,10 @@ export default async function VendorPage({ params }: { params: Promise<{ id: str
           <p className="ap-ref">
             <span className={`ap-st ${v.status === "active" ? (v.people ? "signed" : "open") : "cancelled"}`}>{v.status === "active" ? (v.people ? "Active" : "Invited, not joined yet") : "Access off"}</span>
           </p>
-          <h1 className="h1">{v.name}</h1>
+          <h1 className="h1">
+            {v.name}
+            {v.test && <span className="ap-ver sbx">Sandbox</span>}
+          </h1>
           <p className="lede">
             {v.services.join(", ") || "No type set"}
             {v.areas && <> · {v.areas}</>}
@@ -42,6 +47,16 @@ export default async function VendorPage({ params }: { params: Promise<{ id: str
           </p>
         </div>
       </header>
+      {admin && (
+        <form action={viewVendor} className="ap-tools">
+          <input type="hidden" name="vendorId" value={v.id} />
+          <button className="btn btn-primary" type="submit">
+            <Icon name="eye" size={15} />
+            See their portal
+          </button>
+          <span className="hint">{v.test ? "Sandbox vendor: you can reply, quote and chat as them." : "Shows the portal exactly as this vendor sees it. View only."}</span>
+        </form>
+      )}
       {!viewOnly && <VendorTools vendor={{ id: v.id, status: v.status, name: v.name, services: v.services, areas: v.areas, phone: v.phone, notes: v.notes }} lead={me.role === "lead"} />}
 
       <section className="stats" aria-label="Scorecard">

@@ -80,6 +80,7 @@ export async function destroySession(): Promise<void> {
   if (token) await q("delete from sessions where id = $1", [hashToken(token)]);
   store.delete(SESSION_COOKIE);
   store.delete(VIEW_AS_COOKIE);
+  store.delete("ae_view_vendor");
 }
 
 export const getCurrentUser = cache(async (): Promise<User | null> => {

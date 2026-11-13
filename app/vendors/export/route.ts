@@ -20,13 +20,13 @@ export async function GET() {
               (select count(*)::int from rfq_vendors x where x.rfq_id = r.id) as vendors,
               (select count(*)::int from rfq_vendors x where x.rfq_id = r.id and x.state = 'quoted') as quoted
          from rfqs r join users u on u.id = r.created_by left join vendors v on v.id = r.awarded_vendor_id
-         left join rfq_vendors w on w.rfq_id = r.id and w.vendor_id = r.awarded_vendor_id order by r.id desc`,
+         left join rfq_vendors w on w.rfq_id = r.id and w.vendor_id = r.awarded_vendor_id where not r.test order by r.id desc`,
     ),
     q<{ rfq_id: string; title: string; vendor: string; state: QuoteState; price: string | null; currency: string | null; ready_on: string | null; valid_until: string | null; note: string | null; decline_reason: string | null; quoted_at: Date | null; won: boolean; changes: number }>(
       `select r.id::text as rfq_id, r.title, v.name as vendor, rv.state, rv.price::text as price, rv.currency, rv.ready_on::text as ready_on, rv.valid_until::text as valid_until, rv.note, rv.decline_reason, rv.quoted_at,
               (r.awarded_vendor_id = rv.vendor_id and r.status in ('awarded', 'confirmed', 'done')) as won,
               greatest((select count(*)::int from rfq_quotes h where h.rfq_id = rv.rfq_id and h.vendor_id = rv.vendor_id) - 1, 0) as changes
-         from rfq_vendors rv join rfqs r on r.id = rv.rfq_id join vendors v on v.id = rv.vendor_id order by r.id desc, rv.price nulls last`,
+         from rfq_vendors rv join rfqs r on r.id = rv.rfq_id join vendors v on v.id = rv.vendor_id where not r.test order by r.id desc, rv.price nulls last`,
     ),
     q<{ name: string; services: string[]; areas: string; phone: string; status: string; people: number; asked: number; quoted: number; won: number }>(
       `select v.name, v.services, v.areas, v.phone, v.status,
@@ -34,7 +34,7 @@ export async function GET() {
               (select count(*)::int from rfq_vendors rv where rv.vendor_id = v.id) as asked,
               (select count(*)::int from rfq_vendors rv where rv.vendor_id = v.id and rv.state = 'quoted') as quoted,
               (select count(*)::int from rfqs r where r.awarded_vendor_id = v.id and r.status in ('awarded', 'confirmed', 'done')) as won
-         from vendors v order by lower(v.name)`,
+         from vendors v where not v.test order by lower(v.name)`,
     ),
   ]);
   const wb = new ExcelJS.Workbook();

@@ -8,11 +8,12 @@ const isId = (v: unknown) => /^\d{1,12}$/.test(String(v));
 const WATCH = `(r.created_by = $1 or exists (select 1 from users w where w.id = $1 and w.role = 'lead'))`;
 const UNREAD = `m.user_id is distinct from $1 and m.created_at > coalesce((select x.last_read_at from rfq_reads x where x.rfq_id = m.rfq_id and x.vendor_id = m.vendor_id and x.user_id = $1), '-infinity')`;
 
-export type VendorRow = { id: string; name: string; services: string[]; areas: string; phone: string; status: "active" | "off"; people: number; asked: number; quoted: number; declined: number; won: number; reply_hours: number | null; has_link: boolean };
+export type VendorRow = { id: string; name: string; services: string[]; areas: string; phone: string; status: "active" | "off"; test: boolean; people: number; asked: number; quoted: number; declined: number; won: number; reply_hours: number | null; has_link: boolean };
 
-export async function listVendors(): Promise<VendorRow[]> {
+/** `showTest`: only the Admin (as themselves) sees sandbox vendors and requests. */
+export async function listVendors(showTest = false): Promise<VendorRow[]> {
   return q<VendorRow>(
-    `select v.id::text as id, v.name, v.services, v.areas, v.phone, v.status,
+    `select v.id::text as id, v.name, v.services, v.areas, v.phone, v.status, v.test,
             (select count(*)::int from vendor_users u where u.vendor_id = v.id and u.status = 'active') as people,
             (select count(*)::int from rfq_vendors rv where rv.vendor_id = v.id) as asked,
             (select count(*)::int from rfq_vendors rv where rv.vendor_id = v.id and rv.state = 'quoted') as quoted,
@@ -20,16 +21,17 @@ export async function listVendors(): Promise<VendorRow[]> {
             (select count(*)::int from rfqs r where r.awarded_vendor_id = v.id and r.status in ('awarded', 'confirmed', 'done')) as won,
             (select round(avg(extract(epoch from (rv.quoted_at - rv.added_at)) / 3600)::numeric, 1)::float from rfq_vendors rv where rv.vendor_id = v.id and rv.quoted_at is not null) as reply_hours,
             (v.invite_hash is not null and v.invite_expires > now()) as has_link
-       from vendors v order by (v.status = 'active') desc, lower(v.name)`,
+       from vendors v where ($1 or not v.test) order by v.test, (v.status = 'active') desc, lower(v.name)`,
+    [showTest],
   );
 }
 
 export type VendorPerson = { id: string; name: string; email: string; status: string; last_login_at: Date | null };
 export type PastQuote = { rfq_id: string; title: string; fields: Field[]; status: RfqStatus; state: QuoteState; price: string | null; currency: string | null; won: boolean; created_at: Date };
 
-export async function getVendor(id: string) {
+export async function getVendor(id: string, showTest = false) {
   if (!isId(id)) return null;
-  const v = (await listVendors()).find((x) => x.id === id);
+  const v = (await listVendors(showTest)).find((x) => x.id === id);
   if (!v) return null;
   const [extra, people, past] = await Promise.all([
     one<{ notes: string; created_at: Date; by: string | null }>("select v.notes, v.created_at, u.name as by from vendors v left join users u on u.id = v.created_by where v.id = $1", [id]),
@@ -45,21 +47,22 @@ export async function getVendor(id: string) {
 
 export type RfqRow = {
   id: string; title: string; status: RfqStatus; reply_by: string | null; created_at: Date; created_by: string; by: string; fields: Field[];
-  vendors: number; replied: number; best: string | null; best_currency: string | null; winner: string | null; unread: number;
+  vendors: number; replied: number; quoted: number; test: boolean; best: string | null; best_currency: string | null; winner: string | null; unread: number;
 };
 
-export async function listRfqs(me: User): Promise<RfqRow[]> {
+export async function listRfqs(me: User, showTest = false): Promise<RfqRow[]> {
   return q<RfqRow>(
-    `select r.id::text as id, r.title, r.status, r.reply_by::text as reply_by, r.created_at, r.created_by, u.name as by, r.fields,
+    `select r.id::text as id, r.title, r.status, r.reply_by::text as reply_by, r.created_at, r.created_by, u.name as by, r.fields, r.test,
             (select count(*)::int from rfq_vendors rv where rv.rfq_id = r.id) as vendors,
+            (select count(*)::int from rfq_vendors rv where rv.rfq_id = r.id and rv.state = 'quoted') as quoted,
             (select count(*)::int from rfq_vendors rv where rv.rfq_id = r.id and rv.state <> 'invited') as replied,
             b.price::text as best, b.currency as best_currency,
             (select v.name from vendors v where v.id = r.awarded_vendor_id) as winner,
             (select count(*)::int from rfq_messages m where m.rfq_id = r.id and ${WATCH} and ${UNREAD}) as unread
        from rfqs r join users u on u.id = r.created_by
        left join lateral (select rv.price, rv.currency from rfq_vendors rv where rv.rfq_id = r.id and rv.state = 'quoted' order by rv.price limit 1) b on true
-      order by r.id desc limit 500`,
-    [me.id],
+      where ($2 or not r.test) order by r.id desc limit 500`,
+    [me.id, showTest],
   );
 }
 
@@ -69,19 +72,19 @@ export type RfqQuote = {
   files: { id: string; name: string; mime: string; size: number }[];
 };
 export type RfqFull = {
-  id: string; title: string; fields: Field[]; notes: string; status: RfqStatus; reply_by: string | null; created_at: Date; closed_at: Date | null; created_by: string; by: string;
+  id: string; test: boolean; title: string; fields: Field[]; notes: string; status: RfqStatus; reply_by: string | null; created_at: Date; closed_at: Date | null; created_by: string; by: string;
   case_id: string | null; case_subject: string | null; awarded_vendor_id: string | null; award_by: string | null; award_by_name: string | null; award_note: string | null; awarded_at: Date | null;
   files: { id: string; name: string; mime: string; size: number }[];
   quotes: RfqQuote[];
 };
 
-export async function getRfq(me: User, id: string): Promise<RfqFull | null> {
+export async function getRfq(me: User, id: string, showTest = false): Promise<RfqFull | null> {
   if (!isId(id)) return null;
   const r = await one<Omit<RfqFull, "files" | "quotes">>(
-    `select r.id::text as id, r.title, r.fields, r.notes, r.status, r.reply_by::text as reply_by, r.created_at, r.closed_at, r.created_by, u.name as by,
+    `select r.id::text as id, r.test, r.title, r.fields, r.notes, r.status, r.reply_by::text as reply_by, r.created_at, r.closed_at, r.created_by, u.name as by,
             r.case_id::text as case_id, c.subject as case_subject, r.awarded_vendor_id::text as awarded_vendor_id, r.award_by, a.name as award_by_name, r.award_note, r.awarded_at
-       from rfqs r join users u on u.id = r.created_by left join users a on a.id = r.award_by left join cases c on c.id = r.case_id where r.id = $1`,
-    [id],
+       from rfqs r join users u on u.id = r.created_by left join users a on a.id = r.award_by left join cases c on c.id = r.case_id where r.id = $1 and ($2 or not r.test)`,
+    [id, showTest],
   );
   if (!r) return null;
   const [files, quotes] = await Promise.all([
@@ -114,8 +117,8 @@ export async function rfqThread(rfqId: string, vendorId: string, forVendor: bool
 /** For the Vendors tab: unread vendor activity on requests this person watches, plus awards waiting for a Lead. */
 export async function vendorBadge(me: User): Promise<number> {
   const r = await one<{ n: number }>(
-    `select (select count(*)::int from rfq_messages m join rfqs r on r.id = m.rfq_id where ${WATCH} and ${UNREAD})
-          + (select count(*)::int from rfqs r where r.status = 'pending_award' and exists (select 1 from users w where w.id = $1 and w.role = 'lead')) as n`,
+    `select (select count(*)::int from rfq_messages m join rfqs r on r.id = m.rfq_id where not r.test and ${WATCH} and ${UNREAD})
+          + (select count(*)::int from rfqs r where r.status = 'pending_award' and not r.test and exists (select 1 from users w where w.id = $1 and w.role = 'lead')) as n`,
     [me.id],
   );
   return r?.n ?? 0;

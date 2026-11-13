@@ -162,7 +162,7 @@ function VendorPicker({ vendors, picked, setPicked }: { vendors: VendorLite[]; p
 
 // ------------------------------------------------------------------ new request
 
-export function RfqNew({ vendors, templates, today, start }: { vendors: VendorLite[]; templates: Template[]; today: string; start?: { title: string; caseId: string; caseRef: string } }) {
+export function RfqNew({ vendors, templates, today, start, sandbox }: { vendors: VendorLite[]; templates: Template[]; today: string; start?: { title: string; caseId: string; caseRef: string }; sandbox?: boolean }) {
   const [title, setTitle] = useState(start?.title ?? "");
   const [fields, setFields] = useState<Field[]>(DEFAULT_FIELDS.map((label) => ({ label, value: "" })));
   const [notes, setNotes] = useState("");
@@ -197,16 +197,18 @@ export function RfqNew({ vendors, templates, today, start }: { vendors: VendorLi
       </div>
       <div className="field">
         <label>Details</label>
-        <FieldBuilder fields={fields} setFields={setFields} templates={templates} />
+        <FieldBuilder fields={fields} setFields={setFields} templates={sandbox ? undefined : templates} />
       </div>
       <div className="field">
         <label htmlFor="rq-notes">Anything else (optional)</label>
         <textarea id="rq-notes" className="inp" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={5000} />
       </div>
-      <div className="field">
-        <label>Documents (optional)</label>
-        <AttachPicker att={att} />
-      </div>
+      {!sandbox && (
+        <div className="field">
+          <label>Documents (optional)</label>
+          <AttachPicker att={att} />
+        </div>
+      )}
       <div className="field ap-date">
         <label htmlFor="rq-by">Vendors should reply by (optional)</label>
         <input id="rq-by" type="date" className="inp inp-date" min={today} value={replyBy} onChange={(e) => setReplyBy(e.target.value)} />
@@ -291,8 +293,8 @@ export function VendorForm({ vendor, onClose }: { vendor?: { id: string } & Vend
 
 // ------------------------------------------------------------------ Vendors home: requests + vendors
 
-export type RfqItem = { id: string; ref: string; title: string; status: RfqStatus; by: string; mine: boolean; route: string; when: string; replyBy: string | null; late: boolean; vendors: number; replied: number; best: string | null; winner: string | null; unread: number };
-export type VendorItem = { id: string; name: string; services: string[]; areas: string; status: string; people: number; asked: number; quoted: number; won: number; replyHours: number | null };
+export type RfqItem = { id: string; ref: string; title: string; status: RfqStatus; by: string; mine: boolean; route: string; when: string; replyBy: string | null; late: boolean; vendors: number; replied: number; best: string | null; winner: string | null; unread: number; next: string; test: boolean };
+export type VendorItem = { id: string; name: string; services: string[]; areas: string; status: string; people: number; test?: boolean; asked: number; quoted: number; won: number; replyHours: number | null };
 
 const OPEN: RfqStatus[] = ["open", "pending_award", "awarded", "confirmed"];
 
@@ -349,11 +351,16 @@ export function VendorsHome({ rfqs, vendors, initial }: { rfqs: RfqItem[]; vendo
                   <span className="ap-title">
                     {r.unread > 0 && <span className="unread-dot" title={`${r.unread} new`} />}
                     {r.title}
+                    {r.test && <span className="ap-ver sbx">Sandbox</span>}
                   </span>
                   <span className="ap-sub">
                     <span>{r.mine ? "You" : r.by}</span>
                     <span>{r.when}</span>
                     {r.route && <span>{r.route}</span>}
+                  </span>
+                  <span className="rq-next">
+                    <Icon name="clock" size={12} />
+                    {r.next}
                   </span>
                 </span>
                 <span className="ap-prog small">
@@ -375,7 +382,10 @@ export function VendorsHome({ rfqs, vendors, initial }: { rfqs: RfqItem[]; vendo
             {vlist.map((v) => (
               <Link key={v.id} className="aprow vnrow" href={`/vendors/v/${v.id}`}>
                 <span className="ap-main">
-                  <span className="ap-title">{v.name}</span>
+                  <span className="ap-title">
+                    {v.name}
+                    {v.test && <span className="ap-ver sbx">Sandbox</span>}
+                  </span>
                   <span className="ap-sub">
                     <span>{v.services.join(", ") || "No type set"}</span>
                     {v.areas && <span>{v.areas}</span>}
@@ -466,11 +476,12 @@ export type QuoteView = {
 };
 export type RfqView = {
   id: string; title: string; fields: Field[]; notes: string; status: RfqStatus; replyBy: string; awardedVendorId: string | null; awardByName: string | null; awardNote: string | null;
-  canManage: boolean; lead: boolean; quotes: QuoteView[];
+  canManage: boolean; lead: boolean; sandbox?: boolean; quotes: QuoteView[];
 };
 
 export function RfqBoard({ rfq, vendors, initialVendor }: { rfq: RfqView; vendors: VendorLite[]; initialVendor?: string }) {
-  const viewOnly = useViewOnly();
+  // In the sandbox the Admin can try everything; everywhere else the Admin is view only.
+  const viewOnly = useViewOnly() && !rfq.sandbox;
   const router = useRouter();
   const { busy, act } = useAct();
   const [sel, setSel] = useState<string>(rfq.quotes.find((x) => x.vendor_id === initialVendor)?.vendor_id ?? rfq.awardedVendorId ?? rfq.quotes.find((x) => x.unread > 0)?.vendor_id ?? rfq.quotes[0]?.vendor_id ?? "");

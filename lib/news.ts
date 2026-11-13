@@ -54,7 +54,7 @@ export function tourFor(role: R): TourStep[] {
     { target: '[data-tour="approvals"]', title: "Approvals, polished", text: "Signed, waiting and rejected are colour-coded, and each approval shows a small bar of who has signed." },
   ];
   if (role === "lead") steps.push({ title: "Team moved", text: "Team is now in the menu under your name at the top right, to keep the bar short." });
-  if (admin) steps.push({ title: "Change roles", text: "On the Admin page you can now make a Member a Lead, or a Lead a Member, at any time." });
+  if (admin) steps.push({ title: "Change roles", text: "On the Admin page you can now make a Member a Lead, or a Lead a Member, at any time." }, { title: "See a vendor's portal, and a test area", text: "On the Admin page, See their portal shows what any vendor sees. The Test area is a sandbox with a request in every stage, where you can try every screen without touching real work." });
   steps.push({ target: '[data-tour="help"]', title: "Help on every page", text: "Press ? on any page for a short guide to that page, and to replay this tour." });
   return steps;
 }
@@ -141,7 +141,7 @@ export function helpFor(path: string, role: R): HelpPage {
   if (path === "/board") return { title: "Board", items: [["Cards", "Every point is a card, sorted by status."], ["Move a card", "Drag it to another column, or use the ⋯ menu. Moving to Done or Waiting lets you add a note and files."], ["Open", "Click a card to open its case."]] };
   if (path === "/add") return { title: "Add an email", items: [["Three ways", "Paste the email text, upload the file, or drag the email onto the page. Outlook .msg, .eml and PDF all work."], ["The AI reads it", "It finds the sender, deadlines and each thing being asked. This takes about 10 seconds."], ["You check it", "Change anything before saving. Under Working with, pick teammates to share the case."]] };
   if (path === "/team") return { title: "Team", items: [["Invite", "Create an invite link and send it. The person sets their own name, email and password."], ["Reset password", "If someone forgets their password, make a reset link for them."], ["Access", "Turn a member's access off or back on."]] };
-  if (path === "/admin") return { title: "Admin", items: [["Health", "Whether the database and AI are working."], ["See their view", "Shows the app exactly as that person sees it. You can't change anything."], ["Make Lead / Make Member", "Switch a person between Lead and Member at any time. The team always keeps at least one Lead."], ["Logs", "Every AI read and every sign-in attempt."]] };
+  if (path === "/admin") return { title: "Admin", items: [["Health", "Whether the database and AI are working."], ["See their view", "Shows the app exactly as that person sees it. You can't change anything."], ["Make Lead / Make Member", "Switch a person between Lead and Member at any time. The team always keeps at least one Lead."], ["See their portal", "Under Vendors: opens the vendor portal exactly as that vendor sees it, view only."], ["Test area", "A sandbox with test vendors and a test request in every stage. Only you see it, and there you can quote, chat, award and confirm to try every screen. Reset puts it back."], ["Logs", "Every AI read and every sign-in attempt."]] };
   return {
     title: "Home",
     items: lead

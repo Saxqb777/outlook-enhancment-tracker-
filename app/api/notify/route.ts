@@ -33,7 +33,7 @@ export async function GET(req: Request) {
                 case when m.kind = 'internal' then 'rq_internal' when m.kind = 'system' then 'rq_system' else 'rq_text' end as kind, left(m.body, 160) as body, m.vendor_id::text as vendor_id
            from rfq_messages m join rfqs r on r.id = m.rfq_id join vendors v on v.id = m.vendor_id left join users u on u.id = m.user_id left join vendor_users vu on vu.id = m.vendor_user_id
           where m.created_at > $2::timestamptz and m.user_id is distinct from $1 and (m.vendor_user_id is not null or m.kind = 'internal')
-            and (r.created_by = $1 or $3)
+            and (r.created_by = $1 or $3) and not r.test
           order by m.id desc limit 5`,
         [user.id, after, user.role === "lead"],
       )

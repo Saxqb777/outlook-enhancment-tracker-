@@ -13,7 +13,7 @@ import { CURRENCIES, money } from "@/lib/vendor-labels";
 export type MyQuote = { state: "invited" | "quoted" | "declined"; price: string | null; currency: string | null; validUntil: string; readyOn: string; note: string; declineReason: string | null };
 
 /** The vendor's answer to one request: give a price, change it, say they can't, or confirm a job they won. */
-export function PortalReply({ id, result, quote, today }: { id: string; result: string; quote: MyQuote; today: string }) {
+export function PortalReply({ id, result, quote, today, viewOnly = false, sandbox = false }: { id: string; result: string; quote: MyQuote; today: string; viewOnly?: boolean; sandbox?: boolean }) {
   const [mode, setMode] = useState<null | "quote" | "decline">(null);
   const [price, setPrice] = useState(quote.price ? String(Number(quote.price)) : "");
   const [currency, setCurrency] = useState(quote.currency ?? "AED");
@@ -32,7 +32,7 @@ export function PortalReply({ id, result, quote, today }: { id: string; result: 
           <b>Your quote was chosen</b> at {money(quote.price, quote.currency)}. Please confirm you can do the job.
         </p>
         <div className="ap-decide-b">
-          <button type="button" className="btn btn-primary" disabled={busy} onClick={() => act(() => confirmJob(id), "Job confirmed.")}>
+          <button type="button" className="btn btn-primary" disabled={busy || viewOnly} title={viewOnly ? "View only" : undefined} onClick={() => act(() => confirmJob(id), "Job confirmed.")}>
             <Icon name="check" size={16} />
             Confirm the job
           </button>
@@ -66,12 +66,12 @@ export function PortalReply({ id, result, quote, today }: { id: string; result: 
         )}
       </p>
       <div className="ap-decide-b">
-        <button type="button" className="btn btn-primary" onClick={() => setMode("quote")}>
+        <button type="button" className="btn btn-primary" disabled={viewOnly} title={viewOnly ? "View only" : undefined} onClick={() => setMode("quote")}>
           <Icon name="check" size={16} />
           {quote.state === "quoted" ? "Change my quote" : "Can do, give price"}
         </button>
         {quote.state !== "declined" && (
-          <button type="button" className="btn btn-ghost ap-no" onClick={() => setMode("decline")}>
+          <button type="button" className="btn btn-ghost ap-no" disabled={viewOnly} onClick={() => setMode("decline")}>
             <Icon name="x" size={15} />
             Can&apos;t do
           </button>
@@ -107,7 +107,7 @@ export function PortalReply({ id, result, quote, today }: { id: string; result: 
             <label htmlFor="pq-note">Notes (what&apos;s included, conditions)</label>
             <textarea id="pq-note" className="inp" rows={3} value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} />
           </div>
-          <AttachPicker att={att} />
+          {!sandbox && <AttachPicker att={att} />}
           <div className="form-f">
             <button type="button" className="btn btn-ghost" onClick={close}>
               Cancel

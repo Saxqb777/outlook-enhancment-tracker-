@@ -12,6 +12,7 @@ import { createVendorSession, destroyVendorSession, requireVendor } from "@/lib/
 import { CURRENCIES, money } from "@/lib/vendor-labels";
 
 type Result = { ok: true } | { ok: false; error: string };
+const VIEW = { ok: false as const, error: "You are looking at this vendor's portal as Admin. Nothing can be changed here." };
 const GONE = { ok: false as const, error: "That request isn't available." };
 const isId = (v: unknown) => /^\d{1,12}$/.test(String(v));
 
@@ -58,6 +59,7 @@ export type QuoteInput = { price: string; currency: string; validUntil: string; 
 /** "Can do": the vendor gives or updates a price. Every price is kept on record. */
 export async function submitQuote(id: string, input: QuoteInput): Promise<Result> {
   const v = await requireVendor();
+  if (v.viewOnly) return VIEW;
   const r = await mine(v.vendor_id, id);
   if (!r) return GONE;
   if (r.status !== "open") return { ok: false, error: "This request is closed for quotes." };
@@ -85,6 +87,7 @@ export async function submitQuote(id: string, input: QuoteInput): Promise<Result
 /** "Can't do", with a reason. They can still send a quote later while the request is open. */
 export async function declineRequest(id: string, reason: string): Promise<Result> {
   const v = await requireVendor();
+  if (v.viewOnly) return VIEW;
   const r = await mine(v.vendor_id, id);
   if (!r) return GONE;
   if (r.status !== "open") return { ok: false, error: "This request is already closed." };
@@ -101,6 +104,7 @@ export async function declineRequest(id: string, reason: string): Promise<Result
 /** The chosen vendor confirms the job. */
 export async function confirmJob(id: string): Promise<Result> {
   const v = await requireVendor();
+  if (v.viewOnly) return VIEW;
   const r = await mine(v.vendor_id, id);
   if (!r) return GONE;
   if (r.status !== "awarded" || r.awarded_vendor_id !== v.vendor_id) return { ok: false, error: "There is nothing to confirm on this request." };
@@ -114,6 +118,7 @@ export async function confirmJob(id: string): Promise<Result> {
 
 export async function sendVendorMessage(id: string, body: string): Promise<Result> {
   const v = await requireVendor();
+  if (v.viewOnly) return VIEW;
   const r = await mine(v.vendor_id, id);
   if (!r) return GONE;
   const msg = String(body ?? "").trim().slice(0, 2000);
@@ -125,5 +130,5 @@ export async function sendVendorMessage(id: string, body: string): Promise<Resul
 
 export async function markPortalRead(id: string): Promise<void> {
   const v = await requireVendor();
-  if (isId(id)) await q("update rfq_vendors set vendor_read_at = now() where rfq_id = $1 and vendor_id = $2", [id, v.vendor_id]);
+  if (isId(id) && !v.admin) await q("update rfq_vendors set vendor_read_at = now() where rfq_id = $1 and vendor_id = $2", [id, v.vendor_id]);
 }

@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
-import { setRole, viewAs } from "@/app/actions/admin";
+import Link from "next/link";
+import { resetSandbox, setRole, viewAs, viewVendor } from "@/app/actions/admin";
+import { nextStep, RFQ_STATUS, rqRef } from "@/lib/vendor-labels";
+import { listRfqs, listVendors } from "@/lib/vendors";
 import { Avatar, Icon } from "@/components/Icon";
 import { plural } from "@/components/ui";
 import { requireAdmin } from "@/lib/auth";
@@ -35,6 +38,12 @@ function ago(d: Date): string {
 
 export default async function AdminPage() {
   await requireAdmin();
+  const admin = await requireAdmin();
+  const [vendorsAll, rfqsAll] = await Promise.all([listVendors(true), listRfqs(admin, true)]);
+  const realVendors = vendorsAll.filter((v) => !v.test);
+  const testVendors = vendorsAll.filter((v) => v.test);
+  const liveRfqs = rfqsAll.filter((r) => !r.test && !["done", "cancelled"].includes(r.status));
+  const testRfqs = rfqsAll.filter((r) => r.test);
   const today = todayISO();
   const t0 = Date.now();
   await one("select 1");
@@ -207,6 +216,141 @@ export default async function AdminPage() {
             {openLinks.map((o) => `${o.label ?? "no note"} (${o.role === "lead" ? "Lead" : "Member"}, until ${fmtShort(todayISO(new Date(o.expires_at)))})`).join(", ")}. Make new links on the Team page.
           </p>
         )}
+      </section>
+
+      <section className="panel" aria-label="Vendors">
+        <div className="panel-h">
+          <h2>
+            Vendors <span className="count">{realVendors.length}</span>
+          </h2>
+          <span className="hint">&ldquo;See their portal&rdquo; shows the vendor portal exactly as that vendor sees it, view only.</span>
+        </div>
+        <div className="list">
+          {realVendors.map((v) => (
+            <div className="prow" key={v.id}>
+              <span className="t-who">
+                <Avatar name={v.name} />
+                <span>
+                  <b>{v.name}</b>
+                  <span className="muted small">{v.services.join(", ") || "No type set"}</span>
+                </span>
+              </span>
+              <span>
+                <span className={`tag-st${v.status !== "active" ? " off" : v.people ? "" : " inv"}`}>{v.status !== "active" ? "Access off" : v.people ? "Active" : "Not joined yet"}</span>
+              </span>
+              <span className="p-seen small muted">{plural(v.people, "person").replace("persons", "people")} with a login</span>
+              <span className="p-work small">
+                {v.asked} asked · {v.quoted} quoted · {v.won} won
+              </span>
+              <span className="t-act">
+                <Link className="btn btn-sm btn-ghost" href={`/vendors/v/${v.id}`}>
+                  Details
+                </Link>
+                <form action={viewVendor}>
+                  <input type="hidden" name="vendorId" value={v.id} />
+                  <button className="btn btn-sm" type="submit">
+                    <Icon name="eye" size={14} />
+                    See their portal
+                  </button>
+                </form>
+              </span>
+            </div>
+          ))}
+          {!realVendors.length && <p className="empty">No vendors have been added yet.</p>}
+        </div>
+        {liveRfqs.length > 0 && (
+          <>
+            <div className="panel-h">
+              <h2>
+                Requests in progress <span className="count">{liveRfqs.length}</span>
+              </h2>
+              <span className="hint">What each one is waiting on.</span>
+            </div>
+            <div className="list">
+              {liveRfqs.slice(0, 12).map((r) => (
+                <Link className="aprow vnpast" key={r.id} href={`/vendors/rfq/${r.id}`}>
+                  <span className="cid">{rqRef(r.id)}</span>
+                  <span className="ap-main">
+                    <span className="ap-title">{r.title}</span>
+                    <span className="rq-next">
+                      <Icon name="clock" size={12} />
+                      {nextStep(r)}
+                    </span>
+                  </span>
+                  <span className="ap-prog small">{r.by}</span>
+                  <span className="ap-end">
+                    <span className={`ap-st rq-${r.status}`}>{RFQ_STATUS[r.status]}</span>
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </>
+        )}
+      </section>
+
+      <section className="panel sbx-panel" id="sandbox" aria-label="Test area">
+        <div className="panel-h">
+          <h2>Test area (sandbox)</h2>
+          <form action={resetSandbox}>
+            <button className="btn btn-sm btn-primary" type="submit">
+              {testRfqs.length ? "Reset sandbox" : "Set up sandbox"}
+            </button>
+          </form>
+        </div>
+        <div className="ap-doc-b">
+          <p className="ap-body">
+            A safe place to see and try every vendor screen. It has two test vendors and one test request in every stage, from &ldquo;nobody has replied&rdquo; to &ldquo;job done&rdquo;. Only you see it: the team, the real vendors, the badges and the
+            Excel export never show sandbox items. Here you are not view only, so you can quote, chat, award and confirm. Reset puts everything back.
+          </p>
+          {testVendors.length > 0 ? (
+            <>
+              <p className="small muted">1. The vendor&apos;s side: open the portal as a test vendor and reply, quote, chat or confirm.</p>
+              <div className="ap-tools">
+                {testVendors.map((v) => (
+                  <form action={viewVendor} key={v.id}>
+                    <input type="hidden" name="vendorId" value={v.id} />
+                    <button className="btn" type="submit">
+                      <Icon name="eye" size={15} />
+                      Portal as {v.name.replace(" (test)", "")}
+                    </button>
+                  </form>
+                ))}
+              </div>
+              <p className="small muted">2. The team&apos;s side: open a test request to compare, chat, award, approve or mark done. Or make a new one.</p>
+              <div className="ap-tools">
+                <Link className="btn" href="/vendors/new">
+                  <Icon name="plus" size={15} />
+                  New sandbox request
+                </Link>
+                <Link className="btn btn-ghost" href="/vendors">
+                  All requests (sandbox ones are tagged)
+                </Link>
+              </div>
+              <div className="list">
+                {testRfqs.map((r) => (
+                  <Link className="aprow vnpast" key={r.id} href={`/vendors/rfq/${r.id}`}>
+                    <span className="cid">{rqRef(r.id)}</span>
+                    <span className="ap-main">
+                      <span className="ap-title">{r.title}</span>
+                      <span className="rq-next">
+                        <Icon name="clock" size={12} />
+                        {nextStep(r)}
+                      </span>
+                    </span>
+                    <span className="ap-prog small">
+                      {r.replied} of {r.vendors} replied
+                    </span>
+                    <span className="ap-end">
+                      <span className={`ap-st rq-${r.status}`}>{RFQ_STATUS[r.status]}</span>
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="hint">Press Set up sandbox to create the test vendors and requests.</p>
+          )}
+        </div>
       </section>
 
       <div className="adm-grid">

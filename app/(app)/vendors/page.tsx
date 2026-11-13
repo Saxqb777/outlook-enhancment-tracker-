@@ -4,7 +4,7 @@ import { Icon } from "@/components/Icon";
 import { VendorsHome, type RfqItem, type VendorItem } from "@/components/Vendors";
 import { getViewer } from "@/lib/auth";
 import { diffDays, fmtDay, fmtShort, todayISO } from "@/lib/time";
-import { money, rqRef } from "@/lib/vendor-labels";
+import { money, nextStep, rqRef } from "@/lib/vendor-labels";
 import { listRfqs, listVendors } from "@/lib/vendors";
 
 export const metadata: Metadata = { title: "Vendors" };
@@ -13,10 +13,11 @@ export const dynamic = "force-dynamic";
 const val = (fields: { label: string; value: string }[], label: string) => fields.find((f) => f.label.toLowerCase() === label)?.value ?? "";
 
 export default async function VendorsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
-  const { me, viewOnly } = await getViewer();
+  const { me, real, viewOnly, viewingAs } = await getViewer();
+  const sandbox = real.role === "admin" && !viewingAs;
   const { tab } = await searchParams;
   const today = todayISO();
-  const [rfqs, vendors] = await Promise.all([listRfqs(me), listVendors()]);
+  const [rfqs, vendors] = await Promise.all([listRfqs(me, sandbox), listVendors(sandbox)]);
   const items: RfqItem[] = rfqs.map((r) => ({
     id: r.id,
     ref: rqRef(r.id),
@@ -33,8 +34,10 @@ export default async function VendorsPage({ searchParams }: { searchParams: Prom
     best: r.best ? money(r.best, r.best_currency) : null,
     winner: r.winner,
     unread: r.unread,
+    next: nextStep(r),
+    test: r.test,
   }));
-  const vitems: VendorItem[] = vendors.map((v) => ({ id: v.id, name: v.name, services: v.services, areas: v.areas, status: v.status, people: v.people, asked: v.asked, quoted: v.quoted, won: v.won, replyHours: v.reply_hours }));
+  const vitems: VendorItem[] = vendors.map((v) => ({ id: v.id, name: v.name, services: v.services, areas: v.areas, status: v.status, people: v.people, test: v.test, asked: v.asked, quoted: v.quoted, won: v.won, replyHours: v.reply_hours }));
   return (
     <div className="page-in">
       <header className="ph">
@@ -48,10 +51,10 @@ export default async function VendorsPage({ searchParams }: { searchParams: Prom
             <span className="m-hide">Export to Excel</span>
             <span className="m-only-i">Export</span>
           </a>
-          {!viewOnly && (
+          {(!viewOnly || sandbox) && (
             <Link className="btn btn-primary" href="/vendors/new" data-tour="vn-new">
               <Icon name="plus" size={15} />
-              New request
+              {sandbox ? "New sandbox request" : "New request"}
             </Link>
           )}
         </div>

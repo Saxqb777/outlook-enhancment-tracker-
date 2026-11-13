@@ -57,7 +57,7 @@ export default async function VendorPage({ params }: { params: Promise<{ id: str
           <span className="hint">{v.test ? "Sandbox vendor: you can reply, quote and chat as them." : "Shows the portal exactly as this vendor sees it. View only."}</span>
         </form>
       )}
-      {!viewOnly && <VendorTools vendor={{ id: v.id, status: v.status, name: v.name, services: v.services, areas: v.areas, phone: v.phone, notes: v.notes }} lead={me.role === "lead"} />}
+      {(!viewOnly || admin) && <VendorTools vendor={{ id: v.id, status: v.status, name: v.name, services: v.services, areas: v.areas, phone: v.phone, notes: v.notes }} lead={me.role === "lead"} />}
 
       <section className="stats" aria-label="Scorecard">
         <div className="stat">

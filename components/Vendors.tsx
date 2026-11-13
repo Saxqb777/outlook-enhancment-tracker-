@@ -298,8 +298,7 @@ export type VendorItem = { id: string; name: string; services: string[]; areas: 
 
 const OPEN: RfqStatus[] = ["open", "pending_award", "awarded", "confirmed"];
 
-export function VendorsHome({ rfqs, vendors, initial }: { rfqs: RfqItem[]; vendors: VendorItem[]; initial: "requests" | "vendors" }) {
-  const viewOnly = useViewOnly();
+export function VendorsHome({ rfqs, vendors, initial, canAdd }: { rfqs: RfqItem[]; vendors: VendorItem[]; initial: "requests" | "vendors"; canAdd: boolean }) {
   const [tab, setTab] = useState(initial);
   const [show, setShow] = useState<"open" | "mine" | "closed" | "all">("open");
   const [q, setQ] = useState("");
@@ -328,8 +327,8 @@ export function VendorsHome({ rfqs, vendors, initial }: { rfqs: RfqItem[]; vendo
             ))}
           </div>
         )}
-        {tab === "vendors" && !viewOnly && (
-          <button type="button" className="btn btn-sm" onClick={() => setAdding(true)}>
+        {canAdd && (
+          <button type="button" className="btn btn-sm" data-tour="vn-add" onClick={() => setAdding(true)}>
             <Icon name="plus" size={14} />
             Add vendor
           </button>
@@ -373,7 +372,7 @@ export function VendorsHome({ rfqs, vendors, initial }: { rfqs: RfqItem[]; vendo
                 </span>
               </Link>
             ))}
-            {!list.length && <p className="empty">{needle ? "Nothing matches that search." : rfqs.length ? "No requests here." : "No requests yet. Press New request to ask vendors for a price."}</p>}
+            {!list.length && <p className="empty">{needle ? "Nothing matches that search." : rfqs.length ? "No requests here." : vendors.length ? "No requests yet. Press New request to ask vendors for a price." : "Start by pressing Add vendor. Then send them a request for a price."}</p>}
           </div>
         </section>
       ) : (

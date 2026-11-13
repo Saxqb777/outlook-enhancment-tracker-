@@ -59,7 +59,7 @@ export default async function VendorsPage({ searchParams }: { searchParams: Prom
           )}
         </div>
       </header>
-      <VendorsHome rfqs={items} vendors={vitems} initial={tab === "vendors" ? "vendors" : "requests"} />
+      <VendorsHome rfqs={items} vendors={vitems} initial={tab === "vendors" ? "vendors" : "requests"} canAdd={!viewOnly || sandbox} />
     </div>
   );
 }

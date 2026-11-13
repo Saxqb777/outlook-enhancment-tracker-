@@ -52,9 +52,9 @@ function cleanVendor(input: VendorInput) {
   };
 }
 
+/** Adding and editing vendors is open to the Admin too (like team invite links), so they can set vendors up. */
 export async function createVendor(input: VendorInput): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
-  const me = await member();
-  if (!me) return VIEW_ONLY;
+  const me = await requireUser();
   const v = cleanVendor(input);
   if (v.name.length < 2) return { ok: false, error: "Enter the vendor's company name." };
   try {
@@ -68,8 +68,7 @@ export async function createVendor(input: VendorInput): Promise<{ ok: true; id: 
 }
 
 export async function updateVendor(id: string, input: VendorInput): Promise<Result> {
-  const me = await member();
-  if (!me) return VIEW_ONLY;
+  await requireUser();
   if (!isId(id)) return GONE;
   const v = cleanVendor(input);
   if (v.name.length < 2) return { ok: false, error: "Enter the vendor's company name." };

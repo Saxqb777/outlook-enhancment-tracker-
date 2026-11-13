@@ -17,11 +17,13 @@ const AP_SAY: Record<string, string> = {
   ap_reminded: "is waiting for your signature",
 };
 const isAp = (n: { kind: string }) => n.kind.startsWith("ap_");
+const isRq = (n: { kind: string }) => n.kind.startsWith("rq_");
+const rqRef = (id: string) => `RQ-${id.padStart(4, "0")}`;
 const apRef = (id: string) => `AP-${id.padStart(4, "0")}`;
-const head = (n: Note) => (isAp(n) ? `${n.who ?? "Someone"} ${AP_SAY[n.kind] ?? "updated an approval"}` : `${n.kind === "ai" ? "AI" : (n.who ?? "Someone")} · ${caseRef(n.case_id)}`);
-const href = (n: Note) => (isAp(n) ? `/approvals/${n.case_id}` : `/cases/${n.case_id}?tab=chat`);
+const head = (n: Note) => (isRq(n) ? (n.kind === "rq_text" ? `${n.who ?? "Vendor"} wrote` : n.kind === "rq_internal" ? "Vendor award" : "Vendor update") : isAp(n) ? `${n.who ?? "Someone"} ${AP_SAY[n.kind] ?? "updated an approval"}` : `${n.kind === "ai" ? "AI" : (n.who ?? "Someone")} · ${caseRef(n.case_id)}`);
+const href = (n: Note) => (isRq(n) ? `/vendors/rfq/${n.case_id}${n.vendor_id ? `?v=${n.vendor_id}` : ""}` : isAp(n) ? `/approvals/${n.case_id}` : `/cases/${n.case_id}?tab=chat`);
 
-type Note = { id: string; case_id: string; subject: string; who: string | null; kind: string; body: string };
+type Note = { id: string; case_id: string; subject: string; who: string | null; kind: string; body: string; vendor_id?: string };
 
 /** Pops up new chat messages on any page, counts them in the tab title, and can alert on the desktop. */
 export default function Notifier() {
@@ -52,7 +54,7 @@ export default function Notifier() {
         unread.current = j.unread;
         applyTitle();
         const open = (window as unknown as { __chatOpen?: string | null }).__chatOpen;
-        const fresh = j.items.filter((n) => !seen.current.has(n.id) && !(!isAp(n) && open === n.case_id && document.visibilityState === "visible"));
+        const fresh = j.items.filter((n) => !seen.current.has(n.id) && !(!isAp(n) && !isRq(n) && open === n.case_id && document.visibilityState === "visible"));
         if (!fresh.length) return;
         fresh.forEach((n) => seen.current.add(n.id));
         setNotes((v) => [...v, ...fresh].slice(-3));
@@ -60,7 +62,7 @@ export default function Notifier() {
         fresh.forEach((n) => setTimeout(() => setNotes((v) => v.filter((x) => x.id !== n.id)), 12000));
         if (document.visibilityState !== "visible" && typeof Notification !== "undefined" && Notification.permission === "granted") {
           const n = fresh[fresh.length - 1];
-          const d = new Notification(head(n), { body: isAp(n) ? `${apRef(n.case_id)} · ${n.subject}` : n.body, tag: `${isAp(n) ? "ap" : "case"}-${n.case_id}` });
+          const d = new Notification(head(n), { body: isAp(n) ? `${apRef(n.case_id)} · ${n.subject}` : n.body, tag: `${isRq(n) ? "rq" : isAp(n) ? "ap" : "case"}-${n.case_id}` });
           d.onclick = () => {
             window.focus();
             router.push(href(n));
@@ -86,15 +88,15 @@ export default function Notifier() {
       {notes.map((n) => (
         <div className="note" key={n.id}>
           <span className="note-i">
-            <Icon name={isAp(n) ? "sign" : n.kind === "ai" ? "spark" : "chat"} size={16} />
+            <Icon name={isRq(n) ? "truck" : isAp(n) ? "sign" : n.kind === "ai" ? "spark" : "chat"} size={16} />
           </span>
           <div className="note-b">
             <b>{head(n)}</b>
-            <span className="note-s">{isAp(n) ? `${apRef(n.case_id)} · ${n.subject}` : n.subject}</span>
+            <span className="note-s">{isRq(n) ? `${rqRef(n.case_id)} · ${n.subject}` : isAp(n) ? `${apRef(n.case_id)} · ${n.subject}` : n.subject}</span>
             <span className="note-t">{n.body}</span>
             <span className="note-f">
               <Link className="btn btn-sm btn-primary" href={href(n)} onClick={() => setNotes((v) => v.filter((x) => x.id !== n.id))}>
-                {isAp(n) ? (n.kind === "ap_created" || n.kind === "ap_new_version" || n.kind === "ap_reminded" ? "Open and sign" : "Open") : "Open chat"}
+                {isRq(n) ? "Open request" : isAp(n) ? (n.kind === "ap_created" || n.kind === "ap_new_version" || n.kind === "ap_reminded" ? "Open and sign" : "Open") : "Open chat"}
               </Link>
               {canAsk && (
                 <button

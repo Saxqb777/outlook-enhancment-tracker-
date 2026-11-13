@@ -1,6 +1,7 @@
 import { checkFile, mimeFor } from "@/lib/attach-rules";
 import { editablePoint, saveLocal, useBlob } from "@/lib/attachments";
 import { getCurrentUser } from "@/lib/auth";
+import { getVendorUser } from "@/lib/vendor-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -8,13 +9,14 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
   if (useBlob()) return Response.json({ error: "Not used on this server." }, { status: 404 });
   const user = await getCurrentUser();
-  if (!user) return Response.json({ error: "Sign in first." }, { status: 401 });
   const form = await request.formData().catch(() => null);
   const file = form?.get("file");
   const pointId = String(form?.get("pointId") ?? "");
+  const vendorOk = !user && pointId === "vq" && !!(await getVendorUser());
+  if (!user && !vendorOk) return Response.json({ error: "Sign in first." }, { status: 401 });
   if (!file || typeof file === "string") return Response.json({ error: "No file." }, { status: 400 });
-  const approval = pointId === "apv" && user.role !== "admin";
-  if (!approval && !(await editablePoint(user, pointId))) return Response.json({ error: "You can't attach files to this point." }, { status: 403 });
+  const approval = vendorOk || (pointId === "apv" && !!user && user.role !== "admin");
+  if (!approval && !(user && (await editablePoint(user, pointId)))) return Response.json({ error: "You can't attach files to this point." }, { status: 403 });
   const problem = checkFile(file);
   if (problem || !mimeFor(file.name)) return Response.json({ error: problem ?? "Not allowed." }, { status: 400 });
   const url = await saveLocal(approval ? null : pointId, Buffer.from(await file.arrayBuffer()));

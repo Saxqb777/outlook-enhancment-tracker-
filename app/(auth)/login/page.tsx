@@ -3,12 +3,14 @@ import { redirect } from "next/navigation";
 import AuthCard from "@/components/AuthCard";
 import { LoginForm } from "@/components/forms";
 import { getCurrentUser, leadExists } from "@/lib/auth";
+import { getVendorUser } from "@/lib/vendor-auth";
 
 export const metadata: Metadata = { title: "Sign in" };
 export const dynamic = "force-dynamic";
 
 export default async function LoginPage() {
   if (await getCurrentUser()) redirect("/");
+  if (await getVendorUser()) redirect("/portal");
   const showSetup = !(await leadExists());
   return (
     <AuthCard title="Sign in" lede="Every email your team is working on, tracked in one place.">

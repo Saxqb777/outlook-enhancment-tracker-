@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { viewAs } from "@/app/actions/admin";
+import { setRole, viewAs } from "@/app/actions/admin";
 import { Avatar, Icon } from "@/components/Icon";
 import { plural } from "@/components/ui";
 import { requireAdmin } from "@/lib/auth";
@@ -77,6 +77,7 @@ export default async function AdminPage() {
     q<{ label: string | null; role: string; expires_at: Date }>("select label, role, expires_at from invites where user_id is null and expires_at > now() order by created_at desc"),
   ]);
   const s = stats!;
+  const leadCount = people.filter((p) => p.role === "lead" && p.status === "active").length;
   const aiKey = !!process.env.ANTHROPIC_API_KEY;
 
   return (
@@ -130,7 +131,7 @@ export default async function AdminPage() {
           <h2>
             People <span className="count">{people.length}</span>
           </h2>
-          <span className="hint">&ldquo;See their view&rdquo; shows the app exactly as they see it, view only.</span>
+          <span className="hint">&ldquo;See their view&rdquo; shows the app exactly as they see it, view only. You can switch anyone between Lead and Member at any time.</span>
         </div>
         <div className="list">
           {people.map((p) => {
@@ -177,6 +178,15 @@ export default async function AdminPage() {
                   )}
                 </span>
                 <span className="t-act">
+                  {p.status !== "disabled" && !(p.role === "lead" && leadCount < 2) && (
+                    <form action={setRole}>
+                      <input type="hidden" name="userId" value={p.id} />
+                      <input type="hidden" name="role" value={p.role === "lead" ? "member" : "lead"} />
+                      <button className="btn btn-sm btn-ghost" type="submit" title={p.role === "lead" ? "They keep their cases but lose Lead rights" : "They will see every case and can approve work"}>
+                        {p.role === "lead" ? "Make Member" : "Make Lead"}
+                      </button>
+                    </form>
+                  )}
                   {p.status === "active" && (
                     <form action={viewAs}>
                       <input type="hidden" name="userId" value={p.id} />

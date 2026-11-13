@@ -110,7 +110,7 @@ export function SignaturePad({ onChange, saved }: { onChange: (png: string | nul
 
 // ------------------------------------------------------------------ dialogs
 
-function Dialog({ title, onClose, wide, children }: { title: string; onClose: () => void; wide?: boolean; children: React.ReactNode }) {
+export function Dialog({ title, onClose, wide, children }: { title: string; onClose: () => void; wide?: boolean; children: React.ReactNode }) {
   useEffect(() => {
     const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     document.addEventListener("keydown", key);
@@ -127,7 +127,7 @@ function Dialog({ title, onClose, wide, children }: { title: string; onClose: ()
   );
 }
 
-function useAct() {
+export function useAct() {
   const router = useRouter();
   const [busy, start] = useTransition();
   const act = (p: () => Promise<Result>, done: string, after?: () => void) =>

@@ -26,6 +26,18 @@ export async function GET(req: Request) {
         [user.id, after],
       )
     : [];
+  // Vendors: quotes, replies and chat on requests this person made (Leads: every request), plus award approvals.
+  const rfqs = after
+    ? await q<{ id: string; case_id: string; subject: string; who: string | null; kind: string; body: string; vendor_id: string }>(
+        `select 'r' || m.id::text as id, r.id::text as case_id, r.title as subject, coalesce(vu.name || ' · ' || v.name, u.name, v.name) as who,
+                case when m.kind = 'internal' then 'rq_internal' when m.kind = 'system' then 'rq_system' else 'rq_text' end as kind, left(m.body, 160) as body, m.vendor_id::text as vendor_id
+           from rfq_messages m join rfqs r on r.id = m.rfq_id join vendors v on v.id = m.vendor_id left join users u on u.id = m.user_id left join vendor_users vu on vu.id = m.vendor_user_id
+          where m.created_at > $2::timestamptz and m.user_id is distinct from $1 and (m.vendor_user_id is not null or m.kind = 'internal')
+            and (r.created_by = $1 or $3)
+          order by m.id desc limit 5`,
+        [user.id, after, user.role === "lead"],
+      )
+    : [];
   const [items, count, now] = await Promise.all([
     after
       ? q<{ id: string; case_id: string; subject: string; who: string | null; kind: string; body: string; at: Date }>(
@@ -44,5 +56,5 @@ export async function GET(req: Request) {
     ),
     q<{ now: Date }>("select now() as now"),
   ]);
-  return Response.json({ now: new Date(now[0].now).toISOString(), items: [...items.reverse(), ...approvals.reverse()], unread: count[0]?.n ?? 0 }, { headers: { "Cache-Control": "private, no-store" } });
+  return Response.json({ now: new Date(now[0].now).toISOString(), items: [...items.reverse(), ...approvals.reverse(), ...rfqs.reverse()], unread: count[0]?.n ?? 0 }, { headers: { "Cache-Control": "private, no-store" } });
 }

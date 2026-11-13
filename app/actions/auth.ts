@@ -12,6 +12,7 @@ import {
   verifyPassword,
 } from "@/lib/auth";
 import { isUniqueViolation, one, q, tx } from "@/lib/db";
+import { createVendorSession, destroyVendorSession } from "@/lib/vendor-auth";
 import { cleanEmail, cleanName, isEmail, nameProblem, passwordProblem, type FormState } from "@/lib/forms";
 
 const MAX_FAILS = 8;
@@ -39,6 +40,21 @@ export async function login(_prev: FormState, form: FormData): Promise<FormState
   const ok = !!user && user.status === "active" && !!user.password_hash && matches;
   await q("insert into login_attempts (email, ok) values ($1, $2)", [email, ok]);
 
+  // Not a team account: it may be a vendor's. Vendors get their own session and only ever see the vendor portal.
+  if (!user) {
+    const vu = await one<{ id: string; password_hash: string; status: string; vstatus: string }>(
+      "select u.id, u.password_hash, u.status, v.status as vstatus from vendor_users u join vendors v on v.id = u.vendor_id where lower(u.email) = $1",
+      [email],
+    );
+    if (vu && (await verifyPassword(password, vu.password_hash))) {
+      if (vu.status !== "active" || vu.vstatus !== "active") return { error: "Your access has been turned off. Ask your contact at Agthia.", fields };
+      await q("update login_attempts set ok = true where id = (select max(id) from login_attempts where lower(email) = $1)", [email]);
+      await destroySession();
+      await createVendorSession(vu.id);
+      redirect("/portal");
+    }
+  }
+
   if (!ok) {
     if (user && matches && user.status === "disabled") {
       return { error: "Your access has been turned off. Ask your Lead to turn it back on.", fields };
@@ -46,6 +62,7 @@ export async function login(_prev: FormState, form: FormData): Promise<FormState
     return { error: "That email and password don't match.", fields };
   }
 
+  await destroyVendorSession();
   await createSession(user!.id);
   redirect(user!.role === "admin" ? "/admin" : "/");
 }

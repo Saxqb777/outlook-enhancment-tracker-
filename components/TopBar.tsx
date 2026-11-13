@@ -15,9 +15,10 @@ export function navItems(role: Role): { href: string; label: string; icon: IconN
     { href: "/cases", label: "Cases", icon: "cases" },
     { href: "/board", label: "Board", icon: "board" },
     { href: "/approvals", label: "Approvals", icon: "sign" },
+    { href: "/vendors", label: "Vendors", icon: "truck" },
   ];
   if (role === "lead" || role === "admin") items.push({ href: "/dashboard", label: "Dashboard", icon: "chart" });
-  if (role === "lead" || role === "admin") items.push({ href: "/team", label: "Team", icon: "team" });
+  // Team lives in the menu under your name, to keep the bar short.
   if (role === "admin") items.push({ href: "/admin", label: "Admin", icon: "shield" });
   return items;
 }
@@ -26,7 +27,7 @@ export function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/");
 }
 
-export type Badges = { review: number; unread: number; sign: number };
+export type Badges = { review: number; unread: number; sign: number; vendors: number };
 
 export default function TopBar({ me, navRole, viewOnly, badges }: { me: Me; navRole: Role; viewOnly: boolean; badges: Badges }) {
   const pathname = usePathname();
@@ -56,7 +57,7 @@ export default function TopBar({ me, navRole, viewOnly, badges }: { me: Me; navR
   }, []);
 
   // Badges change the width of a tab, so the highlight is measured again when they do.
-  useLayoutEffect(moveThumb, [pathname, moveThumb, badges.review, badges.unread, badges.sign]);
+  useLayoutEffect(moveThumb, [pathname, moveThumb, badges.review, badges.unread, badges.sign, badges.vendors]);
   useEffect(() => {
     window.addEventListener("resize", moveThumb);
     document.fonts?.ready.then(moveThumb).catch(() => {});
@@ -77,6 +78,7 @@ export default function TopBar({ me, navRole, viewOnly, badges }: { me: Me; navR
           {items.map((it) => (
             <Link key={it.href} href={it.href} aria-current={isActive(pathname, it.href) ? "page" : undefined} data-tour={it.href === "/" ? "home" : it.href.slice(1)}>
               {it.label}
+              {it.href === "/vendors" && badges.vendors > 0 && <span className="nav-badge blue" title={`${badges.vendors} new from vendors`}>{badges.vendors}</span>}
               {it.href === "/approvals" && badges.sign > 0 && <span className="nav-badge" title={`${badges.sign} waiting for your signature`}>{badges.sign}</span>}
               {it.href === "/" && badges.review > 0 && <span className="nav-badge" title={`${badges.review} waiting for approval`}>{badges.review}</span>}
               {it.href === "/cases" && badges.unread > 0 && <span className="nav-badge blue" title={`${badges.unread} new chat messages`}>{badges.unread}</span>}

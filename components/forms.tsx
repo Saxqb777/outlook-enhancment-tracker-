@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { acceptInvite, login, resetPassword, setupLead } from "@/app/actions/auth";
+import { joinVendor } from "@/app/actions/portal";
 import { createInviteLink, makeResetLink, newInviteLink } from "@/app/actions/team";
 import { Icon } from "@/components/Icon";
 import { MIN_PASSWORD, type FormState, type InviteState } from "@/lib/forms";
@@ -112,6 +113,28 @@ export function AcceptInviteForm({ token, name, email }: { token: string; name: 
       <PasswordField id="confirm" label="Type it again" autoComplete="new-password" />
       <FormError state={state} />
       <SubmitButton pending="Setting up">Join the team</SubmitButton>
+    </form>
+  );
+}
+
+export function VendorJoinForm({ token }: { token: string }) {
+  const [state, action] = useActionState(joinVendor, undefined);
+  return (
+    <form action={action} className="auth-form" noValidate>
+      <input type="hidden" name="token" value={token} />
+      <div className="field">
+        <label htmlFor="name">Your full name</label>
+        <input id="name" name="name" className="inp" autoComplete="name" defaultValue={state?.fields?.name} required autoFocus />
+      </div>
+      <div className="field">
+        <label htmlFor="email">Your email</label>
+        <input id="email" name="email" className="inp" type="email" autoComplete="username" defaultValue={state?.fields?.email} required />
+        <span className="hint">You&apos;ll use this to sign in.</span>
+      </div>
+      <PasswordField id="password" label={`Choose a password (at least ${MIN_PASSWORD} characters)`} autoComplete="new-password" />
+      <PasswordField id="confirm" label="Type it again" autoComplete="new-password" />
+      <FormError state={state} />
+      <SubmitButton pending="Setting up">Open the vendor portal</SubmitButton>
     </form>
   );
 }

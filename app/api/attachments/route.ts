@@ -2,6 +2,7 @@ import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { ATT_MAX_BYTES, ATT_TYPES } from "@/lib/attach-rules";
 import { editablePoint, useBlob } from "@/lib/attachments";
 import { getCurrentUser } from "@/lib/auth";
+import { getVendorUser } from "@/lib/vendor-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,11 @@ export async function POST(request: Request) {
       request,
       onBeforeGenerateToken: async (pathname) => {
         const user = await getCurrentUser();
-        if (!user) throw new Error("Sign in first.");
+        // A vendor may only upload files for their own quotes.
+        const vendorOk = !user && /^vq\/[^/]{1,160}$/.test(pathname) && !!(await getVendorUser());
+        if (!user && !vendorOk) throw new Error("Sign in first.");
+        if (vendorOk || !user)
+          return { allowedContentTypes: [...new Set(Object.values(ATT_TYPES))], maximumSizeInBytes: ATT_MAX_BYTES, addRandomSuffix: true, validUntil: Date.now() + 10 * 60 * 1000 };
         const approval = /^apv\/[^/]{1,160}$/.test(pathname) && user.role !== "admin";
         const m = pathname.match(/^att\/(\d{1,12})\/[^/]{1,160}$/);
         if (!approval && (!m || !(await editablePoint(user, m[1])))) throw new Error("You can't attach files to this point.");

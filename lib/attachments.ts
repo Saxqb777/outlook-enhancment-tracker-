@@ -17,6 +17,9 @@ export async function editablePoint(user: User, pointId: string): Promise<{ id: 
   );
 }
 
+/** Uploads not tied to a point: "apv" = approvals and quote requests (team), "vq" = a vendor's quote. */
+export const FREE = new Set(["apv", "vq"]);
+
 export type Verified = { name: string; mime: string; size: number; storage: "blob" | "local"; url: string; pathname: string };
 
 /** Checks each uploaded file really is in storage, belongs to this point and follows the rules. */
@@ -33,14 +36,14 @@ export async function verifyUploads(pointId: string, files: unknown): Promise<Ve
       if (useBlob()) return { error: "That file didn't upload properly. Try again." };
       const row = await one<{ size: number }>(
         "select octet_length(data) as size from attachment_local where key = $1 and point_id is not distinct from $2::bigint",
-        [url.slice(6), pointId === "apv" ? null : pointId],
+        [url.slice(6), FREE.has(pointId) ? null : pointId],
       );
       if (!row) return { error: `${name} didn't upload properly. Try again.` };
       out.push({ name, mime, size: row.size, storage: "local", url, pathname: `att/${pointId}/${name}` });
     } else {
       if (!useBlob() || !/^https:\/\/[a-z0-9.-]+\.vercel-storage\.com\//i.test(url)) return { error: `${name} didn't upload properly. Try again.` };
       const meta = await head(url).catch(() => null);
-      if (!meta || !meta.pathname.startsWith(pointId === "apv" ? "apv/" : `att/${pointId}/`) || meta.size > ATT_MAX_BYTES) return { error: `${name} didn't upload properly. Try again.` };
+      if (!meta || !meta.pathname.startsWith(FREE.has(pointId) ? `${pointId}/` : `att/${pointId}/`) || meta.size > ATT_MAX_BYTES) return { error: `${name} didn't upload properly. Try again.` };
       out.push({ name, mime, size: meta.size, storage: "blob", url: meta.url, pathname: meta.pathname });
     }
   }

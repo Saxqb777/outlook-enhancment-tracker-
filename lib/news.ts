@@ -1,42 +1,61 @@
 // The update tour and the "?" help on each page. Bump NEWS_VERSION and edit tourFor() to announce the next update.
-export const NEWS_VERSION = 3;
+export const NEWS_VERSION = 4;
 type R = "lead" | "member" | "admin";
 export type TourStep = { target?: string; title: string; text: string };
 
 export function tourFor(role: R): TourStep[] {
+  const admin = role === "admin";
   const steps: TourStep[] = [
-    { title: "A few new things", text: "Here's a one-minute look at what changed. You can replay this any time from the ? button." },
+    { title: "Two big updates", text: "First the new Vendors section, then what changed in the look of the app. It takes about a minute, and you can replay it any time from the ? button." },
+    // ---- Vendors
     {
-      target: '[data-tour="approvals"]',
-      title: "New: Approvals",
+      target: '[data-tour="vendors"]',
+      title: "New: Vendors",
+      text: admin
+        ? "The team can now ask transporters for prices here. You can see every request, quote and chat, view only."
+        : "Ask your transporters for a price, compare what they answer, and pick one. All in one place instead of calls and WhatsApp.",
+    },
+    {
+      title: "1. Add your vendors",
+      text: admin
+        ? "Leads and Members add each vendor company and send it a join link. Each vendor gets a separate portal and never sees the team's cases."
+        : "On the Vendors page press Vendors, then Add vendor. Open the vendor and press Get join link, and send it to your contact. They make their own login for the vendor portal. Several people from one company can join.",
+    },
+    {
+      title: "2. Send a request",
+      text: admin
+        ? "A request is a form the team builds itself: from, to, cargo, dates, or any field they add. It goes to one or many vendors at once."
+        : "Press New request. Build the form the way you need it: tap the suggested fields, add your own, and save it to reuse next time. Pick one or many vendors and send. On a case, the Ask vendors button starts a request linked to that case.",
+    },
+    {
+      title: "3. Vendors reply in their portal",
+      text: "Each vendor answers Can do with a price, date and notes, or Can't do with a reason. They only ever see their own request and price, never another vendor's. Tell new vendors to check the portal, since it does not send emails.",
+    },
+    {
+      title: "4. Compare and chat",
+      text: admin
+        ? "Quotes sit side by side, with the cheapest and the soonest marked. Every vendor has a private chat on each request."
+        : "Quotes sit side by side, with the cheapest and the soonest marked. Tap a vendor to chat with them about that request, for example to ask for a better price. Ask AI to compare, or to draft a counter-offer.",
+    },
+    {
+      title: "5. Award the job",
       text:
-        role === "admin"
-          ? "Anyone can ask anyone to sign a document or a request. You can see every one of them here."
-          : "Need a sign-off? Write it or attach the document, pick who signs, and they sign with a finger or the mouse. A red number here means something is waiting for your signature.",
+        role === "lead"
+          ? "Press Award on the quote you want. When a Member chooses a vendor, it comes to you first: Approve award or Send back. The winner confirms the job and the others are told politely."
+          : role === "member"
+            ? "Press Choose on the quote you want and say why. A Lead approves it, then the vendor is told and confirms the job. The others are told politely."
+            : "A Lead awards directly. A Member's choice needs a Lead's approval first. The winner confirms the job and the others are told politely.",
     },
-    {
-      title: "Chat on every case",
-      text: "Open a case and choose Chat. Talk with the people on that case, and see every status change, reply and file in one place. Press Ask AI to ask about the case or draft a reply email.",
-    },
+    { title: "Everything about a vendor", text: "Open any vendor to see their people, every request and price they gave, how fast they reply and how often they win. Export to Excel gives you all requests and quotes in one file." },
+    // ---- the look
+    { title: "Now, the new look", text: "The app got a tidy-up to make it easier to read and tap, most of all on phones." },
+    { target: '[data-tour="home"]', title: "Colours that mean something", text: "A number card turns green when work is waiting for a Lead and red when something is late. Otherwise it stays plain." },
+    { target: '[data-tour="more"]', title: "Phones: the More button", text: "The bottom bar now has Home, Cases, Add, Vendors and More. Board, Approvals and the rest are under More. Buttons are bigger and case titles are shown in full." },
+    { target: '[data-tour="approvals"]', title: "Approvals, polished", text: "Signed, waiting and rejected are colour-coded, and each approval shows a small bar of who has signed." },
   ];
-  if (role === "lead") {
-    steps.push(
-      { target: '[data-tour="dashboard"]', title: "Your dashboard", text: "Who has what, what's late, what's blocked and what's waiting for your approval. Approve straight from here." },
-      { target: '[data-tour="home"]', title: "Approvals need you", text: "The red number is how many points are Done and waiting for you to approve." },
-      { title: "Hand over and assign", text: "On a case, press People to hand it to someone else or add teammates. On shared cases, give each point to a person. In Cases, press Select to move several at once." },
-    );
-  } else if (role === "member") {
-    steps.push({ title: "Shared cases, clear owners", text: "On a shared case each point can be given to a person, so it's clear who does what. Your Home shows only your points." });
-  } else {
-    steps.push({ target: '[data-tour="dashboard"]', title: "Dashboard", text: "The same live view the Leads get: workload, late points, approvals and trends." });
-  }
-  if (role !== "admin") {
-    steps.push({ target: '[data-tour="add"]', title: "Drop an email anywhere", text: "Drag an email file (.msg, .eml or PDF) onto any page. On a case it's added as a reply; anywhere else it starts a new case." });
-  }
-  steps.push(
-    { target: '[data-tour="search"]', title: "Search everything", text: "Find a case by its ID, sender, booking, B/L or container number." },
-    { target: '[data-tour="help"]', title: "Help on every page", text: "Press ? on any page for a short guide to that page, and to replay this tour." },
-  );
+  if (role === "lead") steps.push({ title: "Team moved", text: "Team is now in the menu under your name at the top right, to keep the bar short." });
+  if (admin) steps.push({ title: "Change roles", text: "On the Admin page you can now make a Member a Lead, or a Lead a Member, at any time." });
+  steps.push({ target: '[data-tour="help"]', title: "Help on every page", text: "Press ? on any page for a short guide to that page, and to replay this tour." });
   return steps;
 }
 
@@ -52,6 +71,33 @@ export function helpFor(path: string, role: R): HelpPage {
         ["Waiting for your approval", "Points people marked Done. Approve, or Reopen if it isn't finished."],
         ["Workload by person", "Each bar is one person's open points, coloured by status."],
         ["Blocked", "Points set to Waiting, with what they're waiting on and for how long."],
+      ],
+    };
+  if (path === "/vendors/new")
+    return { title: "Ask vendors for a price", items: [["Build the form", "Fill in the suggested fields, remove the ones you don't need, or add your own. Fields with Date in the name get a date picker."], ["Save this form", "Saves the field names so anyone can reuse the form next time. Saving with the same name updates it."], ["Send to", "Pick one or many vendors, or filter by type and press Select all shown. Each vendor only sees their own quote."], ["Reply by", "Vendors see this date and get a reminder mark when it's close."]] };
+  if (/^\/vendors\/rfq\/\d+/.test(path))
+    return {
+      title: "A vendor request",
+      items: [
+        ["Quotes", "One card per vendor with price, date and notes. Cheapest and Soonest are marked when there are several."],
+        ["Chat", "Tap a vendor to open your private chat with them about this request. Yellow notes are for the team only; vendors never see them."],
+        [lead ? "Award" : "Choose", lead ? "Awards the job. The vendor is asked to confirm and the others are told another quote was chosen. A Member's choice shows at the top for you to approve or send back." : "Pick the quote you want and say why. A Lead approves it before the vendor is told."],
+        ["Edit request", "You can change the details while it's open. Vendors are told, so they can check their price."],
+        ["Message all, Remind", "Send one message to every vendor at once, or nudge the ones who haven't replied."],
+        ["Ask AI", "Compare the quotes in plain words, or draft a counter-offer to paste into the chat."],
+      ],
+    };
+  if (/^\/vendors\/v\/\d+/.test(path))
+    return { title: "A vendor", items: [["Get join link", "Send this link to your contact. Anyone at the vendor can use it to make their own login. It works for 14 days."], ["Scorecard", "How many requests they got, how many they quoted and won, and how fast they reply."], ["Requests and prices", "Every request sent to them and the price they gave, so you can see what a job cost last time."], ["People", "Everyone from this vendor with a login." + (role === "lead" ? " You can turn a person's access off." : "")]] };
+  if (path === "/vendors")
+    return {
+      title: "Vendors",
+      items: [
+        ["Requests", "Every price request sent to vendors, how many have replied, the best price so far and who won."],
+        ["Vendors", "Your transporters. Add one, then open it to get their join link and see their history."],
+        ["New request", "Ask one or many vendors for a price with a form you build yourself."],
+        ["Blue dot", "A blue dot means a vendor replied or wrote in the chat."],
+        ["Export", "One Excel file with all requests, quotes and vendors."],
       ],
     };
   if (path === "/approvals/new")
@@ -95,7 +141,7 @@ export function helpFor(path: string, role: R): HelpPage {
   if (path === "/board") return { title: "Board", items: [["Cards", "Every point is a card, sorted by status."], ["Move a card", "Drag it to another column, or use the ⋯ menu. Moving to Done or Waiting lets you add a note and files."], ["Open", "Click a card to open its case."]] };
   if (path === "/add") return { title: "Add an email", items: [["Three ways", "Paste the email text, upload the file, or drag the email onto the page. Outlook .msg, .eml and PDF all work."], ["The AI reads it", "It finds the sender, deadlines and each thing being asked. This takes about 10 seconds."], ["You check it", "Change anything before saving. Under Working with, pick teammates to share the case."]] };
   if (path === "/team") return { title: "Team", items: [["Invite", "Create an invite link and send it. The person sets their own name, email and password."], ["Reset password", "If someone forgets their password, make a reset link for them."], ["Access", "Turn a member's access off or back on."]] };
-  if (path === "/admin") return { title: "Admin", items: [["Health", "Whether the database and AI are working."], ["See their view", "Shows the app exactly as that person sees it. You can't change anything."], ["Logs", "Every AI read and every sign-in attempt."]] };
+  if (path === "/admin") return { title: "Admin", items: [["Health", "Whether the database and AI are working."], ["See their view", "Shows the app exactly as that person sees it. You can't change anything."], ["Make Lead / Make Member", "Switch a person between Lead and Member at any time. The team always keeps at least one Lead."], ["Logs", "Every AI read and every sign-in attempt."]] };
   return {
     title: "Home",
     items: lead

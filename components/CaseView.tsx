@@ -240,6 +240,12 @@ export default function CaseView({
               Add a reply
             </Link>
           )}
+          {!viewOnly && (
+            <Link className="btn btn-sm" href={`/vendors/new?case=${c.id}`}>
+              <Icon name="truck" size={15} />
+              Ask vendors
+            </Link>
+          )}
         </div>
         {editing ? (
           <EditDetails c={c} onDone={() => setEditing(false)} />

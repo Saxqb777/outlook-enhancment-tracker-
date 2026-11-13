@@ -86,7 +86,7 @@ const clip = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slic
 type Ask = { ok: true; json: Record<string, unknown> } | { ok: false; error: string };
 
 /** One structured-output call. Email text always goes in as data, never as instructions. */
-async function ask(system: string, user: string, schema: { [key: string]: unknown }): Promise<Ask> {
+export async function ask(system: string, user: string, schema: { [key: string]: unknown }): Promise<Ask> {
   if (!process.env.ANTHROPIC_API_KEY) return { ok: false, error: "Email reading isn't set up on this server yet." };
   let res: Anthropic.Beta.BetaMessage;
   try {

@@ -82,3 +82,9 @@ export function fmtWhen(ts: string | Date, today: string): string {
   if (n === -1) return `Yesterday, ${time}`;
   return `${fmtShort(day)}, ${time}`;
 }
+
+/** "13 Nov 2026, 14:05" in the team's time zone: the stamp next to a signature. */
+export function fmtStamp(ts: string | Date): string {
+  const d = typeof ts === "string" ? new Date(ts) : ts;
+  return new Intl.DateTimeFormat("en-GB", { timeZone: TZ, day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
+}

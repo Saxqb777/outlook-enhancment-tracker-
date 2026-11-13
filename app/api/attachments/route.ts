@@ -21,8 +21,9 @@ export async function POST(request: Request) {
       onBeforeGenerateToken: async (pathname) => {
         const user = await getCurrentUser();
         if (!user) throw new Error("Sign in first.");
+        const approval = /^apv\/[^/]{1,160}$/.test(pathname) && user.role !== "admin";
         const m = pathname.match(/^att\/(\d{1,12})\/[^/]{1,160}$/);
-        if (!m || !(await editablePoint(user, m[1]))) throw new Error("You can't attach files to this point.");
+        if (!approval && (!m || !(await editablePoint(user, m[1])))) throw new Error("You can't attach files to this point.");
         return {
           allowedContentTypes: [...new Set(Object.values(ATT_TYPES))],
           maximumSizeInBytes: ATT_MAX_BYTES,

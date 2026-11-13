@@ -1,11 +1,19 @@
 // The update tour and the "?" help on each page. Bump NEWS_VERSION and edit tourFor() to announce the next update.
-export const NEWS_VERSION = 2;
+export const NEWS_VERSION = 3;
 type R = "lead" | "member" | "admin";
 export type TourStep = { target?: string; title: string; text: string };
 
 export function tourFor(role: R): TourStep[] {
   const steps: TourStep[] = [
     { title: "A few new things", text: "Here's a one-minute look at what changed. You can replay this any time from the ? button." },
+    {
+      target: '[data-tour="approvals"]',
+      title: "New: Approvals",
+      text:
+        role === "admin"
+          ? "Anyone can ask anyone to sign a document or a request. You can see every one of them here."
+          : "Need a sign-off? Write it or attach the document, pick who signs, and they sign with a finger or the mouse. A red number here means something is waiting for your signature.",
+    },
     {
       title: "Chat on every case",
       text: "Open a case and choose Chat. Talk with the people on that case, and see every status change, reply and file in one place. Press Ask AI to ask about the case or draft a reply email.",
@@ -44,6 +52,29 @@ export function helpFor(path: string, role: R): HelpPage {
         ["Waiting for your approval", "Points people marked Done. Approve, or Reopen if it isn't finished."],
         ["Workload by person", "Each bar is one person's open points, coloured by status."],
         ["Blocked", "Points set to Waiting, with what they're waiting on and for how long."],
+      ],
+    };
+  if (path === "/approvals/new")
+    return { title: "Ask for an approval", items: [["Say what it is", "Give it a title, then write the details or attach the document. You can do both."], ["Pick who signs", "One person or several. It is Signed only when all of them have signed."], ["Needed by", "Add a date if it's urgent. The signers see it."]] };
+  if (/^\/approvals\/\d+/.test(path))
+    return {
+      title: "An approval",
+      items: [
+        ["Sign", "Draw your signature with a finger or the mouse. Your name, the date and the time are added for you."],
+        ["Send back", "Not right yet? Say what needs to change. The request stays open and the person asking can reply or send a corrected version."],
+        ["Final reject", "Closes the request for everyone. To try again, a new request has to be filed."],
+        ["Corrected version", "The person asking can send a fixed text or document. Everyone signs the new version; earlier signatures stay in the record."],
+        ["Record", "Every signature, reply and version, in order. It can't be edited. Print or save it as a PDF from the top."],
+      ],
+    };
+  if (path === "/approvals")
+    return {
+      title: "Approvals",
+      items: [
+        ["For me to sign", "Requests waiting for your signature. The red number on the tab counts these."],
+        ["I asked for", "Your open requests, and how many people have signed so far."],
+        ["New request", "Ask one or more people to sign a document or a request."],
+        [lead ? "History" : "My history", lead ? "Every finished request: signed, rejected or cancelled." : "Finished requests you asked for or were asked to sign."],
       ],
     };
   if (path === "/cases/export") return { title: "Export to Excel", items: [["Pick cases", "Tick the cases you want, or Select all shown. Use the filters to narrow the list."], ["Options", "Include the history of updates, and the email text if you need it."], ["Download", "You get one Excel file with a Summary, Cases, Points and Change log tab."]] };

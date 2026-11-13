@@ -13,9 +13,10 @@ export async function POST(request: Request) {
   const file = form?.get("file");
   const pointId = String(form?.get("pointId") ?? "");
   if (!file || typeof file === "string") return Response.json({ error: "No file." }, { status: 400 });
-  if (!(await editablePoint(user, pointId))) return Response.json({ error: "You can't attach files to this point." }, { status: 403 });
+  const approval = pointId === "apv" && user.role !== "admin";
+  if (!approval && !(await editablePoint(user, pointId))) return Response.json({ error: "You can't attach files to this point." }, { status: 403 });
   const problem = checkFile(file);
   if (problem || !mimeFor(file.name)) return Response.json({ error: problem ?? "Not allowed." }, { status: 400 });
-  const url = await saveLocal(pointId, Buffer.from(await file.arrayBuffer()));
+  const url = await saveLocal(approval ? null : pointId, Buffer.from(await file.arrayBuffer()));
   return Response.json({ url, pathname: `att/${pointId}/${file.name}` });
 }

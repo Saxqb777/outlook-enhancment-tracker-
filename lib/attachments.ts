@@ -31,20 +31,23 @@ export async function verifyUploads(pointId: string, files: unknown): Promise<Ve
     if (!mime) return { error: `${name}: this kind of file can't be attached.` };
     if (url.startsWith("local:")) {
       if (useBlob()) return { error: "That file didn't upload properly. Try again." };
-      const row = await one<{ size: number }>("select octet_length(data) as size from attachment_local where key = $1 and point_id = $2", [url.slice(6), pointId]);
+      const row = await one<{ size: number }>(
+        "select octet_length(data) as size from attachment_local where key = $1 and point_id is not distinct from $2::bigint",
+        [url.slice(6), pointId === "apv" ? null : pointId],
+      );
       if (!row) return { error: `${name} didn't upload properly. Try again.` };
       out.push({ name, mime, size: row.size, storage: "local", url, pathname: `att/${pointId}/${name}` });
     } else {
       if (!useBlob() || !/^https:\/\/[a-z0-9.-]+\.vercel-storage\.com\//i.test(url)) return { error: `${name} didn't upload properly. Try again.` };
       const meta = await head(url).catch(() => null);
-      if (!meta || !meta.pathname.startsWith(`att/${pointId}/`) || meta.size > ATT_MAX_BYTES) return { error: `${name} didn't upload properly. Try again.` };
+      if (!meta || !meta.pathname.startsWith(pointId === "apv" ? "apv/" : `att/${pointId}/`) || meta.size > ATT_MAX_BYTES) return { error: `${name} didn't upload properly. Try again.` };
       out.push({ name, mime, size: meta.size, storage: "blob", url: meta.url, pathname: meta.pathname });
     }
   }
   return out;
 }
 
-export async function saveLocal(pointId: string, data: Buffer): Promise<string> {
+export async function saveLocal(pointId: string | null, data: Buffer): Promise<string> {
   const key = randomBytes(18).toString("base64url");
   await q("insert into attachment_local (key, point_id, data) values ($1, $2, $3)", [key, pointId, data]);
   return `local:${key}`;

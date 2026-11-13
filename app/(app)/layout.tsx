@@ -8,6 +8,7 @@ import Guide from "@/components/Guide";
 import Notifier from "@/components/Notifier";
 import { Toasts, ViewOnlyProvider } from "@/components/work";
 import { getViewer } from "@/lib/auth";
+import { waitingForMe } from "@/lib/approvals";
 import { one } from "@/lib/db";
 import { NEWS_VERSION } from "@/lib/news";
 
@@ -26,7 +27,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 and m.created_at > coalesce((select r.last_read_at from case_reads r where r.case_id = c.id and r.user_id = $2), c.created_at)) as unread`,
     [scope, me.id],
   );
-  const badges = { review: me.role === "lead" ? (counts?.review ?? 0) : 0, unread: counts?.unread ?? 0 };
+  const badges = { review: me.role === "lead" ? (counts?.review ?? 0) : 0, unread: counts?.unread ?? 0, sign: me.role === "admin" ? 0 : await waitingForMe(me.id) };
   return (
     <ViewOnlyProvider value={viewOnly}>
       <AttachProvider local={!process.env.BLOB_READ_WRITE_TOKEN}>

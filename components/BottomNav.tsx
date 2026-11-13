@@ -10,7 +10,9 @@ function bottomItems(role: Role, viewOnly: boolean): { href: string; label: stri
   // Phones have room for five: Team moves to the user menu when there's a Dashboard.
   const items = navItems(role).filter((it) => it.href !== "/team" && it.href !== "/admin");
   if (!viewOnly) items.splice(2, 0, { href: "/add", label: "Add", icon: "plus" });
-  return items.map((it) => (it.href === "/dashboard" ? { ...it, label: "Stats" } : it));
+  // Board is one tap away from Cases, so it gives up its place when there are six.
+  const five = items.length > 5 ? items.filter((it) => it.href !== "/board") : items;
+  return five.map((it) => (it.href === "/dashboard" ? { ...it, label: "Stats" } : it.href === "/approvals" ? { ...it, label: "Approve" } : it));
 }
 
 export default function BottomNav({ role, viewOnly, badges }: { role: Role; viewOnly: boolean; badges: Badges }) {
@@ -22,6 +24,7 @@ export default function BottomNav({ role, viewOnly, badges }: { role: Role; view
           <span className="bnav-i">
             <Icon name={it.icon} />
             {it.href === "/" && badges.review > 0 && <span className="nav-badge">{badges.review}</span>}
+            {it.href === "/approvals" && badges.sign > 0 && <span className="nav-badge">{badges.sign}</span>}
             {it.href === "/cases" && badges.unread > 0 && <span className="nav-badge blue">{badges.unread}</span>}
           </span>
           <span>{it.label}</span>

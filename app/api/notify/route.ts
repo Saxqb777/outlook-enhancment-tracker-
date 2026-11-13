@@ -12,6 +12,20 @@ export async function GET(req: Request) {
   const after = /^\d{4}-\d\d-\d\dT[\d:.]+Z$/.test(raw) ? raw : null;
   const scope = user.role === "member" ? user.id : null;
   const mine = `($1::uuid is null or c.owner_id = $1 or exists (select 1 from case_members cm where cm.case_id = c.id and cm.user_id = $1))`;
+  // Approvals: tell the requester what the signers did, and the signers what they need to look at.
+  const approvals = after
+    ? await q<{ id: string; case_id: string; subject: string; who: string | null; kind: string; body: string }>(
+        `select 'a' || e.id::text as id, a.id::text as case_id, a.title as subject, u.name as who, 'ap_' || e.kind as kind, left(coalesce(e.text, ''), 160) as body
+           from approval_events e join approvals a on a.id = e.approval_id left join users u on u.id = e.user_id
+           left join approval_signers s on s.approval_id = a.id and s.user_id = $1
+          where e.created_at > $2::timestamptz and e.user_id is distinct from $1
+            and ((a.requester_id = $1 and e.kind in ('signed', 'sent_back', 'rejected', 'reply'))
+              or (s.user_id is not null and e.kind in ('created', 'new_version', 'cancelled', 'reply', 'sent_back', 'rejected'))
+              or (s.state = 'pending' and e.kind = 'reminded'))
+          order by e.id desc limit 5`,
+        [user.id, after],
+      )
+    : [];
   const [items, count, now] = await Promise.all([
     after
       ? q<{ id: string; case_id: string; subject: string; who: string | null; kind: string; body: string; at: Date }>(
@@ -30,5 +44,5 @@ export async function GET(req: Request) {
     ),
     q<{ now: Date }>("select now() as now"),
   ]);
-  return Response.json({ now: new Date(now[0].now).toISOString(), items: items.reverse(), unread: count[0]?.n ?? 0 }, { headers: { "Cache-Control": "private, no-store" } });
+  return Response.json({ now: new Date(now[0].now).toISOString(), items: [...items.reverse(), ...approvals.reverse()], unread: count[0]?.n ?? 0 }, { headers: { "Cache-Control": "private, no-store" } });
 }

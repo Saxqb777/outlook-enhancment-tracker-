@@ -26,7 +26,8 @@ async function send(mode: "blob" | "local", pointId: string, file: File, onPct: 
     onPct(100);
     return { url: j.url, pathname: j.pathname, name, size: file.size };
   }
-  const r = await upload(`att/${pointId}/${name}`, file, {
+  // "apv" = a file for an approval request (not tied to a point).
+  const r = await upload(pointId === "apv" ? `apv/${name}` : `att/${pointId}/${name}`, file, {
     access: "private",
     handleUploadUrl: "/api/attachments",
     contentType: mimeFor(name) ?? undefined,

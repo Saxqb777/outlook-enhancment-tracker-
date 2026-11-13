@@ -64,7 +64,7 @@ export async function createApproval(input: NewApproval): Promise<Result> {
 }
 
 /** A signer signs the current version. `signature` is the drawn signature as a PNG data URL. */
-export async function signApproval(id: string, signature: string, comment: string, save: boolean): Promise<Result> {
+export async function signApproval(id: string, signature: string, comment: string, save: boolean, seenVersion: number): Promise<Result> {
   const me = await requireUser();
   if (me.role === "admin") return VIEW_ONLY;
   const sig = String(signature ?? "");
@@ -75,6 +75,8 @@ export async function signApproval(id: string, signature: string, comment: strin
     if (!a || !a.my_state) return GONE;
     if (a.status !== "open") return CLOSED;
     if (a.my_state === "signed") return { ok: false, error: "You've already signed this version." };
+    // A signature only ever lands on the text the signer was looking at.
+    if (Number(seenVersion) !== a.version) return { ok: false, error: "This request was updated while you had it open. Refresh the page and read the new version before signing." };
     await c.query("update approval_signers set state = 'signed', signed_version = $1, signature = $2, comment = $3, decided_at = now() where approval_id = $4 and user_id = $5", [a.version, sig, note || null, a.id, me.id]);
     await log(c, a.id, me.id, "signed", a.version, note, sig);
     if (save) await c.query("update users set saved_signature = $1 where id = $2", [sig, me.id]);
@@ -160,6 +162,39 @@ export async function cancelApproval(id: string): Promise<Result> {
     if (a.status !== "open") return CLOSED;
     await c.query("update approvals set status = 'cancelled', closed_at = now(), updated_at = now() where id = $1", [a.id]);
     await log(c, a.id, me.id, "cancelled", a.version);
+    return { ok: true };
+  });
+  touch(id);
+  return r;
+}
+
+/** The requester swaps who signs while the request is open (for example when a signer has left). */
+export async function changeSigner(id: string, userId: string, add: boolean): Promise<Result> {
+  const me = await requireUser();
+  if (me.role === "admin") return VIEW_ONLY;
+  if (!/^[0-9a-f-]{36}$/.test(String(userId))) return GONE;
+  const r = await tx<Result>(async (c) => {
+    const a = await ctx(me, id, c);
+    if (!a || a.requester_id !== me.id) return GONE;
+    if (a.status !== "open") return CLOSED;
+    const who = (await c.query<{ name: string }>("select name from users where id = $1 and role <> 'admin'", [userId])).rows[0];
+    if (!who) return GONE;
+    if (add) {
+      if (userId === me.id) return { ok: false, error: "You can't sign your own request." };
+      if (!(await c.query("select 1 from users where id = $1 and status = 'active'", [userId])).rowCount) return { ok: false, error: "That person's access is off." };
+      const ins = await c.query("insert into approval_signers (approval_id, user_id) values ($1, $2) on conflict do nothing returning user_id", [a.id, userId]);
+      if (ins.rowCount) await log(c, a.id, me.id, "reply", a.version, `Added ${who.name} as a signer.`);
+    } else {
+      const s = (await c.query<{ state: string }>("select state from approval_signers where approval_id = $1 and user_id = $2", [a.id, userId])).rows[0];
+      if (!s) return GONE;
+      if (s.state === "signed") return { ok: false, error: "They already signed, so they stay on the record." };
+      if (((await c.query<{ n: number }>("select count(*)::int as n from approval_signers where approval_id = $1", [a.id])).rows[0]?.n ?? 0) <= 1) return { ok: false, error: "At least one signer is needed. Add another person first." };
+      await c.query("delete from approval_signers where approval_id = $1 and user_id = $2", [a.id, userId]);
+      await log(c, a.id, me.id, "reply", a.version, `Removed ${who.name} as a signer.`);
+      const left = await c.query("select 1 from approval_signers where approval_id = $1 and state <> 'signed' limit 1", [a.id]);
+      if (!left.rowCount) await c.query("update approvals set status = 'signed', closed_at = now() where id = $1", [a.id]);
+    }
+    await c.query("update approvals set updated_at = now() where id = $1", [a.id]);
     return { ok: true };
   });
   touch(id);

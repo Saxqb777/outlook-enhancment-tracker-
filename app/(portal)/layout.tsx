@@ -25,10 +25,10 @@ export default async function PortalLayout({ children }: { children: React.React
           </span>
         </Link>
         <div className="top-r">
-          <span className="portal-who">
+          <Link className="portal-who" href="/portal/account" title="My account: change password">
             <b>{v.vendor}</b>
             <span>{v.name}</span>
-          </span>
+          </Link>
           {!v.admin && (
             <form action={portalLogout}>
               <button className="btn btn-sm" type="submit">

@@ -44,7 +44,7 @@ function earliestDue(points: CasePoint[], changes: Change[], newPoints: NewPoint
   return dues.sort()[0] ?? "";
 }
 
-export default function AddReply({ caseId, subject, points, today }: { caseId: string; subject: string; points: CasePoint[]; today: string }) {
+export default function AddReply({ caseId, subject, points, today, caseDeadline = "" }: { caseId: string; subject: string; points: CasePoint[]; today: string; caseDeadline?: string }) {
   const router = useRouter();
   const [stage, setStage] = useState<"input" | "reading" | "review">("input");
   const src = useEmailSource(stage === "input");
@@ -128,7 +128,8 @@ export default function AddReply({ caseId, subject, points, today }: { caseId: s
       useSummary: !!r.data.summary,
       changes,
       newPoints,
-      deadline: earliestDue(points, changes, newPoints),
+      // Keep the deadline the case already has; only suggest one when it has none.
+      deadline: caseDeadline || earliestDue(points, changes, newPoints),
       nothingNew: r.data.nothingNew && !changes.length && !newPoints.length,
       ai: true,
     });
@@ -146,7 +147,7 @@ export default function AddReply({ caseId, subject, points, today }: { caseId: s
       useSummary: false,
       changes: [],
       newPoints: [],
-      deadline: earliestDue(points, [], []),
+      deadline: caseDeadline || earliestDue(points, [], []),
       nothingNew: false,
       ai: false,
     });

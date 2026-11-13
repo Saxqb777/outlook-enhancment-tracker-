@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { requireUser, type User } from "@/lib/auth";
 import { one, q, tx } from "@/lib/db";
 import { isPriority } from "@/lib/status";
+import { removeStored } from "@/lib/attachments";
+import { logActivity } from "@/lib/activity";
 
 type Result = { ok: true } | { ok: false; error: string };
 const VIEW_ONLY = { ok: false as const, error: "Admin is view only, so nothing can be changed from this account." };
@@ -117,5 +119,82 @@ export async function setPointAssignee(pointId: string, userId: string | null): 
   }
   await q("update points set assignee_id = $1, updated_at = now() where id = $2", [userId, p.id]);
   touch(p.case_id);
+  return { ok: true };
+}
+
+// ------------------------------------------------------------------ fixing mistakes (Leads only)
+
+const LEAD_ONLY = { ok: false as const, error: "Only a Lead can do that." };
+async function leadPoint(pointId: string) {
+  const me = await requireUser();
+  if (me.role === "admin") return { err: VIEW_ONLY };
+  if (me.role !== "lead") return { err: LEAD_ONLY };
+  if (!isId(pointId)) return { err: GONE };
+  const p = await one<{ id: string; case_id: string; text: string; status: string }>("select id::text as id, case_id::text as case_id, text, status from points where id = $1", [pointId]);
+  return p ? { me, p } : { err: GONE };
+}
+
+/** Correct the wording of a point. The old wording stays in the point's history. */
+export async function editPointText(pointId: string, text: string): Promise<Result> {
+  const r = await leadPoint(pointId);
+  if ("err" in r) return r.err!;
+  const next = String(text ?? "").trim().replace(/\s+/g, " ").slice(0, 300);
+  if (!next) return { ok: false, error: "The point can't be empty." };
+  if (next === r.p.text) return { ok: true };
+  await tx(async (t) => {
+    await t.query("update points set text = $1, updated_at = now() where id = $2", [next, r.p.id]);
+    await t.query("insert into point_events (point_id, user_id, kind, text) values ($1, $2, 'remark', $3)", [r.p.id, r.me.id, `Wording corrected. It used to say: "${r.p.text}"`]);
+  });
+  touch(r.p.case_id);
+  return { ok: true };
+}
+
+/** Remove a point that should not be there (for example one the AI got wrong). Its files go too. */
+export async function removePoint(pointId: string, reason: string): Promise<Result> {
+  const r = await leadPoint(pointId);
+  if ("err" in r) return r.err!;
+  const why = String(reason ?? "").trim().slice(0, 300);
+  const left = await one<{ n: number }>("select count(*)::int as n from points where case_id = $1", [r.p.case_id]);
+  if ((left?.n ?? 0) <= 1) return { ok: false, error: "This is the only point on the case. Archive the case instead." };
+  const files = await q<{ storage: string; url: string }>("select storage, url from attachments where point_id = $1", [r.p.id]);
+  await tx(async (t) => {
+    await t.query("delete from points where id = $1", [r.p.id]);
+    await say(t, r.p.case_id, r.me.id, `${r.me.name} removed the point "${r.p.text}"${why ? `. Reason: ${why}` : ""}`);
+  });
+  for (const f of files) await removeStored(f).catch(() => {});
+  await logActivity({ userId: r.me.id }, "point_removed", `Removed a point from case #${r.p.case_id}: "${r.p.text.slice(0, 120)}"`);
+  touch(r.p.case_id);
+  return { ok: true };
+}
+
+/** Remove a file that was attached by mistake. A line stays in the point's history. */
+export async function removeAttachment(fileId: string): Promise<Result> {
+  const me = await requireUser();
+  if (me.role === "admin") return VIEW_ONLY;
+  if (me.role !== "lead") return LEAD_ONLY;
+  if (!isId(fileId)) return GONE;
+  const f = await one<{ id: string; case_id: string; point_id: string; name: string; storage: string; url: string }>("select id::text as id, case_id::text as case_id, point_id::text as point_id, name, storage, url from attachments where id = $1", [fileId]);
+  if (!f) return GONE;
+  await tx(async (t) => {
+    await t.query("delete from attachments where id = $1", [f.id]);
+    await t.query("insert into point_events (point_id, user_id, kind, text) values ($1, $2, 'remark', $3)", [f.point_id, me.id, `Removed the file "${f.name}".`]);
+  });
+  await removeStored(f).catch(() => {});
+  await logActivity({ userId: me.id }, "file_removed", `Removed the file "${f.name}" from case #${f.case_id}`);
+  touch(f.case_id);
+  return { ok: true };
+}
+
+/** Archive hides a case from the lists without deleting anything. It can be brought back. */
+export async function setArchived(caseId: string, on: boolean): Promise<Result> {
+  const me = await requireUser();
+  if (me.role === "admin") return VIEW_ONLY;
+  if (me.role !== "lead") return LEAD_ONLY;
+  if (!isId(caseId)) return GONE;
+  const rows = await q("update cases set archived_at = $2, archived_by = $3, updated_at = now() where id = $1 returning id", [caseId, on ? new Date() : null, on ? me.id : null]);
+  if (!rows.length) return GONE;
+  await q("insert into case_messages (case_id, user_id, kind, body) values ($1, $2, 'system', $3)", [caseId, me.id, `${me.name} ${on ? "archived this case" : "brought this case back from the archive"}.`]);
+  await logActivity({ userId: me.id }, on ? "case_archived" : "case_restored", `${on ? "Archived" : "Restored"} case #${caseId}`);
+  touch(caseId);
   return { ok: true };
 }

@@ -14,7 +14,8 @@ const SHOW = ["open", "late", "review", "closed", "all"] as const;
 export default async function CasesPage({ searchParams }: { searchParams: Promise<{ show?: string; q?: string }> }) {
   const { me, viewOnly } = await getViewer();
   const { show, q } = await searchParams;
-  const [rows, people] = await Promise.all([listCases(me), me.role === "lead" ? assignees() : Promise.resolve([])]);
+  const archived = show === "archived";
+  const [rows, people] = await Promise.all([listCases(me, archived), me.role === "lead" ? assignees() : Promise.resolve([])]);
   const cases = rows.map((c) => ({ ...c, created_at: new Date(c.created_at).toISOString() }));
   const initial = SHOW.find((s) => s === show) ?? "open";
 
@@ -22,7 +23,7 @@ export default async function CasesPage({ searchParams }: { searchParams: Promis
     <div className="page-in">
       <header className="ph">
         <div>
-          <h1 className="h1">Cases</h1>
+          <h1 className="h1">{archived ? "Archived cases" : "Cases"}</h1>
           <p className="lede opt">{me.role !== "member" ? "Every email the team is working on, one case per email." : "Every email you're working on, one case per email."}</p>
         </div>
         <div className="ph-act">
@@ -36,6 +37,9 @@ export default async function CasesPage({ searchParams }: { searchParams: Promis
               Board
             </Link>
           </div>
+          <Link className="btn btn-ghost" href={archived ? "/cases" : "/cases?show=archived"}>
+            {archived ? "Back to cases" : "Archived"}
+          </Link>
           <Link className="btn" href="/cases/export">
             <Icon name="download" size={15} />
             <span className="m-hide">Export to Excel</span>
@@ -49,7 +53,7 @@ export default async function CasesPage({ searchParams }: { searchParams: Promis
           )}
         </div>
       </header>
-      <CaseList cases={cases} role={me.role === "member" ? "member" : "lead"} today={todayISO()} initial={initial} initialQ={String(q ?? "").slice(0, 80)} people={people} />
+      <CaseList cases={cases} role={me.role === "member" ? "member" : "lead"} today={todayISO()} initial={archived ? "all" : initial} initialQ={String(q ?? "").slice(0, 80)} people={people} />
     </div>
   );
 }

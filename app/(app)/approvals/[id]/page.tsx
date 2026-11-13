@@ -8,6 +8,7 @@ import { apRef, getApproval, type ApprovalEvent } from "@/lib/approvals";
 import { isImage, sizeLabel } from "@/lib/attach-rules";
 import { getViewer } from "@/lib/auth";
 import { one } from "@/lib/db";
+import { assignees } from "@/lib/work";
 import { diffDays, fmtDay, fmtStamp, todayISO } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
@@ -98,7 +99,14 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
       {canSign && mine && <DecideBox id={a.id} name={me.name} stamp={fmtStamp(new Date())} saved={saved} myState={mine.state} version={a.version} />}
       {open && isRequester && !viewOnly && (
         <div className="no-print">
-          <RequesterTools id={a.id} body={a.body} anySigned={a.signers.some((s) => s.state === "signed")} waiting={a.signers.filter((s) => s.state === "pending").length} />
+          <RequesterTools
+            id={a.id}
+            body={a.body}
+            anySigned={a.signers.some((s) => s.state === "signed")}
+            waiting={a.signers.filter((s) => s.state === "pending").length}
+            signers={a.signers.map((s) => ({ id: s.id, name: s.name, state: s.state }))}
+            people={(await assignees()).filter((p) => p.id !== me.id).map((p) => ({ id: p.id, name: p.name }))}
+          />
         </div>
       )}
 

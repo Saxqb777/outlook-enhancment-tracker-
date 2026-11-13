@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { Uploaded } from "@/lib/attach-rules";
 import { verifyUploads } from "@/lib/attachments";
-import { destroySession, hashPassword, hashToken } from "@/lib/auth";
+import { destroySession, hashPassword, hashToken, verifyPassword } from "@/lib/auth";
+import { logActivity } from "@/lib/activity";
 import { isUniqueViolation, one, q, tx } from "@/lib/db";
 import { cleanEmail, cleanName, isEmail, nameProblem, passwordProblem, type FormState } from "@/lib/forms";
 import { isISODate } from "@/lib/time";
@@ -38,8 +39,29 @@ export async function joinVendor(_prev: FormState, form: FormData): Promise<Form
     throw e;
   }
   await destroySession();
+  await logActivity({ vendorUserId: id }, "vendor_joined", `${name} (${email}) joined the portal for vendor #${vendor.id}`);
   await createVendorSession(id);
   redirect("/portal");
+}
+
+/** A vendor person changes their own password. Their other devices are signed out. */
+export async function changeVendorPassword(_prev: FormState, form: FormData): Promise<FormState> {
+  const v = await requireVendor();
+  if (v.admin) return { error: "You are looking at this portal as Admin." };
+  const current = String(form.get("current") ?? "");
+  const password = String(form.get("password") ?? "");
+  const row = await one<{ password_hash: string }>("select password_hash from vendor_users where id = $1", [v.id]);
+  if (!row || !(await verifyPassword(current, row.password_hash))) return { error: "Your current password isn't right." };
+  const problem = passwordProblem(password, String(form.get("confirm") ?? ""));
+  if (problem) return { error: problem };
+  if (current === password) return { error: "Choose a password that is different from the current one." };
+  await tx(async (c) => {
+    await c.query("update vendor_users set password_hash = $1 where id = $2", [await hashPassword(password), v.id]);
+    await c.query("delete from vendor_sessions where vendor_user_id = $1", [v.id]);
+  });
+  await logActivity({ vendorUserId: v.id }, "password_changed", "A vendor person changed their own password");
+  await createVendorSession(v.id);
+  return { fields: { done: "1" } };
 }
 
 export async function portalLogout(): Promise<void> {

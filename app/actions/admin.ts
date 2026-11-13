@@ -7,15 +7,17 @@ import { VIEW_VENDOR_COOKIE } from "@/lib/vendor-auth";
 import { addDaysISO, todayISO } from "@/lib/time";
 import { revalidatePath } from "next/cache";
 import { one, q, tx } from "@/lib/db";
+import { logActivity } from "@/lib/activity";
 
 /** Admin only: show the app the way this person sees it (view only). */
 export async function viewAs(form: FormData): Promise<void> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const id = String(form.get("userId") ?? "");
   const target = /^[0-9a-f-]{36}$/.test(id)
     ? await one<{ id: string }>("select id from users where id = $1 and status = 'active' and role <> 'admin'", [id])
     : null;
   if (!target) redirect("/admin");
+  await logActivity({ userId: admin.id }, "view_as", `Looked at the app as ${(await one<{ name: string }>("select name from users where id = $1", [target.id]))?.name ?? "someone"}`);
   (await cookies()).set(VIEW_AS_COOKIE, target.id, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -34,7 +36,7 @@ export async function stopViewAs(): Promise<void> {
 
 /** Admin only: make a Member a Lead, or a Lead a Member, at any time. */
 export async function setRole(form: FormData): Promise<void> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const id = String(form.get("userId") ?? "");
   const role = form.get("role") === "lead" ? "lead" : "member";
   // The team always keeps at least one Lead.
@@ -42,6 +44,7 @@ export async function setRole(form: FormData): Promise<void> {
   if (/^[0-9a-f-]{36}$/.test(id) && !lastLead) {
     await q("update users set role = $2 where id = $1 and role in ('lead', 'member') and role <> $2", [id, role]);
     await q("update invites set role = $2 where user_id = $1", [id, role]);
+    await logActivity({ userId: admin.id }, "role_change", `Made ${(await one<{ name: string }>("select name from users where id = $1", [id]))?.name ?? "someone"} a ${role === "lead" ? "Lead" : "Member"}`);
   }
   revalidatePath("/admin");
   revalidatePath("/team");
@@ -49,10 +52,11 @@ export async function setRole(form: FormData): Promise<void> {
 
 /** Admin only: open a vendor's portal. Real vendors are view only; sandbox vendors can be used. */
 export async function viewVendor(form: FormData): Promise<void> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const id = String(form.get("vendorId") ?? "");
   const v = /^\d{1,12}$/.test(id) ? await one<{ id: string }>("select id::text as id from vendors where id = $1", [id]) : null;
   if (!v) redirect("/admin");
+  await logActivity({ userId: admin.id }, "view_as", `Opened the portal of ${(await one<{ name: string }>("select name from vendors where id = $1", [v.id]))?.name ?? "a vendor"}`);
   const store = await cookies();
   store.delete(VIEW_AS_COOKIE);
   store.set(VIEW_VENDOR_COOKIE, v.id, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 8 * 3600 });

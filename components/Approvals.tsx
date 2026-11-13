@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
-import { cancelApproval, createApproval, declineApproval, newVersion, remindSigners, replyApproval, signApproval } from "@/app/actions/approvals";
+import { cancelApproval, changeSigner, createApproval, declineApproval, newVersion, remindSigners, replyApproval, signApproval } from "@/app/actions/approvals";
 import { AttachPicker, useAttach } from "@/components/Attach";
 import { Avatar, Icon } from "@/components/Icon";
 import { toast } from "@/components/work";
@@ -194,7 +194,7 @@ export function DecideBox({ id, name, stamp, saved, myState, version }: { id: st
             <button type="button" className="btn btn-ghost" onClick={close}>
               Cancel
             </button>
-            <button type="button" className="btn btn-primary" disabled={!sig || busy} onClick={() => act(() => signApproval(id, sig!, text, save), "Signed.", close)}>
+            <button type="button" className="btn btn-primary" disabled={!sig || busy} onClick={() => act(() => signApproval(id, sig!, text, save, version), "Signed.", close)}>
               {busy ? "Signing…" : "Sign and approve"}
             </button>
           </div>
@@ -263,8 +263,8 @@ export function ReplyBox({ id }: { id: string }) {
 
 // ------------------------------------------------------------------ the requester's tools
 
-export function RequesterTools({ id, body, anySigned, waiting }: { id: string; body: string; anySigned: boolean; waiting: number }) {
-  const [mode, setMode] = useState<null | "version" | "cancel">(null);
+export function RequesterTools({ id, body, anySigned, waiting, signers = [], people = [] }: { id: string; body: string; anySigned: boolean; waiting: number; signers?: { id: string; name: string; state: State }[]; people?: { id: string; name: string }[] }) {
+  const [mode, setMode] = useState<null | "version" | "cancel" | "signers">(null);
   const [text, setText] = useState(body);
   const [note, setNote] = useState("");
   const att = useAttach("apv");
@@ -285,9 +285,53 @@ export function RequesterTools({ id, body, anySigned, waiting }: { id: string; b
           Remind
         </button>
       )}
+      <button type="button" className="btn" onClick={() => setMode("signers")}>
+        <Icon name="team" size={15} />
+        Change signers
+      </button>
       <button type="button" className="btn btn-ghost" onClick={() => setMode("cancel")}>
         Cancel request
       </button>
+      {mode === "signers" && (
+        <Dialog title="Change who signs" onClose={close}>
+          <p className="hint">Remove someone who hasn&apos;t signed (for example if they have left), or add another person. People who already signed stay on the record.</p>
+          <div className="vp-list one">
+            {signers.map((s) => (
+              <div key={s.id} className="vp-i as-row">
+                <span className="vp-n">
+                  <b>{s.name}</b>
+                  <span>{STATE_LABEL[s.state]}</span>
+                </span>
+                {s.state !== "signed" && (
+                  <button type="button" className="btn btn-sm btn-ghost" disabled={busy || signers.length < 2} onClick={() => act(() => changeSigner(id, s.id, false), `${s.name} removed.`)}>
+                    Remove
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          {people.filter((p) => !signers.some((s) => s.id === p.id)).length > 0 && (
+            <>
+              <p className="hint">Add a signer:</p>
+              <div className="chips">
+                {people
+                  .filter((p) => !signers.some((s) => s.id === p.id))
+                  .map((p) => (
+                    <button key={p.id} type="button" className="chip" disabled={busy} onClick={() => act(() => changeSigner(id, p.id, true), `${p.name} added.`)}>
+                      <Icon name="plus" size={12} />
+                      {p.name}
+                    </button>
+                  ))}
+              </div>
+            </>
+          )}
+          <div className="form-f">
+            <button type="button" className="btn btn-primary" onClick={close}>
+              Done
+            </button>
+          </div>
+        </Dialog>
+      )}
 
       {mode === "version" && (
         <Dialog title="Send a corrected version" onClose={close} wide>

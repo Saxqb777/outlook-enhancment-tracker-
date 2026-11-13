@@ -1,0 +1,40 @@
+# Runs on every push: the code must typecheck, build, and pass the access-rule tests before anyone trusts it.
+name: Check
+on:
+  push:
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: agthia
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres@localhost:5432/agthia
+      SETUP_CODE: ci-only-code
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run db:migrate
+      - run: npm run typecheck
+      - run: npx next build
+      - name: Start the app
+        run: |
+          npx next start -p 3200 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:3200/login > /dev/null && break; sleep 1; done
+      - name: Access-rule tests
+        run: npm run test:access
+        env:
+          BASE_URL: http://127.0.0.1:3200

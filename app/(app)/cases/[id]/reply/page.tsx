@@ -42,6 +42,7 @@ export default async function ReplyPage({ params }: Props) {
       subject={c.subject}
       points={c.points.map((p) => ({ id: p.id, text: p.text, status: p.status, due: p.due }))}
       today={todayISO()}
+      caseDeadline={c.deadline ?? ""}
     />
   );
 }

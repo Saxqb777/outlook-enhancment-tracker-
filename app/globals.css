@@ -1217,3 +1217,32 @@ a.stat:hover::after {
     scroll-behavior: auto !important;
   }
 }
+
+/* Laptops around 1366 px wide: keep the top bar inside the screen for Leads and the Admin (more tabs). */
+.top-find {
+  flex: 0 1 230px;
+  min-width: 120px;
+}
+@media (min-width: 900px) and (max-width: 1420px) {
+  .top {
+    margin-left: 14px;
+    margin-right: 14px;
+  }
+  .brand-t span {
+    display: none;
+  }
+  .tabs a {
+    padding-left: 11px;
+    padding-right: 11px;
+  }
+  .me-t {
+    max-width: 104px;
+    overflow: hidden;
+  }
+  .me-t b,
+  .me-t span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

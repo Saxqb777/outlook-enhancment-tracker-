@@ -149,7 +149,7 @@ export function JobBoard({
         <h2>
           Job progress <span className="count">{done} of {steps.length}</span>
         </h2>
-        <span className={`small ${late ? "ap-late" : "muted"}`}>{due ? `${closed ? "Was due" : late ? "Late · was due" : "Should be finished by"} ${due}` : ""}</span>
+        <span className={`small ${late ? "ap-late" : "muted"}`}>{due && !closed ? `${late ? "Late · was due" : "Should be finished by"} ${due}` : ""}</span>
       </div>
       <div className="job-bar" aria-hidden="true">
         {steps.map((s) => (
@@ -174,7 +174,7 @@ export function JobBoard({
                       Mark done
                     </button>
                   )}
-                  <button type="button" className="btn btn-sm btn-ghost job-more" aria-expanded={isOpen} onClick={() => (setOpen(isOpen ? null : s.id), setComment(""))}>
+                  <button type="button" className="btn btn-sm btn-ghost job-more" aria-expanded={isOpen} aria-label={`Comments and more for ${s.title}`} onClick={() => (setOpen(isOpen ? null : s.id), setComment(""))}>
                     <Icon name="chat" size={14} />
                     {s.comments.length || ""}
                   </button>
@@ -336,7 +336,14 @@ export function JobBoard({
       )}
       {mode?.kind === "close" && (
         <Dialog title="Close this job" onClose={close}>
-          <p className="hint">Proof of delivery is in. Rating and final cost are optional, and only the team sees the cost and note.</p>
+          {steps.some((s) => !s.doneAt) ? (
+            <p className="job-problem">
+              <b>Not ticked yet:</b> {steps.filter((s) => !s.doneAt).map((s) => s.title).join(", ")}. Closing anyway leaves {steps.filter((s) => !s.doneAt).length === 1 ? "it" : "them"} marked as not done.
+            </p>
+          ) : (
+            <p className="hint">All milestones are done and the proof of delivery is in.</p>
+          )}
+          <p className="hint">Rating and final cost are optional. Only the team sees them.</p>
           <div className="job-stars" role="group" aria-label="Rating">
             {[1, 2, 3, 4, 5].map((n) => (
               <button key={n} type="button" aria-label={`${n} star${n === 1 ? "" : "s"}`} aria-pressed={rating >= n} onClick={() => setRating(rating === n ? 0 : n)}>
@@ -352,7 +359,7 @@ export function JobBoard({
               Cancel
             </button>
             <button type="button" className="btn btn-primary" disabled={busy} onClick={() => act(() => closeRfq(rfqId, "done", { rating: rating || undefined, finalCost: cost, note: text }), "Job closed.", close)}>
-              Close job
+              {steps.some((s) => !s.doneAt) ? "Close anyway" : "Close job"}
             </button>
           </div>
         </Dialog>

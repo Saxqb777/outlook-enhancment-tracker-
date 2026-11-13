@@ -138,8 +138,14 @@ export function AttachPicker({ att, compact = false, disabled = false }: { att: 
 export type FileView = { id: string; name: string; mime: string; size: number };
 
 /** Attached files shown in a point's history: small previews for photos, chips for everything else. */
-export function FileList({ files }: { files: FileView[] }) {
+export function FileList({ files, onRemove }: { files: FileView[]; onRemove?: (f: FileView) => void }) {
   if (!files.length) return null;
+  const x = (f: FileView) =>
+    onRemove && (
+      <button type="button" className="file-x" aria-label={`Remove ${f.name}`} title="Remove this file" onClick={() => onRemove(f)}>
+        <Icon name="x" size={11} />
+      </button>
+    );
   const pics = files.filter((f) => isImage(f.mime));
   const docs = files.filter((f) => !isImage(f.mime));
   return (
@@ -147,16 +153,19 @@ export function FileList({ files }: { files: FileView[] }) {
       {pics.length > 0 && (
         <div className="files-pics">
           {pics.map((f) => (
-            <a key={f.id} className="file-pic" href={`/attachments/${f.id}`} target="_blank" rel="noopener noreferrer" title={f.name}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`/attachments/${f.id}`} alt={f.name} loading="lazy" />
-            </a>
+            <span key={f.id} className="file-w">
+              <a className="file-pic" href={`/attachments/${f.id}`} target="_blank" rel="noopener noreferrer" title={f.name}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`/attachments/${f.id}`} alt={f.name} loading="lazy" />
+              </a>
+              {x(f)}
+            </span>
           ))}
         </div>
       )}
       {docs.map((f) => (
+        <span key={f.id} className="file-w">
         <a
-          key={f.id}
           className="file-chip"
           href={f.mime === "application/pdf" ? `/attachments/${f.id}` : `/attachments/${f.id}?download`}
           target={f.mime === "application/pdf" ? "_blank" : undefined}
@@ -166,6 +175,8 @@ export function FileList({ files }: { files: FileView[] }) {
           <span className="file-n">{f.name}</span>
           <span className="file-s">{sizeLabel(f.size)}</span>
         </a>
+        {x(f)}
+        </span>
       ))}
     </div>
   );

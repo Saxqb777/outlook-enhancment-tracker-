@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Avatar, Icon } from "@/components/Icon";
-import { PersonToggle, VendorTools } from "@/components/Vendors";
+import { PersonToggle, VendorPersonReset, VendorTools } from "@/components/Vendors";
 import { viewVendor } from "@/app/actions/admin";
 import { getViewer } from "@/lib/auth";
 import { fmtShort, fmtWhen, todayISO } from "@/lib/time";
@@ -131,6 +131,7 @@ export default async function VendorPage({ params }: { params: Promise<{ id: str
                   <Avatar name={p.name} size="sm" />
                   <b>{p.name}</b>
                   {p.status !== "active" && <span className="ap-st cancelled">Off</span>}
+                  {(!viewOnly || admin) && p.status === "active" && <VendorPersonReset id={p.id} />}
                   {me.role === "lead" && !viewOnly && <PersonToggle id={p.id} on={p.status === "active"} />}
                 </div>
                 <span className="small muted">

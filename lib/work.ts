@@ -24,7 +24,8 @@ export type CaseListRow = {
   unread: number;
 };
 
-export async function listCases(me: User): Promise<CaseListRow[]> {
+/** Archived cases are left out unless `archived` is true (then only archived ones are returned). */
+export async function listCases(me: User, archived = false): Promise<CaseListRow[]> {
   return q<CaseListRow>(
     `select c.id::text as id, c.subject, c.company, c.from_name, c.priority, c.deadline::text as deadline,
             c.owner_id, u.name as owner_name, u.role = 'lead' as owner_lead, c.created_at,
@@ -38,9 +39,10 @@ export async function listCases(me: User): Promise<CaseListRow[]> {
        from cases c join users u on u.id = c.owner_id
        left join points p on p.case_id = c.id
       where ($1::uuid is null or c.owner_id = $1 or exists (select 1 from case_members cm where cm.case_id = c.id and cm.user_id = $1))
+        and (c.archived_at is not null) = $3
       group by c.id, u.name, u.role
       order by c.created_at desc`,
-    [scopeOwner(me), me.id],
+    [scopeOwner(me), me.id, archived],
   );
 }
 
@@ -80,6 +82,7 @@ export type CaseFull = {
   owner_name: string;
   owner_lead: boolean;
   created_by_name: string | null;
+  archived: boolean;
   subject: string;
   summary: string;
   from_name: string;
@@ -123,7 +126,7 @@ export async function getCase(me: User, id: string): Promise<CaseFull | null> {
   const c = await one<Omit<CaseFull, "points" | "emails" | "members">>(
     `select c.id::text as id, c.owner_id, o.name as owner_name, o.role = 'lead' as owner_lead, cb.name as created_by_name, c.subject, c.summary,
             c.from_name, c.from_email, c.company, c.priority, c.deadline::text as deadline, c.email_to, c.email_sent,
-            c.email_body, c.source, c.file_name, c.details, c.created_at
+            c.email_body, c.source, c.file_name, c.details, c.created_at, (c.archived_at is not null) as archived
        from cases c join users o on o.id = c.owner_id left join users cb on cb.id = c.created_by
       where c.id = $1 and ($2::uuid is null or c.owner_id = $2 or exists (select 1 from case_members cm where cm.case_id = c.id and cm.user_id = $2))`,
     [id, scopeOwner(me)],
@@ -201,6 +204,7 @@ export async function listPoints(me: User): Promise<BoardPoint[]> {
             (select max(e.created_at) from point_events e where e.point_id = p.id) as last_at
        from points p join cases c on c.id = p.case_id join users u on u.id = c.owner_id left join users a on a.id = p.assignee_id
       where ($1::uuid is null or c.owner_id = $1 or exists (select 1 from case_members cm where cm.case_id = c.id and cm.user_id = $1))
+        and c.archived_at is null
       order by p.due nulls last, p.id`,
     [scopeOwner(me), me.id],
   );
@@ -213,7 +217,7 @@ export async function recentRemarks(me: User, limit = 4): Promise<RemarkRow[]> {
     `select e.id::text as id, e.text, e.created_at, p.id::text as point_id, p.text as point_text, c.id::text as case_id, u.name as user_name
        from point_events e join points p on p.id = e.point_id join cases c on c.id = p.case_id
        left join users u on u.id = e.user_id
-      where e.kind = 'remark' and (c.owner_id = $1 or exists (select 1 from case_members cm where cm.case_id = c.id and cm.user_id = $1))
+      where e.kind = 'remark' and c.archived_at is null and (c.owner_id = $1 or exists (select 1 from case_members cm where cm.case_id = c.id and cm.user_id = $1))
       order by e.created_at desc limit $2`,
     [me.id, limit],
   );
@@ -227,7 +231,7 @@ export async function recentActivity(me: User, limit = 6): Promise<ActivityRow[]
             p.id::text as point_id, p.text as point_text, c.id::text as case_id
        from point_events e join points p on p.id = e.point_id join cases c on c.id = p.case_id
        left join users u on u.id = e.user_id
-      where ($1::uuid is null or c.owner_id = $1 or exists (select 1 from case_members cm where cm.case_id = c.id and cm.user_id = $1)) and e.kind <> 'created'
+      where ($1::uuid is null or c.owner_id = $1 or exists (select 1 from case_members cm where cm.case_id = c.id and cm.user_id = $1)) and e.kind <> 'created' and c.archived_at is null
       order by e.created_at desc limit $2`,
     [scopeOwner(me), limit],
   );

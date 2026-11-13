@@ -17,6 +17,9 @@ const nextConfig: NextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "same-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          // Browsers must use HTTPS, and nothing else may frame, post to or re-base the app.
+          { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
+          { key: "Content-Security-Policy", value: "base-uri 'self'; form-action 'self'; object-src 'none'" },
         ],
       },
       // Original email PDFs open inside the app's full-size reader.

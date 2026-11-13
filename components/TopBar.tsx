@@ -153,6 +153,10 @@ function UserMenu({ me }: { me: Me }) {
             <span className={`tag-st${me.role === "lead" ? " lead" : me.role === "admin" ? " admin" : ""}`}>{roleLabel}</span>
           </div>
           <div className="menu-sep" />
+          <Link className="mi" role="menuitem" href="/account" onClick={() => setOpen(false)}>
+            <Icon name="lock" size={16} />
+            Change password
+          </Link>
           {me.role !== "member" && (
             <Link className="mi" role="menuitem" href="/team" onClick={() => setOpen(false)}>
               <Icon name="team" size={16} />

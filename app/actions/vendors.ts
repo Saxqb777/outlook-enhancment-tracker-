@@ -12,6 +12,7 @@ import { isISODate, todayISO } from "@/lib/time";
 import { cleanFields, money, rqRef, type Field } from "@/lib/vendor-labels";
 import { getRfq } from "@/lib/vendors";
 import * as jobs from "@/lib/jobs";
+import { aiBlocked, logActivity } from "@/lib/activity";
 
 type Result = { ok: true } | { ok: false; error: string };
 const VIEW_ONLY = { ok: false as const, error: "Admin is view only, so nothing can be changed from this account." };
@@ -60,6 +61,7 @@ export async function createVendor(input: VendorInput): Promise<{ ok: true; id: 
   if (v.name.length < 2) return { ok: false, error: "Enter the vendor's company name." };
   try {
     const r = await one<{ id: string }>("insert into vendors (name, services, areas, phone, notes, created_by) values ($1, $2, $3, $4, $5, $6) returning id::text as id", [v.name, v.services, v.areas, v.phone, v.notes, me.id]);
+    await logActivity({ userId: me.id }, "vendor_added", `Added the vendor ${v.name}`);
     touch();
     return { ok: true, id: r!.id };
   } catch (e) {
@@ -94,6 +96,7 @@ export async function setVendorStatus(id: string, on: boolean): Promise<Result> 
     await c.query("update vendors set status = $2 where id = $1", [id, on ? "active" : "off"]);
     if (!on) await c.query("delete from vendor_sessions where vendor_user_id in (select id from vendor_users where vendor_id = $1)", [id]);
   });
+  await logActivity({ userId: me.id }, on ? "access_on" : "access_off", `Turned vendor #${id}'s access ${on ? "on" : "off"}`);
   touch();
   revalidatePath(`/vendors/v/${id}`);
   return { ok: true };
@@ -107,7 +110,7 @@ export async function vendorInviteLink(id: string): Promise<{ ok: true; link: st
   const r = await q("update vendors set invite_hash = $2, invite_expires = now() + interval '14 days' where id = $1 and status = 'active' returning id", [id, hashToken(token)]);
   if (!r.length) return { ok: false, error: "Turn this vendor's access on first." };
   revalidatePath(`/vendors/v/${id}`);
-  void me;
+  await logActivity({ userId: me.id }, "join_link", `Made a new join link for vendor #${id} (the old link stopped working)`);
   return { ok: true, link: `${await siteOrigin()}/portal/join/${token}` };
 }
 
@@ -122,6 +125,21 @@ export async function setVendorPerson(personId: string, on: boolean): Promise<Re
   });
   touch();
   return { ok: true };
+}
+
+/** A one-time reset link for a person at a vendor who forgot their password. Works for 24 hours. */
+export async function vendorResetLink(personId: string): Promise<{ ok: true; link: string; name: string } | { ok: false; error: string }> {
+  const me = await requireUser();
+  if (!/^[0-9a-f-]{36}$/.test(personId)) return GONE;
+  const p = await one<{ id: string; name: string; vendor: string }>("select u.id, u.name, v.name as vendor from vendor_users u join vendors v on v.id = u.vendor_id where u.id = $1 and u.status = 'active'", [personId]);
+  if (!p) return { ok: false, error: "Turn this person's access on first." };
+  const token = newToken();
+  await tx(async (c) => {
+    await c.query("delete from password_resets where vendor_user_id = $1", [p.id]);
+    await c.query("insert into password_resets (token_hash, vendor_user_id, created_by, expires_at) values ($1, $2, $3, now() + interval '24 hours')", [hashToken(token), p.id, me.id]);
+  });
+  await logActivity({ userId: me.id }, "reset_link", `Made a password reset link for ${p.name} at ${p.vendor}`);
+  return { ok: true, link: `${await siteOrigin()}/reset/${token}`, name: p.name };
 }
 
 // ------------------------------------------------------------------ saved forms
@@ -284,7 +302,7 @@ async function award(c: PoolClient, a: Ctx, vendorId: string, by: User) {
 }
 
 /** A Lead awards straight away. A Member's choice waits for a Lead to approve it. */
-export async function pickWinner(id: string, vendorId: string, note: string, plan?: { steps: string[]; due: string }): Promise<Result & { waiting?: boolean }> {
+export async function pickWinner(id: string, vendorId: string, note: string, plan?: { steps: string[]; due: string; seenPrice?: string | null; seenCurrency?: string | null }): Promise<Result & { waiting?: boolean }> {
   const me = await actor(id);
   if (!me) return VIEW_ONLY;
   const why = text(note, 500);
@@ -295,6 +313,9 @@ export async function pickWinner(id: string, vendorId: string, note: string, pla
     if (a.status !== "open" && !(a.status === "pending_award" && me.role === "lead")) return { ok: false, error: "This request isn't open for a choice right now." };
     const quote = isId(vendorId) ? (await c.query<{ name: string; price: string; currency: string }>("select v.name, rv.price::text as price, rv.currency from rfq_vendors rv join vendors v on v.id = rv.vendor_id where rv.rfq_id = $1 and rv.vendor_id = $2 and rv.state = 'quoted'", [a.id, vendorId])).rows[0] : null;
     if (!quote) return { ok: false, error: "Pick a vendor who has sent a quote." };
+    // The award only goes through at the price the person was looking at.
+    if (plan?.seenPrice != null && (Number(plan.seenPrice) !== Number(quote.price) || (plan.seenCurrency ?? quote.currency) !== quote.currency))
+      return { ok: false, error: `${quote.name} changed the price to ${money(quote.price, quote.currency)} just now. Check it, then choose again.` };
     // The job's milestones are set with the choice, so tracking is ready the moment the vendor confirms.
     await jobs.seedMilestones(c, a.id, jobs.cleanSteps(plan?.steps));
     await c.query("update rfqs set job_due = $2 where id = $1", [a.id, isISODate(plan?.due) ? plan!.due : null]);
@@ -308,6 +329,7 @@ export async function pickWinner(id: string, vendorId: string, note: string, pla
     await say(c, a.id, vendorId, me.id, "internal", `${me.name} wants to award this to ${quote.name} at ${money(quote.price, quote.currency)} and is waiting for a Lead to approve.${why ? ` Reason: ${why}` : ""}`);
     return { ok: true, waiting: true };
   });
+  if (r.ok && !r.waiting) await logActivity({ userId: me.id }, "award", `Awarded request #${id}`);
   touch(id);
   return r;
 }
@@ -359,6 +381,27 @@ export async function closeRfq(id: string, how: "done" | "cancelled", end?: { ra
     }
     return { ok: true };
   });
+  touch(id);
+  return r;
+}
+
+/** The chosen vendor hasn't confirmed: take the award back so another quote can be chosen. */
+export async function withdrawAward(id: string, reason: string): Promise<Result> {
+  const me = await actor(id);
+  if (!me) return VIEW_ONLY;
+  const why = text(reason, 300);
+  const r = await tx<Result>(async (c) => {
+    const a = await ctx(id, c);
+    if (!a) return GONE;
+    if (!mine(me, a)) return { ok: false, error: "Only the person who made the request, or a Lead, can do that." };
+    if (a.status !== "awarded" || !a.awarded_vendor_id) return { ok: false, error: "This can only be done while waiting for the vendor to confirm." };
+    await say(c, a.id, a.awarded_vendor_id, me.id, "system", `The award was withdrawn${why ? `: ${why}` : ""}. The request is open again.`);
+    await c.query("insert into rfq_messages (rfq_id, vendor_id, user_id, kind, body) select rfq_id, vendor_id, $2, 'system', 'This request is open again. Your quote is still being considered.' from rfq_vendors where rfq_id = $1 and vendor_id <> $3 and state = 'quoted'", [a.id, me.id, a.awarded_vendor_id]);
+    await c.query("update rfqs set status = 'open', awarded_vendor_id = null, award_by = null, award_note = null, awarded_at = null, job_due = null, updated_at = now() where id = $1", [a.id]);
+    await c.query("delete from job_milestones where rfq_id = $1", [a.id]);
+    return { ok: true };
+  });
+  if (r.ok) await logActivity({ userId: me.id }, "award_withdrawn", `Withdrew the award on request #${id}`);
   touch(id);
   return r;
 }
@@ -433,8 +476,8 @@ export async function askAboutQuotes(id: string, what: "compare" | "counter", ve
   if (!r) return GONE;
   const quoted = r.quotes.filter((x) => x.state === "quoted");
   if (!quoted.length) return { ok: false, error: "No quotes have come in yet." };
-  const used = await one<{ n: number }>("select count(*)::int as n from ai_reads where user_id = $1 and created_at > now() - interval '1 hour'", [me.id]).catch(() => null);
-  if ((used?.n ?? 0) >= 40) return { ok: false, error: "You've used the AI a lot this hour. Try again a little later." };
+  const blocked = await aiBlocked(me.id);
+  if (blocked) return { ok: false, error: blocked };
   const target = what === "counter" ? quoted.find((x) => x.vendor_id === vendorId) : null;
   if (what === "counter" && !target) return { ok: false, error: "Pick a vendor who has sent a quote." };
   const context =

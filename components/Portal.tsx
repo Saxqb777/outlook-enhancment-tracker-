@@ -8,6 +8,7 @@ import { Dialog, useAct } from "@/components/Approvals";
 import { AttachPicker, useAttach } from "@/components/Attach";
 import { Icon } from "@/components/Icon";
 import RfqChat from "@/components/RfqChat";
+import { poll } from "@/components/work";
 import { CURRENCIES, money } from "@/lib/vendor-labels";
 
 export type MyQuote = { state: "invited" | "quoted" | "declined"; price: string | null; currency: string | null; validUntil: string; readyOn: string; note: string; declineReason: string | null };
@@ -186,11 +187,10 @@ export function PortalNotifier() {
         /* offline: try again next time */
       }
     };
-    void tick();
-    const t = setInterval(tick, 7000);
+    const stopPoll = poll(tick, 8000, 45000);
     return () => {
       stop = true;
-      clearInterval(t);
+      stopPoll();
     };
   }, [router]);
   if (!notes.length) return null;

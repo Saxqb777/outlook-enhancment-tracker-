@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { aiBlocked } from "@/lib/activity";
 import { requireUser } from "@/lib/auth";
 import { canSeeCase, markRead } from "@/lib/chat";
 import { one, q } from "@/lib/db";
@@ -32,8 +33,8 @@ export async function askAI(caseId: string, question: string): Promise<Result> {
   if (!ask) return { ok: false, error: "Type your question first." };
   const id = String(caseId);
   if (!(await canSeeCase(me, id))) return { ok: false, error: "That case isn't available." };
-  const used = await one<{ n: number }>("select count(*)::int as n from ai_reads where user_id = $1 and created_at > now() - interval '1 hour'", [me.id]);
-  if ((used?.n ?? 0) >= 40) return { ok: false, error: "That's a lot of AI questions in one hour. Wait a little, then try again." };
+  const blocked = await aiBlocked(me.id);
+  if (blocked) return { ok: false, error: blocked };
 
   const [c, emails, points, history, chat] = await Promise.all([
     one<{ subject: string; summary: string; company: string; owner: string; deadline: string | null }>(

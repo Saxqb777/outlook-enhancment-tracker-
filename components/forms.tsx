@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { acceptInvite, login, resetPassword, setupLead } from "@/app/actions/auth";
-import { joinVendor } from "@/app/actions/portal";
+import { acceptInvite, changePassword, login, resetAdminPassword, resetPassword, setupLead } from "@/app/actions/auth";
+import { changeVendorPassword, joinVendor } from "@/app/actions/portal";
 import { createInviteLink, makeResetLink, newInviteLink } from "@/app/actions/team";
 import { Icon } from "@/components/Icon";
 import { MIN_PASSWORD, type FormState, type InviteState } from "@/lib/forms";
@@ -60,7 +60,9 @@ export function LoginForm({ showSetup }: { showSetup: boolean }) {
       <PasswordField id="password" label="Password" autoComplete="current-password" />
       <FormError state={state} />
       <SubmitButton pending="Signing in">Sign in</SubmitButton>
-      <p className="auth-note">Forgot your password? Ask your Lead for a reset link.</p>
+      <p className="auth-note">
+        Forgot your password? Ask your Lead for a reset link. Vendors: ask your contact at Agthia. Admin: <Link href="/reset-admin">reset with the setup code</Link>.
+      </p>
       {showSetup && (
         <p className="auth-note">
           First time here? <Link href="/setup">Set up the Lead account</Link>
@@ -144,6 +146,40 @@ export function ResetForm({ token }: { token: string }) {
   return (
     <form action={action} className="auth-form" noValidate>
       <input type="hidden" name="token" value={token} />
+      <PasswordField id="password" label={`New password (at least ${MIN_PASSWORD} characters)`} autoComplete="new-password" />
+      <PasswordField id="confirm" label="Type it again" autoComplete="new-password" />
+      <FormError state={state} />
+      <SubmitButton pending="Saving">Save and sign in</SubmitButton>
+    </form>
+  );
+}
+
+/** "Change my password", for a team person or a vendor person. */
+export function ChangePasswordForm({ vendor = false }: { vendor?: boolean }) {
+  const [state, action] = useActionState(vendor ? changeVendorPassword : changePassword, undefined);
+  if (state?.fields?.done)
+    return (
+      <p className="form-ok" role="status">
+        Your password is changed. Other devices were signed out.
+      </p>
+    );
+  return (
+    <form action={action} className="auth-form" noValidate>
+      <PasswordField id="current" label="Current password" autoComplete="current-password" />
+      <PasswordField id="password" label={`New password (at least ${MIN_PASSWORD} characters)`} autoComplete="new-password" />
+      <PasswordField id="confirm" label="Type the new one again" autoComplete="new-password" />
+      <FormError state={state} />
+      <SubmitButton pending="Saving">Change password</SubmitButton>
+    </form>
+  );
+}
+
+/** The Admin has nobody above them: a forgotten Admin password is reset with the server's setup code. */
+export function AdminResetForm() {
+  const [state, action] = useActionState(resetAdminPassword, undefined);
+  return (
+    <form action={action} className="auth-form" noValidate>
+      <PasswordField id="code" label="Setup code" autoComplete="off" />
       <PasswordField id="password" label={`New password (at least ${MIN_PASSWORD} characters)`} autoComplete="new-password" />
       <PasswordField id="confirm" label="Type it again" autoComplete="new-password" />
       <FormError state={state} />

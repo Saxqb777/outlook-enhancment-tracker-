@@ -32,11 +32,11 @@ export async function dashboardData(today: string) {
               (select max(e.created_at) from point_events e where e.point_id = p.id and e.kind in ('status', 'reopen')) as status_at,
               (select max(e.created_at) from point_events e where e.point_id = p.id) as last_at,
               (select e.text from point_events e where e.point_id = p.id and e.kind = 'update' and e.text is not null order by e.created_at desc limit 1) as last_update
-         from points p join cases c on c.id = p.case_id join users o on o.id = c.owner_id left join users a on a.id = p.assignee_id`,
+         from points p join cases c on c.id = p.case_id join users o on o.id = c.owner_id left join users a on a.id = p.assignee_id where c.archived_at is null`,
     ),
     q<DashPerson>(
       `select u.id, u.name, u.role, u.last_login_at,
-              (select count(*)::int from cases c where c.owner_id = u.id or exists (select 1 from case_members m where m.case_id = c.id and m.user_id = u.id)) as cases
+              (select count(*)::int from cases c where c.archived_at is null and (c.owner_id = u.id or exists (select 1 from case_members m where m.case_id = c.id and m.user_id = u.id))) as cases
          from users u where u.status = 'active' and u.role <> 'admin' order by lower(u.name)`,
     ),
     q<DashWeek>(
@@ -62,7 +62,7 @@ export async function dashboardData(today: string) {
               (select count(*)::int from points p where p.case_id = c.id and p.status not in ('done', 'approved')) as open,
               greatest(c.updated_at, coalesce((select max(m.created_at) from case_messages m where m.case_id = c.id), c.updated_at)) as last_at
          from cases c join users o on o.id = c.owner_id
-        where exists (select 1 from points p where p.case_id = c.id and p.status not in ('done', 'approved'))
+        where c.archived_at is null and exists (select 1 from points p where p.case_id = c.id and p.status not in ('done', 'approved'))
         order by 5 asc limit 6`,
     ),
   ]);

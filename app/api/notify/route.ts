@@ -38,6 +38,14 @@ export async function GET(req: Request) {
         [user.id, after, user.role === "lead"],
       )
     : [];
+  const joins = after
+    ? await q<{ id: string; case_id: string; subject: string; who: string | null; kind: string; body: string }>(
+        `select 'j' || vu.id::text as id, v.id::text as case_id, v.name as subject, vu.name as who, 'vn_join' as kind, vu.email as body
+           from vendor_users vu join vendors v on v.id = vu.vendor_id
+          where vu.created_at > $2::timestamptz and not v.test and (v.created_by = $1 or $3) order by vu.created_at desc limit 3`,
+        [user.id, after, user.role === "lead"],
+      )
+    : [];
   const [items, count, now] = await Promise.all([
     after
       ? q<{ id: string; case_id: string; subject: string; who: string | null; kind: string; body: string; at: Date }>(
@@ -50,11 +58,12 @@ export async function GET(req: Request) {
       : Promise.resolve([]),
     q<{ n: number }>(
       `select count(*)::int as n from case_messages m join cases c on c.id = m.case_id
-        where m.user_id is distinct from $2 and ${mine}
+        where m.user_id is distinct from $2 and ${mine} and c.archived_at is null
+          and (c.owner_id = $2 or exists (select 1 from case_members cm where cm.case_id = c.id and cm.user_id = $2))
           and m.created_at > coalesce((select r.last_read_at from case_reads r where r.case_id = c.id and r.user_id = $2), c.created_at)`,
       [scope, user.id],
     ),
     q<{ now: Date }>("select now() as now"),
   ]);
-  return Response.json({ now: new Date(now[0].now).toISOString(), items: [...items.reverse(), ...approvals.reverse(), ...rfqs.reverse()], unread: count[0]?.n ?? 0 }, { headers: { "Cache-Control": "private, no-store" } });
+  return Response.json({ now: new Date(now[0].now).toISOString(), items: [...items.reverse(), ...approvals.reverse(), ...rfqs.reverse(), ...joins.reverse()], unread: count[0]?.n ?? 0 }, { headers: { "Cache-Control": "private, no-store" } });
 }

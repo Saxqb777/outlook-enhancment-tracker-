@@ -6,6 +6,7 @@ import type { PoolClient } from "pg";
 import type { Uploaded } from "@/lib/attach-rules";
 import { verifyUploads, type Verified } from "@/lib/attachments";
 import { requireUser, type User } from "@/lib/auth";
+import { aiBlocked } from "@/lib/activity";
 import { one, q, tx } from "@/lib/db";
 import { MAX_EMAIL_CHARS, parseAddress, splitEmail } from "@/lib/email";
 import { extractEmail, extractReply, type Extraction } from "@/lib/extract";
@@ -29,10 +30,16 @@ function touch(caseId?: string) {
   if (caseId) revalidatePath(`/cases/${caseId}`);
 }
 
+/** An approved point is finished: Members can't change it any more. A Lead can reopen it. */
+const LOCKED = { ok: false as const, error: "This point is approved, so it's locked. Ask a Lead to reopen it if something needs to change." };
+async function lockedFor(me: User, pointId: string): Promise<boolean> {
+  if (me.role !== "member") return false;
+  return !!(await one("select 1 from points where id = $1 and status = 'approved'", [pointId]));
+}
+
 /** Stops runaway AI use: 40 reads per person per hour. */
 async function overLimit(userId: string): Promise<boolean> {
-  const r = await one<{ n: number }>("select count(*)::int as n from ai_reads where user_id = $1 and created_at > now() - interval '1 hour'", [userId]);
-  return (r?.n ?? 0) >= 40;
+  return !!(await aiBlocked(userId));
 }
 const SLOW_DOWN = { ok: false as const, error: "That's a lot of emails in one hour. Wait a little, then try again." };
 
@@ -427,7 +434,7 @@ export async function addReply(caseId: string, input: NewReply, files?: FormData
     await t.query("update case_emails set change_note = $1 where id = $2", [parts.length ? parts.join(" · ") : "No changes to the points", emailId]);
     const summary = typeof input.summary === "string" ? input.summary.trim().slice(0, 800) : null;
     await t.query(
-      "update cases set summary = coalesce($1, summary), deadline = $2, updated_at = now() where id = $3",
+      "update cases set summary = coalesce($1, summary), deadline = coalesce($2, deadline), updated_at = now() where id = $3",
       [summary || null, isISODate(input.deadline) ? input.deadline : null, c.id],
     );
     return pos;
@@ -514,6 +521,7 @@ export async function setPointDue(pointId: string, due: string | null): Promise<
   if (me.role === "admin") return VIEW_ONLY;
   const p = await pointFor(me, pointId);
   if (!p) return { ok: false, error: "That point isn't available." };
+  if (await lockedFor(me, p.id)) return LOCKED;
   const d = due && isISODate(due) ? due : null;
   await tx(async (c) => {
     await c.query("update points set due = $1, updated_at = now() where id = $2", [d, p.id]);
@@ -544,6 +552,7 @@ export async function postNote(pointId: string, text: string, files?: Uploaded[]
   const body = String(text ?? "").trim().slice(0, 2000);
   const p = await pointFor(me, pointId);
   if (!p) return { ok: false, error: "That point isn't available." };
+  if (await lockedFor(me, p.id)) return LOCKED;
   const checked = files?.length ? await verifyUploads(p.id, files) : [];
   if (!Array.isArray(checked)) return { ok: false, error: checked.error };
   if (!body && !checked.length) return { ok: false, error: me.role === "lead" ? "Write the remark first." : "Write the update first." };

@@ -19,6 +19,35 @@ export function ViewOnlyProvider({ value, children }: { value: boolean; children
 }
 export const useViewOnly = () => useContext(ViewOnlyCtx);
 
+// ------------------------------------------------------------------ polling
+
+/**
+ * Calls `tick` now and then every `visibleMs` while the tab is on screen. In a background tab it slows to
+ * `hiddenMs` (or stops when that is null), and it catches up the moment the tab is looked at again.
+ */
+export function poll(tick: () => void | Promise<void>, visibleMs: number, hiddenMs: number | null): () => void {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let stopped = false;
+  const loop = async () => {
+    if (stopped) return;
+    const hidden = document.visibilityState !== "visible";
+    if (!hidden || hiddenMs !== null) await tick();
+    if (!stopped) timer = setTimeout(loop, hidden ? (hiddenMs ?? 60000) : visibleMs);
+  };
+  const onShow = () => {
+    if (document.visibilityState !== "visible") return;
+    clearTimeout(timer);
+    void loop();
+  };
+  void loop();
+  document.addEventListener("visibilitychange", onShow);
+  return () => {
+    stopped = true;
+    clearTimeout(timer);
+    document.removeEventListener("visibilitychange", onShow);
+  };
+}
+
 // ------------------------------------------------------------------ toasts
 
 export function toast(message: string) {

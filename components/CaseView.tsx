@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { setCaseOwner, setPointAssignee, updateCase } from "@/app/actions/manage";
 import { addPoint, postNote, reopenPoint, setCaseMembers, setPointStatus } from "@/app/actions/work";
 import { AttachPicker, FileList, useAttach, type FileView } from "@/components/Attach";
+import { ArchiveButton, askRemoveFile, PointFix } from "@/components/CaseFix";
 import ChatPanel from "@/components/ChatPanel";
 import { Highlighted, MailReader, type ReaderEmail } from "@/components/EmailInput";
 import { Avatar, Icon } from "@/components/Icon";
@@ -70,6 +71,7 @@ export type CaseViewData = {
   points: PointView[];
   emails: EmailView[];
   owner_id: string;
+  archived?: boolean;
   members: { id: string; name: string; role: "lead" | "member"; added_by_name: string | null; added_at: string }[];
 };
 
@@ -214,7 +216,9 @@ export default function CaseView({
           </Link>
           <span className="cid big">{caseRef(c.id)}</span>
           {closed && <span className="stamp sm">Closed</span>}
+          {c.archived && <span className="stamp sm">Archived</span>}
           <span className="sp" />
+          {role === "lead" && !viewOnly && <ArchiveButton caseId={c.id} archived={!!c.archived} />}
           {canManage && !viewOnly && !editing && (
             <button type="button" className="btn btn-sm btn-ghost" onClick={() => setEditing(true)}>
               <Icon name="edit" size={14} />
@@ -569,6 +573,7 @@ function PointCard({
       </div>
       {open && (
         <div className="pt-body">
+          {lead && !viewOnly && <PointFix pointId={p.id} text={p.text} />}
           {p.status === "done" &&
             (lead && !viewOnly ? (
               <div className={`review${pending ? " is-busy" : ""}`}>
@@ -601,13 +606,13 @@ function PointCard({
             ))}
           {doneFiles.length > 0 && (
             <div className="review-files">
-              <FileList files={doneFiles} />
+              <FileList files={doneFiles} onRemove={lead && !viewOnly ? askRemoveFile : undefined} />
             </div>
           )}
           {p.events.length ? (
             <ol className="tl">
               {p.events.map((e) => (
-                <TimelineItem key={e.id} e={e} today={today} reply={e.email_id ? (posOf.get(e.email_id) ?? 0) : 0} />
+                <TimelineItem key={e.id} e={e} today={today} reply={e.email_id ? (posOf.get(e.email_id) ?? 0) : 0} canFix={lead && !viewOnly} />
               ))}
             </ol>
           ) : (
@@ -627,7 +632,7 @@ function PointCard({
   );
 }
 
-function TimelineItem({ e, today, reply }: { e: EventView; today: string; reply: number }) {
+function TimelineItem({ e, today, reply, canFix = false }: { e: EventView; today: string; reply: number; canFix?: boolean }) {
   const name = e.user_name ?? "Someone";
   const when = <time dateTime={e.created_at}>{fmtWhen(e.created_at, today)}</time>;
   const via = reply > 0 ? <span className="via">from Reply {reply}</span> : null;
@@ -642,7 +647,7 @@ function TimelineItem({ e, today, reply }: { e: EventView; today: string; reply:
             {when}
           </div>
           {e.text ? <div className="txt">{e.text}</div> : <div className="txt muted">Attached {plural(e.files.length, "file")}</div>}
-          <FileList files={e.files} />
+          <FileList files={e.files} onRemove={canFix ? askRemoveFile : undefined} />
         </div>
       </li>
     );
@@ -705,7 +710,7 @@ function TimelineItem({ e, today, reply }: { e: EventView; today: string; reply:
           {via}
           {when}
         </div>
-        <FileList files={e.files} />
+        <FileList files={e.files} onRemove={canFix ? askRemoveFile : undefined} />
       </div>
     </li>
   );

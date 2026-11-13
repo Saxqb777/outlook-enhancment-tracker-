@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
+import { poll } from "@/components/work";
 import { caseRef } from "@/lib/status";
 
 const AP_SAY: Record<string, string> = {
@@ -20,8 +21,9 @@ const isAp = (n: { kind: string }) => n.kind.startsWith("ap_");
 const isRq = (n: { kind: string }) => n.kind.startsWith("rq_");
 const rqRef = (id: string) => `RQ-${id.padStart(4, "0")}`;
 const apRef = (id: string) => `AP-${id.padStart(4, "0")}`;
-const head = (n: Note) => (isRq(n) ? (n.kind === "rq_text" ? `${n.who ?? "Vendor"} wrote` : n.kind === "rq_internal" ? "Vendor award" : "Vendor update") : isAp(n) ? `${n.who ?? "Someone"} ${AP_SAY[n.kind] ?? "updated an approval"}` : `${n.kind === "ai" ? "AI" : (n.who ?? "Someone")} · ${caseRef(n.case_id)}`);
-const href = (n: Note) => (isRq(n) ? `/vendors/rfq/${n.case_id}${n.vendor_id ? `?v=${n.vendor_id}` : ""}` : isAp(n) ? `/approvals/${n.case_id}` : `/cases/${n.case_id}?tab=chat`);
+const isJoin = (n: { kind: string }) => n.kind === "vn_join";
+const head = (n: Note) => (isJoin(n) ? `${n.who ?? "Someone"} joined the vendor portal` : isRq(n) ? (n.kind === "rq_text" ? `${n.who ?? "Vendor"} wrote` : n.kind === "rq_internal" ? "Vendor award" : "Vendor update") : isAp(n) ? `${n.who ?? "Someone"} ${AP_SAY[n.kind] ?? "updated an approval"}` : `${n.kind === "ai" ? "AI" : (n.who ?? "Someone")} · ${caseRef(n.case_id)}`);
+const href = (n: Note) => (isJoin(n) ? `/vendors/v/${n.case_id}` : isRq(n) ? `/vendors/rfq/${n.case_id}${n.vendor_id ? `?v=${n.vendor_id}` : ""}` : isAp(n) ? `/approvals/${n.case_id}` : `/cases/${n.case_id}?tab=chat`);
 
 type Note = { id: string; case_id: string; subject: string; who: string | null; kind: string; body: string; vendor_id?: string };
 
@@ -54,7 +56,7 @@ export default function Notifier() {
         unread.current = j.unread;
         applyTitle();
         const open = (window as unknown as { __chatOpen?: string | null }).__chatOpen;
-        const fresh = j.items.filter((n) => !seen.current.has(n.id) && !(!isAp(n) && !isRq(n) && open === n.case_id && document.visibilityState === "visible"));
+        const fresh = j.items.filter((n) => !seen.current.has(n.id) && !(!isAp(n) && !isRq(n) && !isJoin(n) && open === n.case_id && document.visibilityState === "visible"));
         if (!fresh.length) return;
         fresh.forEach((n) => seen.current.add(n.id));
         setNotes((v) => [...v, ...fresh].slice(-3));
@@ -73,12 +75,12 @@ export default function Notifier() {
         /* offline: try again next time */
       }
     };
-    void tick();
-    const t = setInterval(tick, 6000);
+    // Every 8 seconds while the tab is on screen; every 30 in the background (enough for a desktop alert).
+    const stopPoll = poll(tick, 8000, 30000);
     return () => {
       stop = true;
       watch.disconnect();
-      clearInterval(t);
+      stopPoll();
     };
   }, [router]);
 
@@ -88,15 +90,15 @@ export default function Notifier() {
       {notes.map((n) => (
         <div className="note" key={n.id}>
           <span className="note-i">
-            <Icon name={isRq(n) ? "truck" : isAp(n) ? "sign" : n.kind === "ai" ? "spark" : "chat"} size={16} />
+            <Icon name={isJoin(n) || isRq(n) ? "truck" : isAp(n) ? "sign" : n.kind === "ai" ? "spark" : "chat"} size={16} />
           </span>
           <div className="note-b">
             <b>{head(n)}</b>
-            <span className="note-s">{isRq(n) ? `${rqRef(n.case_id)} · ${n.subject}` : isAp(n) ? `${apRef(n.case_id)} · ${n.subject}` : n.subject}</span>
+            <span className="note-s">{isJoin(n) ? `${n.subject} · new login` : isRq(n) ? `${rqRef(n.case_id)} · ${n.subject}` : isAp(n) ? `${apRef(n.case_id)} · ${n.subject}` : n.subject}</span>
             <span className="note-t">{n.body}</span>
             <span className="note-f">
               <Link className="btn btn-sm btn-primary" href={href(n)} onClick={() => setNotes((v) => v.filter((x) => x.id !== n.id))}>
-                {isRq(n) ? "Open request" : isAp(n) ? (n.kind === "ap_created" || n.kind === "ap_new_version" || n.kind === "ap_reminded" ? "Open and sign" : "Open") : "Open chat"}
+                {isJoin(n) ? "Open vendor" : isRq(n) ? "Open request" : isAp(n) ? (n.kind === "ap_created" || n.kind === "ap_new_version" || n.kind === "ap_reminded" ? "Open and sign" : "Open") : "Open chat"}
               </Link>
               {canAsk && (
                 <button

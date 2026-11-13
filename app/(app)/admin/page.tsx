@@ -40,6 +40,11 @@ export default async function AdminPage() {
   await requireAdmin();
   const admin = await requireAdmin();
   const [vendorsAll, rfqsAll] = await Promise.all([listVendors(true), listRfqs(admin, true)]);
+  const activity = await q<{ id: string; kind: string; detail: string; created_at: Date; who: string | null }>(
+    `select a.id::text as id, a.kind, a.detail, a.created_at, coalesce(u.name, vu.name || ' (vendor)') as who
+       from activity_log a left join users u on u.id = a.user_id left join vendor_users vu on vu.id = a.vendor_user_id order by a.id desc limit 40`,
+  );
+  const aiDay = (await one<{ n: number }>("select count(*)::int as n from ai_reads where created_at > now() - interval '24 hours'"))?.n ?? 0;
   const realVendors = vendorsAll.filter((v) => !v.test);
   const testVendors = vendorsAll.filter((v) => v.test);
   const liveRfqs = rfqsAll.filter((r) => !r.test && !["done", "cancelled"].includes(r.status));
@@ -95,7 +100,9 @@ export default async function AdminPage() {
         <div>
           <div className="date">Admin · view only</div>
           <h1 className="h1">Everything at a glance</h1>
-          <p className="lede">See every case and each person&apos;s view. Nothing here changes anyone&apos;s work.</p>
+          <p className="lede">
+            See every case and each person&apos;s view. You can&apos;t change anyone&apos;s work. You can: invite people, switch Lead and Member, make reset links, add vendors and their join links, and use the sandbox. Those actions are listed under Activity below.
+          </p>
         </div>
       </header>
 
@@ -286,6 +293,34 @@ export default async function AdminPage() {
             </div>
           </>
         )}
+      </section>
+
+      <section className="panel" aria-label="Activity">
+        <div className="panel-h">
+          <h2>
+            Activity <span className="count">{activity.length}</span>
+          </h2>
+          <span className="hint">Sensitive actions: who did what, newest first. AI used in the last 24 hours: {aiDay} of 400.</span>
+        </div>
+        <div className="list act-list">
+          {activity.map((a) => (
+            <div className="act-row" key={a.id}>
+              <span className="small muted">{fmtWhen(a.created_at, today)}</span>
+              <b>{a.who ?? "Someone"}</b>
+              <span>{a.detail}</span>
+            </div>
+          ))}
+          {!activity.length && <p className="empty">Nothing yet. Role changes, reset links, access changes, awards, removals and &ldquo;view as&rdquo; will show here.</p>}
+        </div>
+        <div className="ap-doc-b">
+          <div className="ap-tools">
+            <a className="btn" href="/admin/backup" download>
+              <Icon name="download" size={15} />
+              Download a backup
+            </a>
+            <span className="hint">One file with all cases, points, chats, approvals, vendors, requests and jobs (no passwords, no attached files). Keep a copy somewhere safe now and then.</span>
+          </div>
+        </div>
       </section>
 
       <section className="panel sbx-panel" id="sandbox" aria-label="Test area">

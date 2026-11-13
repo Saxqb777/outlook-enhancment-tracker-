@@ -5,8 +5,10 @@ import { redirect } from "next/navigation";
 import { hashToken, newToken, requireLead, requireUser, siteOrigin, type User } from "@/lib/auth";
 import { one, q, tx } from "@/lib/db";
 import type { InviteState } from "@/lib/forms";
+import { logActivity } from "@/lib/activity";
 
 const INVITE_DAYS = 7;
+const isUuid = (v: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 
 /** The Lead, or the Admin (who may make invite links even though everything else is view only). */
 async function requireInviter(): Promise<User> {
@@ -35,6 +37,7 @@ export async function createInviteLink(_prev: InviteState, form: FormData): Prom
   // Only the Admin can invite a Lead.
   const role = inviter.role === "admin" && form.get("role") === "lead" ? "lead" : "member";
   const link = await freshInvite(inviter.id, { label, role });
+  await logActivity({ userId: inviter.id }, "invite_link", `Made a ${role === "lead" ? "Lead" : "Member"} invite link${label ? ` (${label})` : ""}`);
   revalidatePath("/team");
   revalidatePath("/admin");
   return { link, name: label ?? undefined, role };
@@ -43,6 +46,7 @@ export async function createInviteLink(_prev: InviteState, form: FormData): Prom
 export async function newInviteLink(_prev: InviteState, form: FormData): Promise<InviteState> {
   const lead = await requireLead();
   const userId = String(form.get("userId") ?? "");
+  if (!isUuid(userId)) return { error: "This invite is no longer open." };
   const user = await one<{ id: string; name: string; email: string | null; role: string }>(
     "select id, name, email, role from users where id = $1 and status = 'invited'",
     [userId],
@@ -64,7 +68,7 @@ export async function newInviteLink(_prev: InviteState, form: FormData): Promise
 export async function cancelInvite(form: FormData): Promise<void> {
   await requireLead();
   const userId = String(form.get("userId") ?? "");
-  await q("delete from users where id = $1 and role = 'member' and status = 'invited'", [userId]);
+  if (isUuid(userId)) await q("delete from users where id = $1 and role = 'member' and status = 'invited'", [userId]);
   revalidatePath("/team");
 }
 
@@ -76,9 +80,11 @@ export async function cancelOpenInvite(form: FormData): Promise<void> {
 }
 
 export async function setMemberAccess(form: FormData): Promise<void> {
-  await requireLead();
+  const lead = await requireLead();
   const userId = String(form.get("userId") ?? "");
   const turnOn = form.get("access") === "on";
+  if (!isUuid(userId)) return;
+  await logActivity({ userId: lead.id }, turnOn ? "access_on" : "access_off", `Turned access ${turnOn ? "on" : "off"} for ${(await one<{ name: string }>("select name from users where id = $1", [userId]))?.name ?? "a member"}`);
   if (turnOn) {
     await q("update users set status = 'active' where id = $1 and role = 'member' and status = 'disabled'", [userId]);
   } else {
@@ -94,6 +100,7 @@ export async function setMemberAccess(form: FormData): Promise<void> {
 export async function makeResetLink(_prev: InviteState, form: FormData): Promise<InviteState> {
   const by = await requireInviter();
   const userId = String(form.get("userId") ?? "");
+  if (!isUuid(userId)) return { error: "You can't reset this person's password." };
   const user = await one<{ id: string; name: string; role: string }>("select id, name, role from users where id = $1 and status = 'active'", [userId]);
   if (!user || user.role === "admin" || (by.role === "lead" && user.role !== "member")) return { error: "You can't reset this person's password." };
   const token = newToken();
@@ -101,5 +108,6 @@ export async function makeResetLink(_prev: InviteState, form: FormData): Promise
     await c.query("delete from password_resets where user_id = $1", [user.id]);
     await c.query("insert into password_resets (token_hash, user_id, created_by, expires_at) values ($1, $2, $3, now() + interval '24 hours')", [hashToken(token), user.id, by.id]);
   });
+  await logActivity({ userId: by.id }, "reset_link", `Made a password reset link for ${user.name}`);
   return { link: `${await siteOrigin()}/reset/${token}`, name: user.name };
 }

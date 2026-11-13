@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
   addRfqVendors, askAboutQuotes, closeRfq, createRfq, createVendor, decideAward, deleteTemplate, pickWinner, remindVendors, saveTemplate,
-  sendRfqMessage, setVendorPerson, setVendorStatus, updateRfq, updateVendor, vendorInviteLink, type VendorInput,
+  sendRfqMessage, setVendorPerson, withdrawAward, setVendorStatus, updateRfq, updateVendor, vendorInviteLink, vendorResetLink, type VendorInput,
 } from "@/app/actions/vendors";
 import { Dialog, useAct } from "@/components/Approvals";
 import { AttachPicker, useAttach } from "@/components/Attach";
@@ -522,6 +522,46 @@ export function PersonToggle({ id, on }: { id: string; on: boolean }) {
   );
 }
 
+/** Makes a one-time password reset link for a person at a vendor. */
+export function VendorPersonReset({ id }: { id: string }) {
+  const [link, setLink] = useState<{ link: string; name: string } | null>(null);
+  const [busy, start] = useTransition();
+  return (
+    <>
+      <button
+        type="button"
+        className="btn btn-sm btn-ghost"
+        disabled={busy}
+        onClick={() =>
+          start(async () => {
+            const r = await vendorResetLink(id);
+            if (!r.ok) return toast(r.error);
+            setLink(r);
+          })
+        }
+      >
+        <Icon name="lock" size={13} />
+        Reset password
+      </button>
+      {link && (
+        <Dialog title={`Reset link for ${link.name}`} onClose={() => setLink(null)} wide>
+          <p className="hint">Send this to them. It works once, for 24 hours, and signs them out everywhere else.</p>
+          <input className="inp" readOnly value={link.link} onFocus={(e) => e.target.select()} aria-label="Reset link" />
+          <div className="form-f">
+            <button type="button" className="btn btn-ghost" onClick={() => setLink(null)}>
+              Close
+            </button>
+            <button type="button" className="btn btn-primary" onClick={() => void navigator.clipboard?.writeText(link.link).then(() => toast("Link copied."))}>
+              <Icon name="copy" size={15} />
+              Copy link
+            </button>
+          </div>
+        </Dialog>
+      )}
+    </>
+  );
+}
+
 // ------------------------------------------------------------------ one request
 
 export type QuoteView = {
@@ -597,6 +637,20 @@ export function RfqBoard({ rfq, vendors, initialVendor, stepTemplates = [], toda
       )}
       {(rfq.status === "awarded" || rfq.status === "confirmed") && chosen && (
         <div className="ap-decide rq-banner ok">
+          {can && rfq.status === "awarded" && (
+            <div className="ap-decide-b" style={{ order: 2 }}>
+              <button
+                type="button"
+                className="btn"
+                disabled={busy}
+                onClick={() => {
+                  if (window.confirm(`Take the award back from ${chosen.vendor}? The request opens again so you can choose another quote.`)) act(() => withdrawAward(rfq.id, ""), "Award withdrawn. The request is open again.");
+                }}
+              >
+                Withdraw award
+              </button>
+            </div>
+          )}
           <p className="ap-decide-t">
             <b>Awarded to {chosen.vendor}</b> at {money(chosen.price, chosen.currency)}. {rfq.status === "awarded" ? "Waiting for them to confirm the job. Tracking starts then." : "They confirmed the job. Follow it in Job progress above."}
           </p>
@@ -814,7 +868,7 @@ export function RfqBoard({ rfq, vendors, initialVendor, stepTemplates = [], toda
             <button type="button" className="btn btn-ghost" onClick={close}>
               Cancel
             </button>
-            <button type="button" className="btn btn-primary" disabled={busy} onClick={() => act(() => pickWinner(rfq.id, target.vendor_id, text, { steps, due }), rfq.lead ? `Awarded to ${target.vendor}.` : "Sent to the Lead for approval.", close)}>
+            <button type="button" className="btn btn-primary" disabled={busy} onClick={() => act(() => pickWinner(rfq.id, target.vendor_id, text, { steps, due, seenPrice: target.price, seenCurrency: target.currency }), rfq.lead ? `Awarded to ${target.vendor}.` : "Sent to the Lead for approval.", close)}>
               {rfq.lead ? "Award" : "Send for approval"}
             </button>
           </div>

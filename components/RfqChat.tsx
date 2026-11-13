@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
-import { toast } from "@/components/work";
+import { poll, toast } from "@/components/work";
 
 type Msg = { id: string; kind: "text" | "system" | "internal"; body: string; at: string; who: string; side: "team" | "vendor" };
 type Result = { ok: true } | { ok: false; error: string };
@@ -31,9 +31,8 @@ export default function RfqChat({ url, send, side, canWrite, draft, onDraftUsed,
   useEffect(() => {
     setMsgs(null);
     count.current = 0;
-    void load();
-    const t = setInterval(load, 5000);
-    return () => clearInterval(t);
+    // The chat only refreshes while someone is looking at it.
+    return poll(load, 5000, null);
   }, [load]);
   useEffect(() => {
     if (msgs && msgs.length !== count.current) {

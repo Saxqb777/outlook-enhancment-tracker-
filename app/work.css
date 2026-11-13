@@ -5448,3 +5448,81 @@ button.assignee:hover {
     display: none;
   }
 }
+.acc-h {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+}
+.form-ok {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(18, 147, 106, 0.12);
+  color: #0b7150;
+  font-weight: 600;
+}
+a.portal-who {
+  text-decoration: none;
+}
+.pt-fix {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: -2px 0 2px;
+}
+.file-w {
+  position: relative;
+  display: inline-flex;
+}
+.file-x {
+  all: unset;
+  cursor: pointer;
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  color: #b02f2f;
+  box-shadow: 0 0 0 1px var(--hair-2), var(--sh-1);
+}
+.file-x:focus-visible {
+  outline: 2px solid var(--focus);
+}
+.vp-list.one {
+  grid-template-columns: 1fr;
+}
+.vp-i.as-row {
+  cursor: default;
+  justify-content: space-between;
+}
+.act-list {
+  max-height: 420px;
+  overflow-y: auto;
+}
+.act-row {
+  display: grid;
+  grid-template-columns: 130px 160px minmax(0, 1fr);
+  gap: 12px;
+  padding: 9px 18px;
+  font-size: 13.5px;
+  align-items: baseline;
+}
+.act-row + .act-row {
+  border-top: 1px solid var(--hair);
+}
+.act-row b {
+  font-weight: 620;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .act-row {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}

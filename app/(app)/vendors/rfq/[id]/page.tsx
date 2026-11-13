@@ -10,6 +10,8 @@ import { diffDays, fmtDay, fmtStamp, todayISO } from "@/lib/time";
 import { nextStep, RFQ_STATUS, rqRef } from "@/lib/vendor-labels";
 import { ViewOnlyProvider } from "@/components/work";
 import { getRfq, listVendors } from "@/lib/vendors";
+import { JobBoard } from "@/components/Jobs";
+import { getJob, listStepTemplates } from "@/lib/jobs";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -27,9 +29,12 @@ export default async function RfqPage({ params, searchParams }: { params: Promis
   const [r, vendors] = await Promise.all([getRfq(me, id, admin), listVendors(admin)]);
   if (!r) notFound();
   const sandbox = admin && r.test;
+  const isJob = ["awarded", "confirmed", "done"].includes(r.status);
+  const [job, stepTemplates] = await Promise.all([isJob ? getJob(r.id) : Promise.resolve([]), listStepTemplates()]);
+  const won = r.quotes.find((x) => x.vendor_id === r.awarded_vendor_id);
   const viewOnly = vo && !sandbox;
   const quotedN = r.quotes.filter((x) => x.state === "quoted").length;
-  const next = nextStep({ status: r.status, vendors: r.quotes.length, replied: r.quotes.filter((x) => x.state !== "invited").length, quoted: quotedN, winner: r.quotes.find((x) => x.vendor_id === r.awarded_vendor_id)?.vendor });
+  const next = nextStep({ status: r.status, vendors: r.quotes.length, replied: r.quotes.filter((x) => x.state !== "invited").length, quoted: quotedN, winner: won?.vendor, ms_total: job.length, ms_done: job.filter((m) => m.done_at).length, ms_next: job.find((m) => !m.done_at)?.title ?? null, problems: job.filter((m) => m.problem).length });
   const today = todayISO();
   const late = r.status === "open" && !!r.reply_by && diffDays(r.reply_by, today) < 0;
   const view: RfqView = {
@@ -129,8 +134,34 @@ export default async function RfqPage({ params, searchParams }: { params: Promis
         </div>
       </section>
 
+      {isJob && (
+        <JobBoard
+          rfqId={r.id}
+          side="team"
+          attachKey="apv"
+          canAct={!viewOnly}
+          canEdit={view.canManage}
+          running={r.status === "confirmed"}
+          closed={r.status === "done"}
+          due={r.job_due ? fmtDay(r.job_due) : null}
+          late={r.status !== "done" && !!r.job_due && diffDays(r.job_due, today) < 0}
+          closing={{ rating: r.rating, finalCost: r.final_cost, note: r.close_note, currency: won?.currency ?? "AED" }}
+          steps={job.map((m) => ({
+            id: m.id,
+            title: m.title,
+            needsPod: m.needs_pod,
+            doneAt: m.done_at ? fmtStamp(m.done_at) : null,
+            doneBy: m.done_by,
+            doneNote: m.done_note,
+            problem: m.problem,
+            problemEta: m.problem_eta ? fmtDay(m.problem_eta) : null,
+            files: m.files.map((f) => ({ id: f.id, name: f.name, size: sizeLabel(f.size), view: viewable(f.mime) })),
+            comments: m.comments.map((c) => ({ id: c.id, who: c.who, side: c.side, body: c.body, at: fmtStamp(c.at) })),
+          }))}
+        />
+      )}
       <ViewOnlyProvider value={viewOnly}>
-        <RfqBoard rfq={view} vendors={vendors.filter((x) => x.test === r.test).map((x) => ({ id: x.id, name: x.name, services: x.services, people: x.people, status: x.status }))} initialVendor={v} />
+        <RfqBoard stepTemplates={stepTemplates} today={today} rfq={view} vendors={vendors.filter((x) => x.test === r.test).map((x) => ({ id: x.id, name: x.name, services: x.services, people: x.people, status: x.status }))} initialVendor={v} />
       </ViewOnlyProvider>
     </div>
   );

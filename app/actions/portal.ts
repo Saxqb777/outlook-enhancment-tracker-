@@ -10,6 +10,7 @@ import { cleanEmail, cleanName, isEmail, nameProblem, passwordProblem, type Form
 import { isISODate } from "@/lib/time";
 import { createVendorSession, destroyVendorSession, requireVendor } from "@/lib/vendor-auth";
 import { CURRENCIES, money } from "@/lib/vendor-labels";
+import * as jobs from "@/lib/jobs";
 
 type Result = { ok: true } | { ok: false; error: string };
 const VIEW = { ok: false as const, error: "You are looking at this vendor's portal as Admin. Nothing can be changed here." };
@@ -132,3 +133,25 @@ export async function markPortalRead(id: string): Promise<void> {
   const v = await requireVendor();
   if (isId(id) && !v.admin) await q("update rfq_vendors set vendor_read_at = now() where rfq_id = $1 and vendor_id = $2", [id, v.vendor_id]);
 }
+
+// ------------------------------------------------------------------ jobs (milestones)
+
+/** Runs a milestone action as the vendor. They can only touch jobs their company won. */
+async function onMilestone(mid: string, run: (who: jobs.Who) => Promise<Result & { rfqId?: string }>): Promise<Result> {
+  const v = await requireVendor();
+  if (v.viewOnly) return VIEW;
+  const r = await run({ userId: null, vendorUserId: v.id, name: v.name, vendorScope: v.vendor_id });
+  if (r.ok && r.rfqId) touch(r.rfqId);
+  return r.ok ? { ok: true } : r;
+}
+export async function tickStep(mid: string, note: string, files: Uploaded[]): Promise<Result> {
+  const v = await requireVendor();
+  // The Admin trying the sandbox uploads through the team's route.
+  const checked = files?.length ? await verifyUploads(v.admin ? "apv" : "vq", files) : [];
+  if (!Array.isArray(checked)) return { ok: false, error: checked.error };
+  return onMilestone(mid, (who) => jobs.tickMilestone(who, mid, note, checked));
+}
+export const untickStep = async (mid: string): Promise<Result> => onMilestone(mid, (who) => jobs.untickMilestone(who, mid));
+export const commentStep = async (mid: string, body: string): Promise<Result> => onMilestone(mid, (who) => jobs.commentMilestone(who, mid, body));
+export const flagStep = async (mid: string, what: string, eta: string): Promise<Result> => onMilestone(mid, (who) => jobs.flagProblem(who, mid, what, eta));
+export const resolveStep = async (mid: string): Promise<Result> => onMilestone(mid, (who) => jobs.resolveProblem(who, mid));

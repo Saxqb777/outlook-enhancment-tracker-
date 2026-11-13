@@ -8,7 +8,7 @@ const isId = (v: unknown) => /^\d{1,12}$/.test(String(v));
 const WATCH = `(r.created_by = $1 or exists (select 1 from users w where w.id = $1 and w.role = 'lead'))`;
 const UNREAD = `m.user_id is distinct from $1 and m.created_at > coalesce((select x.last_read_at from rfq_reads x where x.rfq_id = m.rfq_id and x.vendor_id = m.vendor_id and x.user_id = $1), '-infinity')`;
 
-export type VendorRow = { id: string; name: string; services: string[]; areas: string; phone: string; status: "active" | "off"; test: boolean; people: number; asked: number; quoted: number; declined: number; won: number; reply_hours: number | null; has_link: boolean };
+export type VendorRow = { id: string; name: string; services: string[]; areas: string; phone: string; status: "active" | "off"; test: boolean; people: number; asked: number; quoted: number; declined: number; won: number; reply_hours: number | null; has_link: boolean; jobs_done: number; on_time: number; timed: number; rating: number | null };
 
 /** `showTest`: only the Admin (as themselves) sees sandbox vendors and requests. */
 export async function listVendors(showTest = false): Promise<VendorRow[]> {
@@ -20,6 +20,11 @@ export async function listVendors(showTest = false): Promise<VendorRow[]> {
             (select count(*)::int from rfq_vendors rv where rv.vendor_id = v.id and rv.state = 'declined') as declined,
             (select count(*)::int from rfqs r where r.awarded_vendor_id = v.id and r.status in ('awarded', 'confirmed', 'done')) as won,
             (select round(avg(extract(epoch from (rv.quoted_at - rv.added_at)) / 3600)::numeric, 1)::float from rfq_vendors rv where rv.vendor_id = v.id and rv.quoted_at is not null) as reply_hours,
+            (select count(*)::int from rfqs r where r.awarded_vendor_id = v.id and r.status = 'done') as jobs_done,
+            (select count(*)::int from rfqs r where r.awarded_vendor_id = v.id and r.status = 'done' and r.job_due is not null) as timed,
+            (select count(*)::int from rfqs r where r.awarded_vendor_id = v.id and r.status = 'done' and r.job_due is not null
+               and (select max(m.done_at) from job_milestones m where m.rfq_id = r.id and m.title not ilike 'proof of delivery') at time zone 'Asia/Dubai' < (r.job_due + 1)) as on_time,
+            (select round(avg(r.rating)::numeric, 1)::float from rfqs r where r.awarded_vendor_id = v.id and r.rating is not null) as rating,
             (v.invite_hash is not null and v.invite_expires > now()) as has_link
        from vendors v where ($1 or not v.test) order by v.test, (v.status = 'active') desc, lower(v.name)`,
     [showTest],
@@ -47,12 +52,16 @@ export async function getVendor(id: string, showTest = false) {
 
 export type RfqRow = {
   id: string; title: string; status: RfqStatus; reply_by: string | null; created_at: Date; created_by: string; by: string; fields: Field[];
-  vendors: number; replied: number; quoted: number; test: boolean; best: string | null; best_currency: string | null; winner: string | null; unread: number;
+  vendors: number; replied: number; quoted: number; test: boolean; job_due: string | null; ms_total: number; ms_done: number; ms_next: string | null; problems: number; best: string | null; best_currency: string | null; winner: string | null; unread: number;
 };
 
 export async function listRfqs(me: User, showTest = false): Promise<RfqRow[]> {
   return q<RfqRow>(
-    `select r.id::text as id, r.title, r.status, r.reply_by::text as reply_by, r.created_at, r.created_by, u.name as by, r.fields, r.test,
+    `select r.id::text as id, r.title, r.status, r.reply_by::text as reply_by, r.created_at, r.created_by, u.name as by, r.fields, r.test, r.job_due::text as job_due,
+            (select count(*)::int from job_milestones jm where jm.rfq_id = r.id) as ms_total,
+            (select count(*)::int from job_milestones jm where jm.rfq_id = r.id and jm.done_at is not null) as ms_done,
+            (select jm.title from job_milestones jm where jm.rfq_id = r.id and jm.done_at is null order by jm.position limit 1) as ms_next,
+            (select count(*)::int from job_milestones jm where jm.rfq_id = r.id and jm.problem is not null) as problems,
             (select count(*)::int from rfq_vendors rv where rv.rfq_id = r.id) as vendors,
             (select count(*)::int from rfq_vendors rv where rv.rfq_id = r.id and rv.state = 'quoted') as quoted,
             (select count(*)::int from rfq_vendors rv where rv.rfq_id = r.id and rv.state <> 'invited') as replied,
@@ -73,7 +82,7 @@ export type RfqQuote = {
 };
 export type RfqFull = {
   id: string; test: boolean; title: string; fields: Field[]; notes: string; status: RfqStatus; reply_by: string | null; created_at: Date; closed_at: Date | null; created_by: string; by: string;
-  case_id: string | null; case_subject: string | null; awarded_vendor_id: string | null; award_by: string | null; award_by_name: string | null; award_note: string | null; awarded_at: Date | null;
+  case_id: string | null; case_subject: string | null; awarded_vendor_id: string | null; award_by: string | null; award_by_name: string | null; award_note: string | null; awarded_at: Date | null; job_due: string | null; rating: number | null; final_cost: string | null; close_note: string | null;
   files: { id: string; name: string; mime: string; size: number }[];
   quotes: RfqQuote[];
 };
@@ -82,13 +91,13 @@ export async function getRfq(me: User, id: string, showTest = false): Promise<Rf
   if (!isId(id)) return null;
   const r = await one<Omit<RfqFull, "files" | "quotes">>(
     `select r.id::text as id, r.test, r.title, r.fields, r.notes, r.status, r.reply_by::text as reply_by, r.created_at, r.closed_at, r.created_by, u.name as by,
-            r.case_id::text as case_id, c.subject as case_subject, r.awarded_vendor_id::text as awarded_vendor_id, r.award_by, a.name as award_by_name, r.award_note, r.awarded_at
+            r.case_id::text as case_id, c.subject as case_subject, r.awarded_vendor_id::text as awarded_vendor_id, r.award_by, a.name as award_by_name, r.award_note, r.awarded_at, r.job_due::text as job_due, r.rating, r.final_cost::text as final_cost, r.close_note
        from rfqs r join users u on u.id = r.created_by left join users a on a.id = r.award_by left join cases c on c.id = r.case_id where r.id = $1 and ($2 or not r.test)`,
     [id, showTest],
   );
   if (!r) return null;
   const [files, quotes] = await Promise.all([
-    q<{ id: string; vendor_id: string | null; name: string; mime: string; size: number }>("select id::text as id, vendor_id::text as vendor_id, name, mime, size from rfq_files where rfq_id = $1 order by id", [id]),
+    q<{ id: string; vendor_id: string | null; name: string; mime: string; size: number }>("select id::text as id, vendor_id::text as vendor_id, name, mime, size from rfq_files where rfq_id = $1 and milestone_id is null order by id", [id]),
     q<Omit<RfqQuote, "files">>(
       `select v.id::text as vendor_id, v.name as vendor, v.status as vendor_status, rv.state, rv.price::text as price, rv.currency, rv.valid_until::text as valid_until, rv.ready_on::text as ready_on,
               rv.note, rv.decline_reason, rv.quoted_at,
@@ -135,11 +144,17 @@ const RESULT = `case when r.status = 'cancelled' then 'cancelled'
                      when r.status in ('awarded', 'confirmed', 'done') and r.awarded_vendor_id = rv.vendor_id then (case r.status when 'awarded' then 'won' else r.status end)
                      when r.status in ('awarded', 'confirmed', 'done') then 'lost' else 'open' end`;
 
-export type PortalRow = { id: string; title: string; fields: Field[]; reply_by: string | null; created_at: Date; state: QuoteState; price: string | null; currency: string | null; result: string; unread: number };
+/** Job progress, shown to the vendor only for jobs they won. */
+const JOB = `r.job_due::text as job_due,
+            (select count(*)::int from job_milestones jm where jm.rfq_id = r.id and r.awarded_vendor_id = rv.vendor_id) as ms_total,
+            (select count(*)::int from job_milestones jm where jm.rfq_id = r.id and r.awarded_vendor_id = rv.vendor_id and jm.done_at is not null) as ms_done,
+            (select jm.title from job_milestones jm where jm.rfq_id = r.id and r.awarded_vendor_id = rv.vendor_id and jm.done_at is null order by jm.position limit 1) as ms_next`;
+
+export type PortalRow = { id: string; title: string; fields: Field[]; reply_by: string | null; created_at: Date; state: QuoteState; price: string | null; currency: string | null; result: string; unread: number; job_due: string | null; ms_total: number; ms_done: number; ms_next: string | null };
 
 export async function portalList(vendorId: string): Promise<PortalRow[]> {
   return q<PortalRow>(
-    `select r.id::text as id, r.title, r.fields, r.reply_by::text as reply_by, r.created_at, rv.state, rv.price::text as price, rv.currency, ${RESULT} as result, ${VUNREAD} as unread
+    `select r.id::text as id, r.title, r.fields, r.reply_by::text as reply_by, r.created_at, rv.state, rv.price::text as price, rv.currency, ${RESULT} as result, ${VUNREAD} as unread, ${JOB}
        from rfq_vendors rv join rfqs r on r.id = rv.rfq_id where rv.vendor_id = $1 order by r.id desc limit 300`,
     [vendorId],
   );
@@ -151,12 +166,12 @@ export async function portalRfq(vendorId: string, id: string): Promise<PortalRfq
   if (!isId(id)) return null;
   const r = await one<Omit<PortalRfq, "files">>(
     `select r.id::text as id, r.title, r.fields, r.notes, r.reply_by::text as reply_by, r.created_at, u.name as by, rv.state, rv.price::text as price, rv.currency,
-            rv.valid_until::text as valid_until, rv.ready_on::text as ready_on, rv.note, rv.decline_reason, ${RESULT} as result, ${VUNREAD} as unread
+            rv.valid_until::text as valid_until, rv.ready_on::text as ready_on, rv.note, rv.decline_reason, ${RESULT} as result, ${VUNREAD} as unread, ${JOB}
        from rfq_vendors rv join rfqs r on r.id = rv.rfq_id join users u on u.id = r.created_by where rv.vendor_id = $1 and r.id = $2`,
     [vendorId, id],
   );
   if (!r) return null;
-  const files = await q<PortalRfq["files"][number]>("select id::text as id, name, mime, size, (vendor_id is not null) as mine from rfq_files where rfq_id = $1 and (vendor_id is null or vendor_id = $2) order by id", [id, vendorId]);
+  const files = await q<PortalRfq["files"][number]>("select id::text as id, name, mime, size, (vendor_id is not null) as mine from rfq_files where rfq_id = $1 and milestone_id is null and (vendor_id is null or vendor_id = $2) order by id", [id, vendorId]);
   return { ...r, files };
 }
 

@@ -10,10 +10,12 @@ import {
 import { Dialog, useAct } from "@/components/Approvals";
 import { AttachPicker, useAttach } from "@/components/Attach";
 import { Icon } from "@/components/Icon";
+import { MilestonePlanner, startSteps } from "@/components/Jobs";
 import RfqChat from "@/components/RfqChat";
 import { toast, useViewOnly } from "@/components/work";
 import { DEFAULT_FIELDS, money, QUOTE_STATE, RFQ_STATUS, SERVICES, SUGGESTED_FIELDS, type Field, type QuoteState, type RfqStatus } from "@/lib/vendor-labels";
 
+const needle0 = (q: string) => q.trim().toLowerCase();
 type VendorLite = { id: string; name: string; services: string[]; people: number; status: string };
 type Template = { id: string; name: string; fields: string[] };
 
@@ -293,18 +295,23 @@ export function VendorForm({ vendor, onClose }: { vendor?: { id: string } & Vend
 
 // ------------------------------------------------------------------ Vendors home: requests + vendors
 
-export type RfqItem = { id: string; ref: string; title: string; status: RfqStatus; by: string; mine: boolean; route: string; when: string; replyBy: string | null; late: boolean; vendors: number; replied: number; best: string | null; winner: string | null; unread: number; next: string; test: boolean };
+export type JobInfo = { due: string | null; late: boolean; total: number; done: number; next: string | null; problems: number };
+export type RfqItem = { job?: JobInfo; id: string; ref: string; title: string; status: RfqStatus; by: string; mine: boolean; route: string; when: string; replyBy: string | null; late: boolean; vendors: number; replied: number; best: string | null; winner: string | null; unread: number; next: string; test: boolean };
 export type VendorItem = { id: string; name: string; services: string[]; areas: string; status: string; people: number; test?: boolean; asked: number; quoted: number; won: number; replyHours: number | null };
 
-const OPEN: RfqStatus[] = ["open", "pending_award", "awarded", "confirmed"];
+const OPEN: RfqStatus[] = ["open", "pending_award"];
+const JOBS: RfqStatus[] = ["awarded", "confirmed", "done"];
 
-export function VendorsHome({ rfqs, vendors, initial, canAdd }: { rfqs: RfqItem[]; vendors: VendorItem[]; initial: "requests" | "vendors"; canAdd: boolean }) {
+export function VendorsHome({ rfqs, vendors, initial, canAdd }: { rfqs: RfqItem[]; vendors: VendorItem[]; initial: "requests" | "vendors" | "jobs"; canAdd: boolean }) {
   const [tab, setTab] = useState(initial);
   const [show, setShow] = useState<"open" | "mine" | "closed" | "all">("open");
   const [q, setQ] = useState("");
   const [adding, setAdding] = useState(false);
   const needle = q.trim().toLowerCase();
-  const tests = { open: (r: RfqItem) => OPEN.includes(r.status), mine: (r: RfqItem) => r.mine && OPEN.includes(r.status), closed: (r: RfqItem) => !OPEN.includes(r.status), all: () => true };
+  const [jshow, setJshow] = useState<"running" | "finished">("running");
+  const tests = { open: (r: RfqItem) => OPEN.includes(r.status), mine: (r: RfqItem) => r.mine && OPEN.includes(r.status), closed: (r: RfqItem) => r.status === "cancelled", all: (r: RfqItem) => !JOBS.includes(r.status) };
+  const jobs = rfqs.filter((r) => JOBS.includes(r.status));
+  const jlist = needle0(q) ? jobs.filter((r) => `${r.ref} ${r.title} ${r.by} ${r.route} ${r.winner ?? ""}`.toLowerCase().includes(needle0(q))) : jobs.filter((r) => (jshow === "running" ? r.status !== "done" : r.status === "done"));
   const list = needle ? rfqs.filter((r) => `${r.ref} ${r.title} ${r.by} ${r.route} ${r.winner ?? ""}`.toLowerCase().includes(needle)) : rfqs.filter(tests[show]);
   const vlist = needle ? vendors.filter((v) => `${v.name} ${v.services.join(" ")} ${v.areas}`.toLowerCase().includes(needle)) : vendors;
   return (
@@ -313,6 +320,9 @@ export function VendorsHome({ rfqs, vendors, initial, canAdd }: { rfqs: RfqItem[
         <div className="seg" role="group" aria-label="Show">
           <button type="button" aria-pressed={tab === "requests"} onClick={() => setTab("requests")} data-tour="vn-requests">
             Requests<span className="n">{rfqs.filter(tests.open).length}</span>
+          </button>
+          <button type="button" aria-pressed={tab === "jobs"} onClick={() => setTab("jobs")} data-tour="vn-jobs">
+            Jobs<span className="n">{jobs.filter((r) => r.status !== "done").length}</span>
           </button>
           <button type="button" aria-pressed={tab === "vendors"} onClick={() => setTab("vendors")} data-tour="vn-vendors">
             Vendors<span className="n">{vendors.length}</span>
@@ -327,6 +337,16 @@ export function VendorsHome({ rfqs, vendors, initial, canAdd }: { rfqs: RfqItem[
             ))}
           </div>
         )}
+        {tab === "jobs" && !needle && (
+          <div className="chips" role="group" aria-label="Which jobs">
+            <button type="button" className="chip all" aria-pressed={jshow === "running"} onClick={() => setJshow("running")}>
+              Running
+            </button>
+            <button type="button" className="chip all" aria-pressed={jshow === "finished"} onClick={() => setJshow("finished")}>
+              Finished
+            </button>
+          </div>
+        )}
         {canAdd && (
           <button type="button" className="btn btn-sm" data-tour="vn-add" onClick={() => setAdding(true)}>
             <Icon name="plus" size={14} />
@@ -336,11 +356,47 @@ export function VendorsHome({ rfqs, vendors, initial, canAdd }: { rfqs: RfqItem[
         <label className="find">
           <Icon name="search" size={15} />
           <span className="sr">Search</span>
-          <input type="search" placeholder={tab === "requests" ? "Search requests" : "Search vendors"} value={q} onChange={(e) => setQ(e.target.value)} autoComplete="off" />
+          <input type="search" placeholder={tab === "requests" ? "Search requests" : tab === "jobs" ? "Search jobs" : "Search vendors"} value={q} onChange={(e) => setQ(e.target.value)} autoComplete="off" />
         </label>
       </div>
 
-      {tab === "requests" ? (
+      {tab === "jobs" ? (
+        <section className="panel" aria-label="Jobs">
+          <div className="list">
+            {jlist.map((r) => (
+              <Link key={r.id} className={`aprow rqrow${r.job?.problems ? " jbad" : ""}`} href={`/vendors/rfq/${r.id}`}>
+                <span className="cid">{r.ref}</span>
+                <span className="ap-main">
+                  <span className="ap-title">
+                    {r.unread > 0 && <span className="unread-dot" title={`${r.unread} new`} />}
+                    {r.title}
+                    {r.test && <span className="ap-ver sbx">Sandbox</span>}
+                  </span>
+                  <span className="ap-sub">
+                    <span>{r.winner}</span>
+                    {r.route && <span>{r.route}</span>}
+                  </span>
+                  <span className="rq-next">
+                    <Icon name="clock" size={12} />
+                    {r.next}
+                  </span>
+                </span>
+                <span className="ap-prog small">{r.job?.total ? `${r.job.done} of ${r.job.total} done` : ""}</span>
+                <span className="job-bar sm" aria-hidden="true">
+                  {Array.from({ length: r.job?.total ?? 0 }, (_, i) => (
+                    <i key={i} className={i < (r.job?.done ?? 0) ? "on" : ""} />
+                  ))}
+                </span>
+                <span className="ap-end">
+                  {r.job?.due && r.status !== "done" && <span className={`due${r.job.late ? " late" : ""}`}>By {r.job.due}</span>}
+                  <span className={`ap-st ${r.job?.problems ? "rejected" : `rq-${r.status}`}`}>{r.job?.problems ? "Problem" : r.status === "awarded" ? "To confirm" : r.status === "confirmed" ? "Running" : "Closed"}</span>
+                </span>
+              </Link>
+            ))}
+            {!jlist.length && <p className="empty">{needle ? "Nothing matches that search." : jshow === "running" ? "No jobs running. A request becomes a job when a vendor is awarded." : "No finished jobs yet."}</p>}
+          </div>
+        </section>
+      ) : tab === "requests" ? (
         <section className="panel" aria-label="Requests">
           <div className="list">
             {list.map((r) => (
@@ -478,7 +534,7 @@ export type RfqView = {
   canManage: boolean; lead: boolean; sandbox?: boolean; quotes: QuoteView[];
 };
 
-export function RfqBoard({ rfq, vendors, initialVendor }: { rfq: RfqView; vendors: VendorLite[]; initialVendor?: string }) {
+export function RfqBoard({ rfq, vendors, initialVendor, stepTemplates = [], today = "" }: { rfq: RfqView; vendors: VendorLite[]; initialVendor?: string; stepTemplates?: { id: string; name: string; steps: string[] }[]; today?: string }) {
   // In the sandbox the Admin can try everything; everywhere else the Admin is view only.
   const viewOnly = useViewOnly() && !rfq.sandbox;
   const router = useRouter();
@@ -495,6 +551,8 @@ export function RfqBoard({ rfq, vendors, initialVendor }: { rfq: RfqView; vendor
   const [ai, setAi] = useState<string | null>(null);
   const [aiBusy, startAi] = useTransition();
   const [draft, setDraft] = useState("");
+  const [steps, setSteps] = useState<string[]>(startSteps);
+  const [due, setDue] = useState("");
   const close = () => (setMode(null), setText(""), setTarget(null));
 
   const open = rfq.status === "open";
@@ -540,16 +598,8 @@ export function RfqBoard({ rfq, vendors, initialVendor }: { rfq: RfqView; vendor
       {(rfq.status === "awarded" || rfq.status === "confirmed") && chosen && (
         <div className="ap-decide rq-banner ok">
           <p className="ap-decide-t">
-            <b>Awarded to {chosen.vendor}</b> at {money(chosen.price, chosen.currency)}. {rfq.status === "awarded" ? "Waiting for them to confirm the job." : "They confirmed the job."}
+            <b>Awarded to {chosen.vendor}</b> at {money(chosen.price, chosen.currency)}. {rfq.status === "awarded" ? "Waiting for them to confirm the job. Tracking starts then." : "They confirmed the job. Follow it in Job progress above."}
           </p>
-          {can && (
-            <div className="ap-decide-b">
-              <button type="button" className="btn btn-primary" disabled={busy} onClick={() => act(() => closeRfq(rfq.id, "done"), "Marked as done.")}>
-                <Icon name="check" size={15} />
-                Mark job done
-              </button>
-            </div>
-          )}
         </div>
       )}
 
@@ -747,16 +797,24 @@ export function RfqBoard({ rfq, vendors, initialVendor }: { rfq: RfqView; vendor
         </Dialog>
       )}
       {mode === "award" && target && (
-        <Dialog title={rfq.lead ? `Award to ${target.vendor}?` : `Choose ${target.vendor}?`} onClose={close}>
+        <Dialog title={rfq.lead ? `Award to ${target.vendor}?` : `Choose ${target.vendor}?`} onClose={close} wide>
           <p className="hint">
             {money(target.price, target.currency)}. {rfq.lead ? "The vendor is asked to confirm, and the others are told another quote was chosen." : "A Lead has to approve before the vendor is told."}
           </p>
           <textarea className="inp" rows={2} value={text} onChange={(e) => setText(e.target.value)} placeholder={rfq.lead ? "Note for the team (optional)" : "Why this vendor? (the Lead sees this)"} maxLength={500} />
+          <div className="field">
+            <label>Milestones to track the job</label>
+            <MilestonePlanner steps={steps} setSteps={setSteps} templates={stepTemplates} />
+          </div>
+          <div className="field ap-date">
+            <label htmlFor="rq-due">Job should be finished by (optional)</label>
+            <input id="rq-due" type="date" className="inp inp-date" min={today || undefined} value={due} onChange={(e) => setDue(e.target.value)} />
+          </div>
           <div className="form-f">
             <button type="button" className="btn btn-ghost" onClick={close}>
               Cancel
             </button>
-            <button type="button" className="btn btn-primary" disabled={busy} onClick={() => act(() => pickWinner(rfq.id, target.vendor_id, text), rfq.lead ? `Awarded to ${target.vendor}.` : "Sent to the Lead for approval.", close)}>
+            <button type="button" className="btn btn-primary" disabled={busy} onClick={() => act(() => pickWinner(rfq.id, target.vendor_id, text, { steps, due }), rfq.lead ? `Awarded to ${target.vendor}.` : "Sent to the Lead for approval.", close)}>
               {rfq.lead ? "Award" : "Send for approval"}
             </button>
           </div>

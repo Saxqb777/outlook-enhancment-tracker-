@@ -26,7 +26,7 @@ export async function POST(request: Request) {
         if (!user && !vendorOk) throw new Error("Sign in first.");
         if (vendorOk || !user)
           return { allowedContentTypes: [...new Set(Object.values(ATT_TYPES))], maximumSizeInBytes: ATT_MAX_BYTES, addRandomSuffix: true, validUntil: Date.now() + 10 * 60 * 1000 };
-        const approval = /^apv\/[^/]{1,160}$/.test(pathname) && user.role !== "admin";
+        const approval = /^apv\/[^/]{1,160}$/.test(pathname);
         const m = pathname.match(/^att\/(\d{1,12})\/[^/]{1,160}$/);
         if (!approval && (!m || !(await editablePoint(user, m[1])))) throw new Error("You can't attach files to this point.");
         return {

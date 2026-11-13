@@ -8,6 +8,8 @@ import { diffDays, fmtDay, fmtStamp, todayISO } from "@/lib/time";
 import { requireVendor } from "@/lib/vendor-auth";
 import { rqRef } from "@/lib/vendor-labels";
 import { portalRfq } from "@/lib/vendors";
+import { JobBoard } from "@/components/Jobs";
+import { getJob } from "@/lib/jobs";
 
 export const metadata: Metadata = { title: "Request" };
 export const dynamic = "force-dynamic";
@@ -18,6 +20,8 @@ export default async function PortalRequest({ params }: { params: Promise<{ id: 
   const r = await portalRfq(v.vendor_id, id);
   if (!r) notFound();
   const today = todayISO();
+  const isJob = ["won", "confirmed", "done"].includes(r.result);
+  const job = isJob ? await getJob(r.id) : [];
   const late = r.result === "open" && r.state === "invited" && !!r.reply_by && diffDays(r.reply_by, today) < 0;
   const viewable = (m: string) => m === "application/pdf" || isImage(m);
   const files = (mine: boolean) =>
@@ -52,6 +56,32 @@ export default async function PortalRequest({ params }: { params: Promise<{ id: 
         </div>
       </header>
       <PortalReply id={r.id} result={r.result} today={today} viewOnly={v.viewOnly} sandbox={v.sandbox} quote={{ state: r.state, price: r.price, currency: r.currency, validUntil: r.valid_until ?? "", readyOn: r.ready_on ?? "", note: r.note ?? "", declineReason: r.decline_reason }} />
+      {isJob && (
+        <JobBoard
+          rfqId={r.id}
+          side="vendor"
+          attachKey={v.admin ? "apv" : "vq"}
+          canAct={!v.viewOnly}
+          canEdit={false}
+          running={r.result === "confirmed"}
+          closed={r.result === "done"}
+          due={r.job_due ? fmtDay(r.job_due) : null}
+          late={r.result !== "done" && !!r.job_due && diffDays(r.job_due, today) < 0}
+          closing={{ rating: null, finalCost: null, note: null, currency: r.currency ?? "AED" }}
+          steps={job.map((m) => ({
+            id: m.id,
+            title: m.title,
+            needsPod: m.needs_pod,
+            doneAt: m.done_at ? fmtStamp(m.done_at) : null,
+            doneBy: m.done_by,
+            doneNote: m.done_note,
+            problem: m.problem,
+            problemEta: m.problem_eta ? fmtDay(m.problem_eta) : null,
+            files: m.files.map((f) => ({ id: f.id, name: f.name, size: sizeLabel(f.size), view: viewable(f.mime) })),
+            comments: m.comments.map((c) => ({ id: c.id, who: c.who, side: c.side, body: c.body, at: fmtStamp(c.at) })),
+          }))}
+        />
+      )}
       <div className="rq-grid">
         <section className="panel" aria-label="The request">
           <div className="panel-h">

@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   const vendorOk = !user && pointId === "vq" && !!(await getVendorUser());
   if (!user && !vendorOk) return Response.json({ error: "Sign in first." }, { status: 401 });
   if (!file || typeof file === "string") return Response.json({ error: "No file." }, { status: 400 });
-  const approval = vendorOk || (pointId === "apv" && !!user && user.role !== "admin");
+  const approval = vendorOk || (pointId === "apv" && !!user);
   if (!approval && !(user && (await editablePoint(user, pointId)))) return Response.json({ error: "You can't attach files to this point." }, { status: 403 });
   const problem = checkFile(file);
   if (problem || !mimeFor(file.name)) return Response.json({ error: problem ?? "Not allowed." }, { status: 400 });

@@ -11,6 +11,7 @@ import { isUniqueViolation, one, q, tx } from "@/lib/db";
 import { isISODate, todayISO } from "@/lib/time";
 import { cleanFields, money, rqRef, type Field } from "@/lib/vendor-labels";
 import { getRfq } from "@/lib/vendors";
+import * as jobs from "@/lib/jobs";
 
 type Result = { ok: true } | { ok: false; error: string };
 const VIEW_ONLY = { ok: false as const, error: "Admin is view only, so nothing can be changed from this account." };
@@ -273,6 +274,7 @@ export async function markRfqRead(id: string, vendorId: string): Promise<void> {
 }
 
 async function award(c: PoolClient, a: Ctx, vendorId: string, by: User) {
+  await jobs.seedMilestones(c, a.id, null);
   await c.query("update rfqs set status = 'awarded', awarded_vendor_id = $2, awarded_at = now(), updated_at = now() where id = $1", [a.id, vendorId]);
   await say(c, a.id, vendorId, by.id, "system", "Your quote was chosen. Please confirm you can do the job.");
   await c.query(
@@ -282,7 +284,7 @@ async function award(c: PoolClient, a: Ctx, vendorId: string, by: User) {
 }
 
 /** A Lead awards straight away. A Member's choice waits for a Lead to approve it. */
-export async function pickWinner(id: string, vendorId: string, note: string): Promise<Result & { waiting?: boolean }> {
+export async function pickWinner(id: string, vendorId: string, note: string, plan?: { steps: string[]; due: string }): Promise<Result & { waiting?: boolean }> {
   const me = await actor(id);
   if (!me) return VIEW_ONLY;
   const why = text(note, 500);
@@ -293,6 +295,9 @@ export async function pickWinner(id: string, vendorId: string, note: string): Pr
     if (a.status !== "open" && !(a.status === "pending_award" && me.role === "lead")) return { ok: false, error: "This request isn't open for a choice right now." };
     const quote = isId(vendorId) ? (await c.query<{ name: string; price: string; currency: string }>("select v.name, rv.price::text as price, rv.currency from rfq_vendors rv join vendors v on v.id = rv.vendor_id where rv.rfq_id = $1 and rv.vendor_id = $2 and rv.state = 'quoted'", [a.id, vendorId])).rows[0] : null;
     if (!quote) return { ok: false, error: "Pick a vendor who has sent a quote." };
+    // The job's milestones are set with the choice, so tracking is ready the moment the vendor confirms.
+    await jobs.seedMilestones(c, a.id, jobs.cleanSteps(plan?.steps));
+    await c.query("update rfqs set job_due = $2 where id = $1", [a.id, isISODate(plan?.due) ? plan!.due : null]);
     if (me.role === "lead") {
       await c.query("update rfqs set award_by = $2, award_note = $3 where id = $1", [a.id, me.id, why || null]);
       await award(c, a, vendorId, me);
@@ -323,7 +328,8 @@ export async function decideAward(id: string, approve: boolean, note: string): P
       await say(c, a.id, a.awarded_vendor_id, me.id, "internal", `${me.name} approved the award.${why ? ` Note: ${why}` : ""}`);
     } else {
       await say(c, a.id, a.awarded_vendor_id, me.id, "internal", `${me.name} did not approve the award: ${why}`);
-      await c.query("update rfqs set status = 'open', awarded_vendor_id = null, updated_at = now() where id = $1", [a.id]);
+      await c.query("update rfqs set status = 'open', awarded_vendor_id = null, job_due = null, updated_at = now() where id = $1", [a.id]);
+      await c.query("delete from job_milestones where rfq_id = $1", [a.id]);
     }
     return { ok: true };
   });
@@ -331,7 +337,7 @@ export async function decideAward(id: string, approve: boolean, note: string): P
   return r;
 }
 
-export async function closeRfq(id: string, how: "done" | "cancelled"): Promise<Result> {
+export async function closeRfq(id: string, how: "done" | "cancelled", end?: { rating?: number; finalCost?: string; note?: string }): Promise<Result> {
   const me = await actor(id);
   if (!me) return VIEW_ONLY;
   const r = await tx<Result>(async (c) => {
@@ -339,9 +345,13 @@ export async function closeRfq(id: string, how: "done" | "cancelled"): Promise<R
     if (!a) return GONE;
     if (!mine(me, a)) return { ok: false, error: "Only the person who made the request, or a Lead, can do that." };
     if (how === "done") {
-      if (a.status !== "confirmed" && a.status !== "awarded") return { ok: false, error: "Award the job before marking it done." };
-      await c.query("update rfqs set status = 'done', closed_at = now(), updated_at = now() where id = $1", [a.id]);
-      if (a.awarded_vendor_id) await say(c, a.id, a.awarded_vendor_id, me.id, "system", "The job was marked as done. Thank you.");
+      if (a.status !== "confirmed") return { ok: false, error: a.status === "awarded" ? "The vendor has to confirm the job first." : "Award the job before closing it." };
+      const pod = (await c.query<{ done: boolean }>("select bool_and(done_at is not null) as done from job_milestones where rfq_id = $1 and needs_pod", [a.id])).rows[0];
+      if (pod?.done === false) return { ok: false, error: "Proof of delivery is needed before the job can be closed. Ask the vendor to upload it, or attach it yourself." };
+      const rating = Number.isInteger(end?.rating) && end!.rating! >= 1 && end!.rating! <= 5 ? end!.rating! : null;
+      const cost = Number(String(end?.finalCost ?? "").replace(/[, ]/g, ""));
+      await c.query("update rfqs set status = 'done', closed_at = now(), updated_at = now(), rating = $2, final_cost = $3, close_note = $4 where id = $1", [a.id, rating, Number.isFinite(cost) && cost > 0 && cost < 1e9 ? cost : null, text(end?.note, 500) || null]);
+      if (a.awarded_vendor_id) await say(c, a.id, a.awarded_vendor_id, me.id, "system", "The job was closed. Thank you.");
     } else {
       if (a.status === "done" || a.status === "cancelled") return { ok: false, error: "This request is already closed." };
       await c.query("update rfqs set status = 'cancelled', closed_at = now(), updated_at = now() where id = $1", [a.id]);
@@ -364,6 +374,48 @@ export async function remindVendors(id: string): Promise<Result> {
   const n = await q("insert into rfq_messages (rfq_id, vendor_id, user_id, kind, body) select rfq_id, vendor_id, $2, 'system', 'Reminder: we are still waiting for your reply on this request.' from rfq_vendors where rfq_id = $1 and state = 'invited' returning id", [a.id, me.id]);
   if (!n.length) return { ok: false, error: "Every vendor has already replied." };
   touch(id);
+  return { ok: true };
+}
+
+// ------------------------------------------------------------------ jobs (milestones)
+
+const teamWho = (me: User): jobs.Who => ({ userId: me.id, vendorUserId: null, name: me.name, vendorScope: null });
+/** Runs a milestone action for the team, after checking this person may act on that job (Admin: sandbox only). */
+async function onMilestone(mid: string, run: (who: jobs.Who) => Promise<Result & { rfqId?: string }>): Promise<Result> {
+  const rfqId = await jobs.rfqOfMilestone(mid);
+  const me = rfqId ? await actor(rfqId) : null;
+  if (!me) return rfqId ? VIEW_ONLY : GONE;
+  const r = await run(teamWho(me));
+  touch(rfqId);
+  return r.ok ? { ok: true } : r;
+}
+export async function tickJobStep(mid: string, note: string, files: Uploaded[]): Promise<Result> {
+  const v = files?.length ? await verifyUploads("apv", files) : [];
+  if (!Array.isArray(v)) return { ok: false, error: v.error };
+  return onMilestone(mid, (who) => jobs.tickMilestone(who, mid, note, v));
+}
+export const untickJobStep = async (mid: string): Promise<Result> => onMilestone(mid, (who) => jobs.untickMilestone(who, mid));
+export const commentJobStep = async (mid: string, body: string): Promise<Result> => onMilestone(mid, (who) => jobs.commentMilestone(who, mid, body));
+export const flagJobStep = async (mid: string, what: string, eta: string): Promise<Result> => onMilestone(mid, (who) => jobs.flagProblem(who, mid, what, eta));
+export const resolveJobStep = async (mid: string): Promise<Result> => onMilestone(mid, (who) => jobs.resolveProblem(who, mid));
+export const removeJobStep = async (mid: string): Promise<Result> => onMilestone(mid, (who) => jobs.removeMilestone(who, mid));
+export async function addJobStep(id: string, title: string): Promise<Result> {
+  const me = await actor(id);
+  if (!me) return VIEW_ONLY;
+  const r = await jobs.addMilestone(teamWho(me), id, title);
+  touch(id);
+  return r;
+}
+
+export async function saveStepTemplate(name: string, steps: string[]): Promise<Result> {
+  const me = await member();
+  if (!me) return VIEW_ONLY;
+  const n = text(name, 60).replace(/\s+/g, " ");
+  const list = jobs.cleanSteps(steps);
+  if (!n) return { ok: false, error: "Give the list a name." };
+  if (!list.length) return { ok: false, error: "Add at least one milestone first." };
+  await q("insert into milestone_templates (name, steps, created_by) values ($1, $2::jsonb, $3) on conflict (lower(name)) do update set steps = excluded.steps, name = excluded.name, updated_at = now()", [n, JSON.stringify(list), me.id]);
+  revalidatePath("/vendors", "layout");
   return { ok: true };
 }
 

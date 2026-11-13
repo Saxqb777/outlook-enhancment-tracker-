@@ -1,5 +1,5 @@
 // The update tour and the "?" help on each page. Bump NEWS_VERSION and edit tourFor() to announce the next update.
-export const NEWS_VERSION = 4;
+export const NEWS_VERSION = 5;
 type R = "lead" | "member" | "admin";
 export type TourStep = { target?: string; title: string; text: string };
 
@@ -46,6 +46,12 @@ export function tourFor(role: R): TourStep[] {
             ? "Press Choose on the quote you want and say why. A Lead approves it, then the vendor is told and confirms the job. The others are told politely."
             : "A Lead awards directly. A Member's choice needs a Lead's approval first. The winner confirms the job and the others are told politely.",
     },
+    {
+      title: "6. Track the job with milestones",
+      text: admin
+        ? "Once the vendor confirms, the request becomes a Job with milestones (truck assigned, picked up, delivered, proof of delivery). The team and the vendor both tick them."
+        : "When you choose a vendor you also set the milestones for the job: tap the suggested ones, add your own, and save the list to reuse. After the vendor confirms, it moves to the Jobs list. The vendor ticks each milestone, and you can too. Anyone can comment on a milestone or report a problem. The job can be closed once Proof of delivery is uploaded, with an optional rating.",
+    },
     { title: "Everything about a vendor", text: "Open any vendor to see their people, every request and price they gave, how fast they reply and how often they win. Export to Excel gives you all requests and quotes in one file." },
     // ---- the look
     { title: "Now, the new look", text: "The app got a tidy-up to make it easier to read and tap, most of all on phones." },
@@ -85,6 +91,8 @@ export function helpFor(path: string, role: R): HelpPage {
         ["Edit request", "You can change the details while it's open. Vendors are told, so they can check their price."],
         ["Message all, Remind", "Send one message to every vendor at once, or nudge the ones who haven't replied."],
         ["Ask AI", "Compare the quotes in plain words, or draft a counter-offer to paste into the chat."],
+        ["Job progress", "After the award, the milestones show here. Mark done ticks one (the vendor can too). The speech bubble opens comments, Report a problem, Undo and Remove. Add a milestone at the bottom."],
+        ["Close job", "Needs Proof of delivery first. Rating and final cost are optional."],
       ],
     };
   if (/^\/vendors\/v\/\d+/.test(path))
@@ -93,7 +101,8 @@ export function helpFor(path: string, role: R): HelpPage {
     return {
       title: "Vendors",
       items: [
-        ["Requests", "Every price request sent to vendors, how many have replied, the best price so far and who won."],
+        ["Requests", "Price requests that are still open: how many vendors replied and the best price so far."],
+        ["Jobs", "Requests that were awarded. Shows which milestone each job is at, what's late and any problem the vendor reported."],
         ["Vendors", "Your transporters. Add one, then open it to get their join link and see their history."],
         ["New request", "Ask one or many vendors for a price with a form you build yourself."],
         ["Blue dot", "A blue dot means a vendor replied or wrote in the chat."],

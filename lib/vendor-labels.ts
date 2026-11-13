@@ -9,6 +9,10 @@ export const QUOTE_STATE: Record<QuoteState, string> = { invited: "No reply yet"
 export const CURRENCIES = ["AED", "USD", "EUR", "SAR"];
 export const SERVICES = ["Trucking", "Reefer truck", "Flatbed", "Container haulage", "Sea freight", "Air freight", "Customs clearance", "Warehousing", "Crane / heavy lift", "Courier"];
 export const SUGGESTED_FIELDS = ["From", "To", "Cargo", "Weight", "Truck or container type", "Number of trucks", "Pickup date", "Delivery date", "Temperature", "Special handling", "Payment terms"];
+export const SUGGESTED_MILESTONES = ["Truck and driver assigned", "Arrived at pickup", "Picked up", "On the way", "At customs / border", "Arrived at delivery", "Delivered"];
+export const DEFAULT_MILESTONES = ["Truck and driver assigned", "Picked up", "On the way", "Delivered"];
+/** Always the last milestone: it needs a file, and the job cannot be closed without it. */
+export const POD = "Proof of delivery";
 export const DEFAULT_FIELDS = ["From", "To", "Cargo", "Truck or container type", "Pickup date"];
 
 export const money = (price: string | number | null, currency: string | null) =>
@@ -26,10 +30,14 @@ export function cleanFields(v: unknown): Field[] {
 }
 
 /** One plain line saying who the request is waiting on. */
-export function nextStep(r: { status: RfqStatus; vendors: number; replied: number; quoted: number; winner?: string | null }): string {
+export function nextStep(r: { status: RfqStatus; vendors: number; replied: number; quoted: number; winner?: string | null; ms_total?: number; ms_done?: number; ms_next?: string | null; problems?: number }): string {
   if (r.status === "pending_award") return "Waiting for a Lead to approve the choice";
   if (r.status === "awarded") return `Waiting for ${r.winner ?? "the vendor"} to confirm the job`;
-  if (r.status === "confirmed") return "Job confirmed. Mark it done when it's finished";
+  if (r.status === "confirmed") {
+    if (r.problems) return `Problem reported${r.ms_next ? ` at "${r.ms_next}"` : ""}. Check with the vendor`;
+    if (!r.ms_total) return "Job confirmed. Add milestones to track it";
+    return r.ms_next ? `Job running, ${r.ms_done} of ${r.ms_total} done. Next: ${r.ms_next}` : "All milestones done. Close the job";
+  }
   if (r.status === "done") return "Finished";
   if (r.status === "cancelled") return "Cancelled";
   const left = r.vendors - r.replied;

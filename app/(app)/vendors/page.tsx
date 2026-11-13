@@ -35,6 +35,7 @@ export default async function VendorsPage({ searchParams }: { searchParams: Prom
     winner: r.winner,
     unread: r.unread,
     next: nextStep(r),
+    job: { due: r.job_due ? fmtDay(r.job_due) : null, late: !!r.job_due && r.status !== "done" && diffDays(r.job_due, today) < 0, total: r.ms_total, done: r.ms_done, next: r.ms_next, problems: r.problems },
     test: r.test,
   }));
   const vitems: VendorItem[] = vendors.map((v) => ({ id: v.id, name: v.name, services: v.services, areas: v.areas, status: v.status, people: v.people, test: v.test, asked: v.asked, quoted: v.quoted, won: v.won, replyHours: v.reply_hours }));
@@ -59,7 +60,7 @@ export default async function VendorsPage({ searchParams }: { searchParams: Prom
           )}
         </div>
       </header>
-      <VendorsHome rfqs={items} vendors={vitems} initial={tab === "vendors" ? "vendors" : "requests"} canAdd={!viewOnly || sandbox} />
+      <VendorsHome rfqs={items} vendors={vitems} initial={tab === "vendors" ? "vendors" : tab === "jobs" ? "jobs" : "requests"} canAdd={!viewOnly || sandbox} />
     </div>
   );
 }

@@ -12,6 +12,10 @@ const day = (d: Date | null) => (d ? new Intl.DateTimeFormat("en-GB", { timeZone
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return new Response("Sign in first.", { status: 401 });
+  const jobSteps = await q<{ rfq_id: string; title: string; vendor: string; status: string; job_due: string | null; rating: number | null; final_cost: string | null; position: number; step: string; done_at: Date | null; done_by: string | null; done_note: string | null; problem: string | null }>(
+    `select r.id::text as rfq_id, r.title, v.name as vendor, r.status, r.job_due::text as job_due, r.rating, r.final_cost::text as final_cost, m.position, m.title as step, m.done_at, m.done_by, m.done_note, m.problem
+       from job_milestones m join rfqs r on r.id = m.rfq_id join vendors v on v.id = r.awarded_vendor_id where not r.test and r.status in ('awarded', 'confirmed', 'done') order by r.id desc, m.position`,
+  );
   const [rfqs, quotes, vendors] = await Promise.all([
     q<{ id: string; title: string; fields: Field[]; notes: string; status: RfqStatus; reply_by: string | null; created_at: Date; by: string; winner: string | null; win_price: string | null; win_currency: string | null; vendors: number; quoted: number; case_id: string | null }>(
       `select r.id::text as id, r.title, r.fields, r.notes, r.status, r.reply_by::text as reply_by, r.created_at, u.name as by, r.case_id::text as case_id,
@@ -59,6 +63,8 @@ export async function GET() {
   for (const x of quotes) b.addRow([rqRef(x.rfq_id), x.title, x.vendor, QUOTE_STATE[x.state], num(x.price), x.price ? (x.currency ?? "") : "", x.ready_on ?? "", x.valid_until ?? "", x.won ? "Won" : "", x.changes || "", day(x.quoted_at), x.state === "declined" ? `Can't do: ${x.decline_reason ?? ""}` : (x.note ?? "")]);
   b.getColumn(5).numFmt = "#,##0.00";
   a.getColumn(11).numFmt = "#,##0.00";
+  const j = sheet("Jobs", [["Request", 11], ["Title", 36], ["Vendor", 26], ["Job status", 13], ["Finish by", 12], ["Step", 7], ["Milestone", 30], ["Status", 11], ["Done on", 13], ["Done by", 20], ["Note", 40], ["Open problem", 36], ["Rating", 8], ["Final cost", 12]]);
+  for (const s of jobSteps) j.addRow([rqRef(s.rfq_id), s.title, s.vendor, s.status === "awarded" ? "To confirm" : s.status === "confirmed" ? "Running" : "Closed", s.job_due ?? "", s.position, s.step, s.done_at ? "Done" : s.problem ? "Problem" : "To do", day(s.done_at), s.done_by ?? "", s.done_note ?? "", s.problem ?? "", s.rating ?? "", num(s.final_cost)]);
   const c = sheet("Vendors", [["Vendor", 28], ["What they do", 40], ["Areas", 24], ["Phone", 18], ["Access", 10], ["People", 9], ["Requests sent", 14], ["Quoted", 9], ["Won", 8]]);
   for (const v of vendors) c.addRow([v.name, v.services.join(", "), v.areas, v.phone, v.status === "active" ? "On" : "Off", v.people, v.asked, v.quoted, v.won]);
   const buffer = await wb.xlsx.writeBuffer();

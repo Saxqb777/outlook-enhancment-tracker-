@@ -27,8 +27,9 @@ function Row({ r, today }: { r: PortalRow; today: string }) {
           <span>{fmtShort(todayISO(new Date(r.created_at)))}</span>
           {(val(r.fields, "from") || val(r.fields, "to")) && <span>{[val(r.fields, "from"), val(r.fields, "to")].filter(Boolean).join(" → ")}</span>}
         </span>
+        {r.result === "confirmed" && r.ms_next && <span className="rq-next">Next: {r.ms_next}</span>}
       </span>
-      <span className="ap-prog small">{r.unread > 0 ? `${r.unread} new` : ""}</span>
+      <span className="ap-prog small">{r.ms_total && r.result !== "lost" ? `${r.ms_done} of ${r.ms_total} done` : r.unread > 0 ? `${r.unread} new` : ""}</span>
       <span className="rq-best">{r.state === "quoted" ? money(r.price, r.currency) : ""}</span>
       <span className="ap-end">
         {r.result === "open" && r.state === "invited" && r.reply_by && <span className={`due${late ? " late" : soon ? " soon" : ""}`}>{late ? "Was due" : "Reply by"} {fmtDay(r.reply_by)}</span>}
@@ -49,7 +50,7 @@ export default async function PortalHome() {
   const groups: [string, PortalRow[], string][] = [
     ["Needs your reply", need, "Nothing is waiting for you. New requests from Agthia will show up here."],
     ["Quoted, waiting for Agthia", open, ""],
-    ["Your confirmed jobs", jobs, ""],
+    ["Your jobs in progress", jobs, ""],
     ["Past requests", past, ""],
   ];
   return (
@@ -58,6 +59,15 @@ export default async function PortalHome() {
         <div>
           <h1 className="h1">{v.admin ? `${v.vendor}: their portal` : `Hello, ${v.name.split(/\s+/)[0]}`}</h1>
           <p className="lede">Requests from Agthia for {v.vendor}. Open one to send your price, say you can&apos;t do it, or chat about it.</p>
+        </div>
+        <div className="ph-act">
+          <a className="btn" href="/portal/export" download>
+            <svg className="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 4v11M7.5 10.5 12 15l4.5-4.5" />
+              <path d="M4 14.5V19c0 .8.7 1.5 1.5 1.5h13c.8 0 1.5-.7 1.5-1.5v-4.5" />
+            </svg>
+            Export to Excel
+          </a>
         </div>
       </header>
       {groups.map(([title, list, empty]) =>

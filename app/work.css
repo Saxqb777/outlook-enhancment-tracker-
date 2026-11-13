@@ -5187,3 +5187,264 @@ button.assignee:hover {
 .sbx-panel .list {
   padding: 0;
 }
+
+/* ------------------------------------------------------------------ jobs: milestones */
+.job-bar {
+  display: flex;
+  gap: 4px;
+  padding: 0 18px 10px;
+}
+.job-bar i {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(17, 22, 31, 0.1);
+}
+.job-bar i.on {
+  background: var(--ok);
+}
+.job-bar i.bad {
+  background: var(--late);
+}
+.job-bar.sm {
+  padding: 0;
+  max-width: 140px;
+}
+.job-bar.sm i {
+  height: 5px;
+}
+.job-wait {
+  margin: 0 18px 10px;
+}
+.job-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0 18px 8px;
+  display: flex;
+  flex-direction: column;
+}
+.job-step {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+}
+.job-step:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 14px;
+  top: 40px;
+  bottom: -8px;
+  width: 2px;
+  background: var(--hair-2);
+}
+.job-step.done:not(:last-child)::before {
+  background: rgba(18, 147, 106, 0.45);
+}
+.job-dot {
+  flex: none;
+  position: relative;
+  z-index: 1;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12.5px;
+  font-weight: 700;
+  background: #fff;
+  color: var(--ink-3);
+  box-shadow: inset 0 0 0 1.5px var(--hair-2);
+}
+.job-step.next .job-dot {
+  box-shadow: inset 0 0 0 2px var(--accent);
+  color: var(--accent);
+}
+.job-step.done .job-dot {
+  background: var(--ok);
+  color: #fff;
+  box-shadow: none;
+}
+.job-step.bad .job-dot {
+  background: var(--late);
+  color: #fff;
+  box-shadow: none;
+}
+.job-b {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.job-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-height: 30px;
+}
+.job-h b {
+  font-size: 14.5px;
+  font-weight: 620;
+}
+.job-h .sp {
+  flex: 1;
+}
+.job-step.done .job-h b {
+  color: var(--ink-2);
+}
+.job-meta {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--ink-3);
+  overflow-wrap: anywhere;
+}
+.job-problem {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(208, 59, 59, 0.1);
+  color: #8f2626;
+  font-size: 13.5px;
+}
+.job-open {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: inset 0 0 0 1px var(--hair);
+}
+.job-open .hint {
+  margin: 0;
+}
+.job-c {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  font-size: 13.5px;
+  overflow-wrap: anywhere;
+}
+.job-c span {
+  font-size: 11.5px;
+  color: var(--ink-4);
+}
+.job-c.me {
+  padding-left: 10px;
+  border-left: 2px solid var(--hair-2);
+}
+.job-cf {
+  display: flex;
+  gap: 8px;
+}
+.job-cf .inp {
+  flex: 1;
+  min-width: 0;
+}
+.job-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.job-add {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 18px 16px;
+  border-top: 1px solid var(--hair);
+}
+.job-add .inp {
+  flex: 0 1 260px;
+  min-width: 0;
+}
+.job-add .sp {
+  flex: 1;
+}
+.job-closed {
+  margin: 0;
+  padding: 12px 18px 16px;
+  border-top: 1px solid var(--hair);
+  color: var(--ink-2);
+}
+.job-stars {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.job-stars button {
+  all: unset;
+  cursor: pointer;
+  font-size: 30px;
+  line-height: 1;
+  padding: 4px;
+  color: #c9a227;
+}
+.job-stars button:focus-visible {
+  outline: 2px solid var(--focus);
+  border-radius: 6px;
+}
+.job-stars .hint {
+  margin-left: 8px;
+}
+.aprow.jbad {
+  background: rgba(208, 59, 59, 0.05);
+}
+.mp-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mp-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: inset 0 0 0 1px var(--hair);
+  min-height: 40px;
+}
+.mp-n {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  background: var(--wash);
+}
+.mp-t {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 13.5px;
+}
+.mp-pod {
+  opacity: 0.8;
+}
+.mp-list .flip {
+  transform: rotate(180deg);
+}
+@media (max-width: 640px) {
+  .job-h .btn {
+    min-height: 40px;
+  }
+  .job-add .inp {
+    flex-basis: 100%;
+  }
+  .job-bar.sm {
+    display: none;
+  }
+}

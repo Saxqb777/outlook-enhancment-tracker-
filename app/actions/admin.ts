@@ -114,6 +114,16 @@ export async function resetSandbox(): Promise<void> {
         await c.query("insert into rfq_messages (rfq_id, vendor_id, user_id, kind, body) values ($1, $2, $3, 'system', 'Thank you for your reply. Another quote was chosen this time.')", [id, l.id, me.id]);
         if (status !== "awarded") await c.query("insert into rfq_messages (rfq_id, vendor_id, vendor_user_id, kind, body) values ($1, $2, $3, 'system', $4)", [id, w.id, w.user, `${w.name} confirmed the job.`]);
       }
+      if (winner) {
+        // Jobs: milestones are set with the choice; a running job is part-way, a finished one is all done.
+        const w = winner === "A" ? A : B;
+        const doneN = status === "done" ? 5 : status === "confirmed" ? 2 : 0;
+        const names = ["Truck and driver assigned", "Picked up", "On the way", "Delivered", "Proof of delivery"];
+        for (let i = 0; i < names.length; i++)
+          await c.query("insert into job_milestones (rfq_id, position, title, needs_pod, done_at, done_by, done_note) values ($1, $2, $3, $4, $5, $6, $7)", [id, i + 1, names[i], i === 4, i < doneN ? new Date(Date.now() - (doneN - i) * 3600e3) : null, i < doneN ? w.name.replace(" (test)", "") : null, i === 0 && doneN ? "Driver Ali, 050 000 0000, truck DXB 12345" : null]);
+        await c.query("update rfqs set job_due = $2, rating = $3 where id = $1", [id, addDaysISO(today, status === "done" ? 0 : 3), status === "done" ? 4 : null]);
+        if (status === "confirmed") await c.query("update job_milestones set problem = 'Stuck in traffic near Al Ain, about 2 hours late', problem_at = now() where rfq_id = $1 and position = 3", [id]);
+      }
       if (status === "pending_award") await c.query("insert into rfq_messages (rfq_id, vendor_id, user_id, kind, body) values ($1, $2, $3, 'internal', 'A Member wants to award this and is waiting for a Lead to approve. Reason: Best price and date')", [id, winner === "A" ? A.id : B.id, me.id]);
       if (status === "cancelled") await c.query("insert into rfq_messages (rfq_id, vendor_id, user_id, kind, body) select rfq_id, vendor_id, $2, 'system', 'This request was cancelled. No quote is needed.' from rfq_vendors where rfq_id = $1", [id, me.id]);
     };

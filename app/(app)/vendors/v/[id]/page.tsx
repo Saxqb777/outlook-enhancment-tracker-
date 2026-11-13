@@ -76,6 +76,14 @@ export default async function VendorPage({ params }: { params: Promise<{ id: str
           <span className="ctx">on average</span>
         </div>
         <div className="stat">
+          <span className="lab">Jobs finished</span>
+          <span className="val">{v.jobs_done}</span>
+          <span className="ctx">
+            {v.timed ? `${Math.round((v.on_time / v.timed) * 100)}% on time` : "no dated jobs yet"}
+            {v.rating != null ? ` · rated ${v.rating} of 5` : ""}
+          </span>
+        </div>
+        <div className="stat">
           <span className="lab">Average quote</span>
           <span className="val">{avg == null ? "–" : money(Math.round(avg), cur)}</span>
           <span className="ctx">{same.length ? `across ${same.length} quote${same.length === 1 ? "" : "s"}` : "no quotes yet"}</span>

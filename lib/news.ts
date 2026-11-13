@@ -92,7 +92,7 @@ export function helpFor(path: string, role: R): HelpPage {
         ["Edit request", "You can change the details while it's open. Vendors are told, so they can check their price."],
         ["Message all, Remind", "Send one message to every vendor at once, or nudge the ones who haven't replied."],
         ["Ask AI", "Compare the quotes in plain words, or draft a counter-offer to paste into the chat."],
-        ["Job progress", "After the award, the milestones show here. Mark done ticks one (the vendor can too). The speech bubble opens comments, Report a problem, Undo and Remove. Add a milestone at the bottom."],
+        ["Job progress", "After the award, the milestones show here. They are ticked in order: Mark done shows on the next one only (the vendor can tick too), and only the last tick can be undone. Remove a milestone if it doesn't apply. The speech bubble opens comments, Report a problem, Undo and Remove. Add a milestone at the bottom."],
         ["Close job", "Needs Proof of delivery first. Rating and final cost are optional."],
       ],
     };

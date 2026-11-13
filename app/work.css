@@ -5526,3 +5526,11 @@ a.portal-who {
     gap: 2px;
   }
 }
+.job-lock {
+  font-size: 12px;
+  color: var(--ink-4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}

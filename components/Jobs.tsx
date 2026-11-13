@@ -138,7 +138,9 @@ export function JobBoard({
   const [cost, setCost] = useState("");
   const close = () => (setMode(null), setText(""), setEta(""), att.clear());
   const done = steps.filter((s) => s.doneAt).length;
+  // Milestones go in order: only the first open one can be ticked, and only the last ticked one can be undone.
   const next = steps.find((s) => !s.doneAt);
+  const lastDone = [...steps].reverse().find((s) => s.doneAt);
   const pod = steps.find((s) => s.needsPod);
   const podDone = !pod || !!pod.doneAt;
   const live = canAct && running;
@@ -168,12 +170,13 @@ export function JobBoard({
                   <b>{s.title}</b>
                   {s.needsPod && !s.doneAt && <span className="rq-tag fast">Needs a file</span>}
                   <span className="sp" />
-                  {live && !s.doneAt && (
-                    <button type="button" className={`btn btn-sm${next?.id === s.id ? " btn-primary" : ""}`} onClick={() => setMode({ kind: "tick", step: s })}>
+                  {live && next?.id === s.id && (
+                    <button type="button" className="btn btn-sm btn-primary" onClick={() => setMode({ kind: "tick", step: s })}>
                       <Icon name="check" size={14} />
                       Mark done
                     </button>
                   )}
+                  {live && !s.doneAt && next?.id !== s.id && <span className="job-lock">After &ldquo;{next?.title}&rdquo;</span>}
                   <button type="button" className="btn btn-sm btn-ghost job-more" aria-expanded={isOpen} aria-label={`Comments and more for ${s.title}`} onClick={() => (setOpen(isOpen ? null : s.id), setComment(""))}>
                     <Icon name="chat" size={14} />
                     {s.comments.length || ""}
@@ -240,7 +243,7 @@ export function JobBoard({
                             Report a problem
                           </button>
                         )}
-                        {s.doneAt && (
+                        {s.doneAt && lastDone?.id === s.id && (
                           <button type="button" className="btn btn-sm btn-ghost" disabled={busy} onClick={() => act(() => A.untick(s.id), "Undone.")}>
                             <Icon name="undo" size={13} />
                             Undo done

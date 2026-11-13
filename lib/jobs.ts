@@ -32,12 +32,12 @@ export async function seedMilestones(c: PoolClient, rfqId: string, steps: string
   for (const title of list) await c.query("insert into job_milestones (rfq_id, position, title, needs_pod) values ($1, $2, $3, $4)", [rfqId, pos++, title, title === POD]);
 }
 
-type M = { id: string; rfq_id: string; title: string; needs_pod: boolean; done_at: Date | null; problem: string | null; status: string; awarded_vendor_id: string | null };
+type M = { id: string; rfq_id: string; position: number; title: string; needs_pod: boolean; done_at: Date | null; problem: string | null; status: string; awarded_vendor_id: string | null };
 async function load(c: PoolClient, who: Who, mid: string): Promise<M | null> {
   if (!isId(mid)) return null;
   const m = (
     await c.query<M>(
-      `select m.id::text as id, m.rfq_id::text as rfq_id, m.title, m.needs_pod, m.done_at, m.problem, r.status, r.awarded_vendor_id::text as awarded_vendor_id
+      `select m.id::text as id, m.rfq_id::text as rfq_id, m.position, m.title, m.needs_pod, m.done_at, m.problem, r.status, r.awarded_vendor_id::text as awarded_vendor_id
          from job_milestones m join rfqs r on r.id = m.rfq_id where m.id = $1 for update of m`,
       [mid],
     )
@@ -59,6 +59,9 @@ export async function tickMilestone(who: Who, mid: string, note: string, files: 
     const no = running(m);
     if (no) return no;
     if (m.done_at) return { ok: false, error: "That milestone is already done." };
+    // Milestones go in order: nothing can be ticked while an earlier one is still open.
+    const earlier = (await c.query<{ title: string }>("select title from job_milestones where rfq_id = $1 and done_at is null and (position, id) < ($2, $3::bigint) order by position, id limit 1", [m.rfq_id, m.position, m.id])).rows[0];
+    if (earlier) return { ok: false, error: `Do "${earlier.title}" first. Milestones are ticked in order.` };
     if (m.needs_pod && !files.length && !(await c.query("select 1 from rfq_files where milestone_id = $1 limit 1", [m.id])).rowCount)
       return { ok: false, error: "Attach the proof of delivery first (the signed delivery note or a photo of it)." };
     const why = text(note, 500) || null;
@@ -78,6 +81,9 @@ export async function untickMilestone(who: Who, mid: string): Promise<Result & {
     const no = running(m);
     if (no) return no;
     if (!m.done_at) return { ok: false, error: "That milestone isn't marked done." };
+    // Only the last ticked milestone can be undone, so no gaps appear in the middle.
+    const later = (await c.query<{ title: string }>("select title from job_milestones where rfq_id = $1 and done_at is not null and (position, id) > ($2, $3::bigint) order by position desc, id desc limit 1", [m.rfq_id, m.position, m.id])).rows[0];
+    if (later) return { ok: false, error: `Undo "${later.title}" first. Only the last ticked milestone can be undone.` };
     await c.query("update job_milestones set done_at = null, done_by = null, done_note = null where id = $1", [m.id]);
     await tell(c, m, who, `${who.name} undid "${m.title}". It is not done yet.`);
     return { ok: true, rfqId: m.rfq_id };

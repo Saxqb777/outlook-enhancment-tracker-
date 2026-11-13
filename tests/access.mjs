@@ -180,7 +180,14 @@ try {
   check((await act(vB, "confirmJob", [rq.id], { page: "/portal" })).val?.ok === true, "vendor: the winner can confirm the job");
   const [ms] = await sql("select id::text as id from job_milestones where rfq_id = $1 order by position limit 1", [rq.id]);
   check(refused(await act(vA, "tickStep", [ms.id, "", []], { page: "/portal" })), "vendor: the losing vendor can't tick the winner's milestones");
+  const [ms2] = await sql("select id::text as id from job_milestones where rfq_id = $1 order by position offset 1 limit 1", [rq.id]);
+  const jump = await act(vB, "tickStep", [ms2.id, "", []], { page: "/portal" });
+  check(jump.val?.ok === false && /first/.test(jump.val.error ?? ""), "job: a later milestone can't be ticked before an earlier one", JSON.stringify(jump.val));
   check((await act(vB, "tickStep", [ms.id, "", []], { page: "/portal" })).val?.ok === true, "vendor: the winner can tick a milestone");
+  await sql("update job_milestones set done_at = now(), done_by = 'test' where id = $1", [ms2.id]);
+  const gap = await act(vB, "untickStep", [ms.id], { page: "/portal" });
+  check(gap.val?.ok === false && /last ticked/.test(gap.val.error ?? ""), "job: only the last ticked milestone can be undone", JSON.stringify(gap.val));
+  await sql("update job_milestones set done_at = null, done_by = null where id = $1", [ms2.id]);
   const early = await act(lead, "closeRfq", [rq.id, "done", {}]);
   check(early.val?.ok === false && /Proof of delivery/.test(early.val.error ?? ""), "job: can't be closed without proof of delivery", JSON.stringify(early.val));
 

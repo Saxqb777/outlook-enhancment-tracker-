@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { DecideBox, PrintButton, ReplyBox, RequesterTools, STATE_LABEL, STATUS_LABEL, progress } from "@/components/Approvals";
+import { DecideBox, PrintButton, ReplyBox, RequesterTools } from "@/components/Approvals";
+import { progress, STATE_LABEL, STATUS_LABEL } from "@/lib/approval-labels";
 import { Avatar, Icon, type IconName } from "@/components/Icon";
 import { apRef, getApproval, type ApprovalEvent } from "@/lib/approvals";
 import { isImage, sizeLabel } from "@/lib/attach-rules";

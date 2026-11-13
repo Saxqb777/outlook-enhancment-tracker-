@@ -7,6 +7,11 @@ import pg from "pg";
 
 const url = process.env.DATABASE_URL;
 if (!url) {
+  // On the host's build step (--if-configured) a missing address is a warning, not a failed release.
+  if (process.argv.includes("--if-configured")) {
+    console.warn("DATABASE_URL is not set for this build: skipping database changes.");
+    process.exit(0);
+  }
   console.error("Set DATABASE_URL first.");
   process.exit(1);
 }

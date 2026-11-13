@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "vercel-build": "node scripts/migrate.mjs --if-configured && next build",
+    "test:access": "node tests/access.mjs",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "db:migrate": "node scripts/migrate.mjs",

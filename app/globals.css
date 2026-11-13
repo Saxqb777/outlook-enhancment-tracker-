@@ -76,10 +76,19 @@ button {
   cursor: pointer;
   text-align: inherit;
 }
+/* Plain links get a rounded ring; buttons, cards and fields keep their own corners. */
 :focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
+}
+:focus-visible:where(:not(.btn, .chip, .stat, .inp, .card, .pt, .icon-btn, .me, .pill, .due, .tabs a, .bnav a, .seg button, .seg a)) {
   border-radius: 8px;
+}
+/* Rows sit inside clipped panels, so their ring is drawn inside the row. */
+:is(.row, .crow, .aprow, .trow, .xrow):focus-visible,
+.row-t:focus-visible {
+  outline-offset: -2px;
+  border-radius: 12px;
 }
 .i {
   fill: none;
@@ -226,10 +235,13 @@ button {
   border-radius: 10px;
   font-weight: 550;
   color: var(--ink-3);
-  transition: color 0.25s;
+  transition: color 0.25s, transform 0.12s;
 }
 .tabs a:hover {
   color: var(--ink);
+}
+.tabs a:active {
+  transform: scale(0.97);
 }
 .tabs a[aria-current="page"] {
   color: var(--ink);
@@ -454,7 +466,8 @@ button {
   box-shadow: 0 4px 14px -6px rgba(17, 22, 31, 0.22);
 }
 .btn:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
+  box-shadow: 0 1px 2px rgba(17, 22, 31, 0.05);
 }
 .btn-primary {
   background: var(--btn);
@@ -496,9 +509,15 @@ button {
   width: 100%;
 }
 .btn[disabled] {
-  opacity: 0.6;
-  cursor: progress;
+  opacity: 0.55;
+  cursor: not-allowed;
   transform: none;
+  box-shadow: none;
+}
+.btn-primary[disabled] {
+  background: #6f7582;
+  border-color: transparent;
+  opacity: 1;
 }
 .btn.is-done {
   background: rgba(18, 147, 106, 0.12);
@@ -577,10 +596,18 @@ button {
   color: #fff;
 }
 .count {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink-4);
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 7px;
+  background: var(--wash);
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--ink-3);
   font-variant-numeric: tabular-nums;
+  align-self: center;
 }
 
 /* stats */
@@ -590,6 +617,7 @@ button {
   gap: 14px;
 }
 .stat {
+  position: relative;
   flex: 1 1 220px;
   min-width: 0;
   border-radius: var(--r);
@@ -604,16 +632,56 @@ a.stat:hover {
   background: var(--glass-2);
   box-shadow: var(--sh-2);
 }
+a.stat:active {
+  transform: translateY(-1px) scale(0.99);
+}
+/* A small arrow says "this opens the list". */
+a.stat::after {
+  content: "";
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 8px;
+  height: 8px;
+  border-top: 1.7px solid var(--ink-4);
+  border-right: 1.7px solid var(--ink-4);
+  transform: rotate(45deg);
+  opacity: 0.45;
+  transition: opacity 0.25s, transform 0.35s var(--ease);
+}
+a.stat:hover::after {
+  opacity: 1;
+  transform: translateX(3px) rotate(45deg);
+}
 .stat .lab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-right: 14px;
   font-size: 13px;
   color: var(--ink-2);
-  font-weight: 550;
+  font-weight: 600;
 }
 .stat .val {
   font-weight: 700;
-  font-size: 34px;
+  font-size: 36px;
   line-height: 1;
   letter-spacing: -0.035em;
+}
+/* Colour only when a number needs someone: green = ready for a Lead, red = late. */
+.stat.attn {
+  background: linear-gradient(160deg, rgba(18, 147, 106, 0.13), rgba(255, 255, 255, 0.5) 70%), var(--glass);
+  border-color: rgba(18, 147, 106, 0.28);
+}
+.stat.bad {
+  background: linear-gradient(160deg, rgba(208, 59, 59, 0.11), rgba(255, 255, 255, 0.5) 70%), var(--glass);
+  border-color: rgba(208, 59, 59, 0.26);
+}
+.stat.attn .val {
+  color: #0b6b4c;
+}
+.stat.bad .val {
+  color: #a82c2c;
 }
 .stat .ctx {
   font-size: 12.5px;
@@ -651,18 +719,35 @@ a.stat:hover {
 }
 .panel-h h2 {
   margin: 0;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 650;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
   display: flex;
   align-items: baseline;
   gap: 8px;
 }
+/* "Nothing here" lines: centred, with a quiet tick so an empty list reads as good news, not a fault. */
 .empty {
-  padding: 8px 10px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 22px 20px 28px;
   margin: 0;
   color: var(--ink-3);
   font-size: 13.5px;
+  text-align: center;
+  text-wrap: balance;
+}
+.empty::before {
+  content: "";
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.75)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235a6273' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E")
+    center / 20px no-repeat;
+  box-shadow: inset 0 0 0 1px var(--hair);
 }
 .steps {
   list-style: none;
@@ -759,8 +844,8 @@ a.stat:hover {
 }
 .inp {
   width: 100%;
-  min-height: 42px;
-  padding: 9px 12px;
+  min-height: 44px;
+  padding: 10px 12px;
   border: 1px solid var(--hair-2);
   border-radius: 11px;
   background: rgba(255, 255, 255, 0.8);
@@ -1036,8 +1121,11 @@ a.stat:hover {
     justify-content: flex-start;
     padding-left: 46px;
   }
+  /* "Reset password" and "Turn off access" sit side by side until a new link is shown. */
   .newlink {
     align-items: flex-start;
+  }
+  .newlink:has(.newlink-out) {
     width: 100%;
   }
   .newlink-out {
@@ -1045,6 +1133,15 @@ a.stat:hover {
   }
   .confirm {
     justify-content: flex-start;
+  }
+}
+@media (max-width: 640px) {
+  /* The two actions line up under the name and fit on one line. */
+  .t-act {
+    padding-left: 36px;
+  }
+  .t-act .btn-sm {
+    padding-inline: 10px;
   }
 }
 
@@ -1060,6 +1157,7 @@ a.stat:hover {
   padding: 4px 6px;
 }
 .bnav a {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -1070,11 +1168,19 @@ a.stat:hover {
   font-weight: 600;
   color: var(--ink-3);
   border-radius: 16px;
-  transition: color 0.2s, background 0.25s;
+  transition: color 0.2s, background 0.25s, transform 0.12s;
+}
+.bnav a:active {
+  transform: scale(0.94);
+  background: var(--wash);
 }
 .bnav a[aria-current="page"] {
   color: var(--ink);
-  background: rgba(255, 255, 255, 0.75);
+  background: rgba(17, 22, 31, 0.07);
+  font-weight: 700;
+}
+.bnav a[aria-current="page"] .i {
+  stroke-width: 2.1;
 }
 @media (max-width: 899px) {
   .tabs {

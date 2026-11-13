@@ -210,17 +210,23 @@ time {
   align-items: center;
   gap: 6px;
   white-space: nowrap;
-  transition: background 0.25s, color 0.2s, box-shadow 0.25s;
+  transition: background 0.25s, color 0.2s, box-shadow 0.25s, transform 0.12s;
 }
 .seg button:hover,
 .seg a:hover {
   color: var(--ink);
+}
+.seg button:active,
+.seg a:active,
+.chip:active {
+  transform: scale(0.96);
 }
 .seg [aria-pressed="true"],
 .seg [aria-current="page"],
 .seg [aria-checked="true"] {
   background: var(--glass-3);
   color: var(--ink);
+  font-weight: 650;
   box-shadow: 0 1px 2px rgba(17, 22, 31, 0.08), 0 4px 12px -6px rgba(17, 22, 31, 0.18);
 }
 .seg .n {
@@ -228,6 +234,9 @@ time {
   font-weight: 600;
   color: var(--ink-4);
   font-variant-numeric: tabular-nums;
+}
+.seg [aria-pressed="true"] .n {
+  color: var(--ink-2);
 }
 .chips {
   display: flex;
@@ -248,7 +257,7 @@ time {
   -webkit-backdrop-filter: var(--blur);
   backdrop-filter: var(--blur);
   border: 1px solid var(--edge);
-  transition: background 0.2s, color 0.2s;
+  transition: background 0.2s, color 0.2s, transform 0.12s;
 }
 .chip.all {
   padding-left: 14px;
@@ -279,6 +288,7 @@ time {
   align-items: center;
 }
 .find {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -463,6 +473,9 @@ button.due:hover {
   display: flex;
   flex-direction: column;
   padding: 0 8px 8px;
+  /* Rows look at the width of their own list, not the screen: in a narrow panel the
+     status and date drop under the text instead of squeezing it. */
+  container: rows / inline-size;
 }
 .row {
   display: grid;
@@ -478,6 +491,9 @@ button.due:hover {
 }
 .row:hover {
   background: rgba(255, 255, 255, 0.55);
+}
+a.row:active {
+  background: rgba(255, 255, 255, 0.8);
 }
 .row.nolead {
   grid-template-columns: minmax(0, 1fr) auto;
@@ -534,19 +550,27 @@ a.row-t:hover {
   font-size: 13px;
   color: var(--ink-3);
 }
-@media (max-width: 560px) {
+@container rows (max-width: 580px) {
   .row {
     grid-template-columns: auto minmax(0, 1fr);
   }
-  .row-act {
+  .row > :nth-child(3) {
     grid-column: 2;
+    justify-self: start;
+  }
+  .row-act {
     justify-content: flex-start;
+  }
+  /* Status and date have no box on big screens; pull them left so their text lines up with the title. */
+  .row-act:has(> .pill) {
+    margin-left: -8px;
   }
   .row.nolead {
     grid-template-columns: minmax(0, 1fr);
   }
-  .row.nolead .row-act {
+  .row.nolead > :nth-child(2) {
     grid-column: 1;
+    justify-self: start;
   }
 }
 .acts {
@@ -646,7 +670,12 @@ a.row-t:hover {
   color: var(--ink);
 }
 .empty.sm {
+  display: block;
   padding: 10px 0;
+  text-align: left;
+}
+.empty.sm::before {
+  content: none;
 }
 
 /* cases list */
@@ -667,6 +696,9 @@ a.row-t:hover {
 }
 a.crow:hover {
   background: rgba(255, 255, 255, 0.6);
+}
+a.crow:active {
+  background: rgba(255, 255, 255, 0.85);
 }
 .crow.h {
   padding-block: 8px 6px;
@@ -729,11 +761,13 @@ a.crow:hover {
   }
 }
 @media (max-width: 699px) {
+  /* Phones: the subject gets the full width (two lines), the date and progress share the line below. */
   .crow,
   .crow.nm {
     grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas: "main due" "prog prog";
-    row-gap: 10px;
+    grid-template-areas: "main main" "due prog";
+    gap: 8px 12px;
+    padding: 14px 10px;
   }
   .crow.h,
   .crow .c-mem {
@@ -741,12 +775,35 @@ a.crow:hover {
   }
   .c-main {
     grid-area: main;
+    gap: 3px;
+  }
+  .c-subj {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    font-size: 15.5px;
+    line-height: 1.35;
+  }
+  .c-from {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 8px;
   }
   .c-due {
     grid-area: due;
+    justify-self: start;
+    min-width: 0;
+  }
+  .c-due .due {
+    padding-left: 0;
   }
   .c-prog {
     grid-area: prog;
+    justify-self: end;
+  }
+  .c-prog .segbar {
+    width: 84px;
   }
 }
 
@@ -788,6 +845,7 @@ a.crow:hover {
   gap: 8px;
   padding: 0 8px 10px;
   flex: 1;
+  container: col / inline-size;
 }
 .col.over {
   background: rgba(255, 255, 255, 0.66);
@@ -798,7 +856,7 @@ a.crow:hover {
 }
 .col-empty {
   font-size: 12.5px;
-  color: var(--ink-4);
+  color: var(--ink-3);
   padding: 18px 8px;
   text-align: center;
   border: 1px dashed var(--hair-2);
@@ -837,12 +895,38 @@ a.crow:hover {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+}
+.card-top .added {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-top .prio {
+  flex: none;
+  margin-left: auto;
 }
 .card-top .icon-btn {
+  position: relative;
   margin-left: auto;
   width: 28px;
   height: 28px;
   border-radius: 8px;
+}
+.card-top .prio + .icon-btn {
+  margin-left: 0;
+}
+/* In a narrow column a High card shows its priority instead of a cut-off date. */
+@container col (max-width: 270px) {
+  .card-top:has(.prio) .added {
+    display: none;
+  }
+}
+/* The three dots stay small to look at but are easy to hit. */
+.card-top .icon-btn::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
 }
 .card-t {
   font-weight: 600;
@@ -1852,12 +1936,12 @@ body.filedrag::after {
     display: block;
     width: calc(100% - 12px);
     margin: 0 6px 8px;
-    height: 40px;
+    height: 44px;
     border-radius: 11px;
     font-weight: 600;
-    font-size: 13px;
+    font-size: 13.5px;
     color: var(--ink-2);
-    background: rgba(255, 255, 255, 0.55);
+    background: var(--wash);
     text-align: center;
   }
   .quote {
@@ -1873,7 +1957,19 @@ body.filedrag::after {
     padding: 0 6px 6px;
   }
   .row {
-    padding: 11px 8px;
+    padding: 13px 8px;
+    row-gap: 10px;
+  }
+  /* Buttons, status and date start at the left edge so they fit on one line. */
+  .row > :nth-child(3) {
+    grid-column: 1 / -1;
+  }
+  .row-act:has(> .pill) {
+    margin-left: 0;
+    gap: 6px;
+  }
+  .row-act > :is(.pill, .due) {
+    padding-inline: 9px;
   }
   .grid2 {
     gap: 14px;
@@ -2949,23 +3045,12 @@ button.assignee:hover {
 .kpis .stat {
   flex: 1 1 170px;
 }
-.kpis .stat .lab {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
 .kpis .val small {
   font-size: 15px;
   font-weight: 600;
   letter-spacing: 0;
   color: var(--ink-3);
   margin-left: 2px;
-}
-.stat.attn {
-  box-shadow: var(--sh-1), inset 0 0 0 2px rgba(18, 147, 106, 0.45);
-}
-.stat.bad {
-  box-shadow: var(--sh-1), inset 0 0 0 2px rgba(208, 59, 59, 0.45);
 }
 .grid2.even {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -3214,17 +3299,47 @@ button.assignee:hover {
   .case-sum:not(.all)::after {
     content: "";
   }
+  /* Everything you tap is at least 44px tall. */
   .pill,
   .due,
   .assignee {
-    height: 38px;
+    height: 44px;
     font-size: 14px;
-    padding-inline: 10px;
+    padding-inline: 11px;
+    border-radius: 11px;
   }
   .card-f .due,
   .c-due .due,
   .act .pill {
     height: 30px;
+  }
+  .btn,
+  .chip,
+  .find {
+    height: 44px;
+  }
+  /* Small links keep their look and get an invisible, larger tap area. */
+  .back,
+  .chat-link,
+  .brand,
+  .pt-row .tag {
+    position: relative;
+  }
+  .back::after,
+  .chat-link::after,
+  .brand::after,
+  .pt-row .tag::after {
+    content: "";
+    position: absolute;
+    inset: -11px -6px;
+  }
+  .row-t {
+    display: inline-block;
+    padding-block: 12px;
+    margin-block: -12px;
+  }
+  .pt-text {
+    min-height: 44px;
   }
   .pill,
   button.due,
@@ -3235,13 +3350,15 @@ button.assignee:hover {
     opacity: 0.8;
   }
   .btn-sm {
-    height: 38px;
+    height: 44px;
     font-size: 13.5px;
+    padding-inline: 14px;
   }
   .pt-tog,
-  .icon-btn.sm {
-    width: 40px;
-    height: 40px;
+  .icon-btn.sm,
+  .me {
+    min-width: 44px;
+    height: 44px;
   }
   .pt-text {
     font-size: 15.5px;
@@ -3258,9 +3375,14 @@ button.assignee:hover {
     font-size: 11.5px;
     padding: 9px 0 8px;
   }
+  .seg {
+    border-radius: 13px;
+  }
   .seg button,
   .seg a {
-    height: 36px;
+    height: 44px;
+    padding-inline: 14px;
+    border-radius: 10px;
     font-size: 13.5px;
   }
   .tabs-m {
@@ -3562,6 +3684,10 @@ button.assignee:hover {
   font-size: 13px;
 }
 @media (max-width: 640px) {
+  .chat-about {
+    min-height: 44px;
+    font-size: 13.5px;
+  }
   .chat {
     height: calc(100vh - 300px);
     min-height: 380px;
@@ -3737,8 +3863,6 @@ button.assignee:hover {
   .help-fab {
     bottom: calc(84px + env(safe-area-inset-bottom, 0px));
     right: 12px;
-    width: 40px;
-    height: 40px;
   }
   .help-wrap {
     padding: 0;
@@ -3885,21 +4009,32 @@ button.assignee:hover {
   font-weight: 650;
   color: var(--ink-4);
 }
+/* Same row language as the Cases list: fixed columns so the faces and dates line up down the page. */
 .aprow {
   display: grid;
-  grid-template-columns: 76px minmax(0, 1fr) auto minmax(0, 190px) auto;
+  grid-template-columns: 72px minmax(0, 1fr) 108px 160px 210px;
   align-items: center;
-  gap: 14px;
-  padding: 12px 18px;
+  gap: 16px;
+  padding: 12px 10px;
+  border-radius: 12px;
   color: inherit;
   text-decoration: none;
-  transition: background 0.15s;
+  transition: background 0.2s;
 }
 .aprow + .aprow {
-  border-top: 1px solid var(--hair);
+  box-shadow: 0 -1px 0 var(--hair);
 }
 .aprow:hover {
-  background: var(--wash);
+  background: rgba(255, 255, 255, 0.6);
+}
+.aprow:active {
+  background: rgba(255, 255, 255, 0.85);
+}
+.ap-ref-m {
+  display: none;
+}
+.aprow:first-child {
+  margin-top: 8px;
 }
 .ap-main {
   display: flex;
@@ -3908,16 +4043,16 @@ button.assignee:hover {
   gap: 2px;
 }
 .ap-title {
-  font-weight: 620;
-  font-size: 14.5px;
-  letter-spacing: -0.01em;
+  font-weight: 600;
+  font-size: 14px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .ap-sub {
   display: flex;
-  gap: 4px 12px;
+  align-items: center;
+  gap: 2px 9px;
   flex-wrap: wrap;
   font-size: 12.5px;
   color: var(--ink-3);
@@ -3952,16 +4087,23 @@ button.assignee:hover {
 .ap-dot::after {
   content: "";
   position: absolute;
-  right: -2px;
-  bottom: -2px;
-  width: 9px;
-  height: 9px;
+  right: -3px;
+  bottom: -3px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: #c3c8d1;
   box-shadow: 0 0 0 2px #fff;
 }
+/* Signed faces turn green with a tick, so the row reads without the legend. */
+.ap-dot.signed .av {
+  background: rgba(18, 147, 106, 0.16);
+  color: #0b6b4c;
+}
 .ap-dot.signed::after {
-  background: var(--ok);
+  background: var(--ok)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10' fill='none' stroke='%23fff' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.6 5.2l1.6 1.6 3.2-3.4'/%3E%3C/svg%3E")
+    center / 10px no-repeat;
 }
 .ap-dot.sent_back::after {
   background: #e0a100;
@@ -3980,19 +4122,44 @@ button.assignee:hover {
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
-  min-width: 96px;
 }
+.ap-end .due {
+  padding: 0;
+}
+/* Status = a coloured dot and a word, like everywhere else. Amber waits, green is signed, red is rejected. */
 .ap-st {
+  --c: var(--s-wait);
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   height: 24px;
-  padding: 0 10px;
+  padding: 0 9px;
   border-radius: 8px;
   font-size: 12px;
   font-weight: 650;
   white-space: nowrap;
   background: var(--wash);
   color: var(--ink-2);
+}
+.ap-st::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--c);
+  flex: none;
+}
+.ap-st.signed {
+  --c: var(--ok);
+}
+.ap-st.rejected {
+  --c: var(--late);
+}
+.ap-st.back {
+  --c: #e0a100;
+}
+.ap-st.cancelled {
+  --c: var(--ink-4);
 }
 .ap-st.signed {
   background: rgba(18, 147, 106, 0.13);
@@ -4011,9 +4178,20 @@ button.assignee:hover {
   color: var(--ink-4);
   box-shadow: inset 0 0 0 1px var(--hair-2);
 }
+/* "Sign" is the one thing on the row that asks for action, so it looks like a small button. */
 .ap-st.todo {
+  height: 28px;
+  padding: 0 12px;
   background: var(--ink);
   color: #fff;
+  transition: background 0.2s, transform 0.2s var(--ease);
+}
+.ap-st.todo::before {
+  content: none;
+}
+.aprow:hover .ap-st.todo {
+  background: #1f2633;
+  transform: translateX(2px);
 }
 
 /* one approval */
@@ -4039,18 +4217,24 @@ button.assignee:hover {
   flex-wrap: wrap;
   padding: 16px 18px;
   border-radius: var(--r);
-  background: linear-gradient(135deg, rgba(47, 91, 234, 0.12), rgba(255, 255, 255, 0.7));
-  box-shadow: inset 0 0 0 1px rgba(47, 91, 234, 0.22), var(--sh-1);
+  background: linear-gradient(135deg, rgba(47, 91, 234, 0.14), rgba(255, 255, 255, 0.78) 60%);
+  box-shadow: inset 0 0 0 1px rgba(47, 91, 234, 0.24), inset 4px 0 0 var(--accent), var(--sh-1);
   backdrop-filter: var(--blur);
   -webkit-backdrop-filter: var(--blur);
 }
 .ap-decide-t {
   margin: 0;
   flex: 1 1 260px;
+  padding-left: 4px;
   color: var(--ink-2);
+  font-size: 14.5px;
 }
 .ap-decide-t b {
   color: var(--ink);
+  font-weight: 650;
+}
+.ap-decide-b .btn-primary {
+  min-width: 112px;
 }
 .ap-decide-b,
 .ap-tools {
@@ -4102,6 +4286,27 @@ button.assignee:hover {
   flex-direction: column;
   gap: 10px;
 }
+/* How many have signed, one block per person. */
+.ap-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.ap-bar .segbar {
+  width: 72px;
+}
+.ap-bar i {
+  --c: rgba(17, 22, 31, 0.14);
+}
+.ap-bar i.signed {
+  --c: var(--ok);
+}
+.ap-bar i.sent_back {
+  --c: #e0a100;
+}
+.ap-bar i.rejected {
+  --c: var(--late);
+}
 .ap-sig {
   display: flex;
   flex-direction: column;
@@ -4110,6 +4315,16 @@ button.assignee:hover {
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.55);
   box-shadow: inset 0 0 0 1px var(--hair);
+}
+.ap-sig.signed {
+  background: linear-gradient(160deg, rgba(18, 147, 106, 0.07), rgba(255, 255, 255, 0.6) 55%);
+  box-shadow: inset 0 0 0 1px rgba(18, 147, 106, 0.24);
+}
+.ap-sig.sent_back {
+  box-shadow: inset 0 0 0 1px rgba(224, 161, 0, 0.4);
+}
+.ap-sig.rejected {
+  box-shadow: inset 0 0 0 1px rgba(208, 59, 59, 0.3);
 }
 .ap-sig-h {
   display: flex;
@@ -4154,9 +4369,20 @@ button.assignee:hover {
   gap: 14px;
 }
 .ap-ev {
+  position: relative;
   display: flex;
   gap: 11px;
   align-items: flex-start;
+}
+/* A thin line joins the steps so the record reads as one timeline. */
+.ap-ev:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 13.5px;
+  top: 32px;
+  bottom: -10px;
+  width: 1px;
+  background: var(--hair-2);
 }
 .ap-ev p {
   margin: 0;
@@ -4279,8 +4505,20 @@ button.assignee:hover {
   left: 8%;
   right: 8%;
   bottom: 22%;
-  border-bottom: 1.5px dashed rgba(17, 22, 31, 0.18);
+  border-bottom: 1.5px dashed rgba(17, 22, 31, 0.22);
   pointer-events: none;
+}
+/* The little cross a paper form has where you sign. */
+.sig-line::before {
+  content: "\00d7";
+  position: absolute;
+  left: 0;
+  bottom: 4px;
+  font: 500 20px/1 var(--f);
+  color: var(--ink-4);
+}
+.sig-pad.on .sig-line::before {
+  opacity: 0.4;
 }
 .sig-f {
   display: flex;
@@ -4301,24 +4539,48 @@ button.assignee:hover {
 .ap-check {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  min-height: 32px;
   font-size: 13.5px;
   color: var(--ink-2);
   cursor: pointer;
+}
+.ap-check input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--ink);
+  flex: none;
 }
 
 @media (max-width: 900px) {
   .ap-grid {
     grid-template-columns: 1fr;
   }
+  /* Small screens: the title gets the full width (two lines); faces, date and status share the line below. */
   .aprow {
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 6px 10px;
-    padding: 12px 14px;
+    gap: 10px 12px;
+    padding: 14px 10px;
   }
   .aprow > .cid,
   .ap-prog {
     display: none;
+  }
+  .ap-ref-m {
+    display: inline;
+  }
+  .ap-main {
+    grid-column: 1 / -1;
+    gap: 3px;
+  }
+  .ap-title {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    font-size: 15.5px;
+    line-height: 1.35;
   }
   .ap-who {
     grid-column: 1;
@@ -4326,10 +4588,12 @@ button.assignee:hover {
   }
   .ap-end {
     grid-column: 2;
-    grid-row: 1 / span 2;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 6px;
+    grid-row: 2;
+  }
+  .ap-st.todo {
+    height: 32px;
+    padding: 0 16px;
+    font-size: 13px;
   }
 }
 @media (max-width: 640px) {
@@ -4351,8 +4615,18 @@ button.assignee:hover {
     flex-direction: column;
     align-items: stretch;
   }
+  .ap-tools .btn {
+    flex: 1 1 auto;
+  }
   .sig-pad {
     aspect-ratio: 2 / 1;
+  }
+  .ap-check {
+    min-height: 44px;
+  }
+  .ap-dialog .form-f .btn {
+    flex: 1 1 0;
+    height: 48px;
   }
 }
 

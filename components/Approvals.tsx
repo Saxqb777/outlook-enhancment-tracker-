@@ -481,6 +481,7 @@ export function ApprovalList({ items, meId, seeAll, initial }: { items: ApItem[]
                   {a.version > 1 && <span className="ap-ver">v{a.version}</span>}
                 </span>
                 <span className="ap-sub">
+                  <span className="cid ap-ref-m">{a.ref}</span>
                   <span>{a.requester_id === meId ? "You asked" : `${a.requester} asked`}</span>
                   <span>{a.when}</span>
                   {a.files > 0 && (

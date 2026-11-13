@@ -55,7 +55,8 @@ export default function TopBar({ me, navRole, viewOnly, badges }: { me: Me; navR
     }
   }, []);
 
-  useLayoutEffect(moveThumb, [pathname, moveThumb]);
+  // Badges change the width of a tab, so the highlight is measured again when they do.
+  useLayoutEffect(moveThumb, [pathname, moveThumb, badges.review, badges.unread, badges.sign]);
   useEffect(() => {
     window.addEventListener("resize", moveThumb);
     document.fonts?.ready.then(moveThumb).catch(() => {});

@@ -4225,6 +4225,9 @@ button.assignee:hover {
 /* signing */
 .dialog.ap-dialog {
   width: min(440px, 100%);
+  background: rgba(252, 252, 253, 0.985);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
 }
 .dialog.ap-dialog.wide {
   width: min(600px, 100%);

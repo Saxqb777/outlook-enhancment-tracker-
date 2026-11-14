@@ -40,7 +40,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
   const lead = invite.role === "lead";
   return (
     <AuthCard
-      title={first ? `Welcome, ${first}` : "Join Agthia Enhancements"}
+      title={first ? `Welcome, ${first}` : "Join Shipping Tickets"}
       lede={
         <>
           {invite.inviter ? `${invite.inviter} invited you. ` : ""}

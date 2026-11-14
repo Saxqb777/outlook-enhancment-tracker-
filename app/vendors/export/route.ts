@@ -42,7 +42,7 @@ export async function GET() {
     ),
   ]);
   const wb = new ExcelJS.Workbook();
-  wb.creator = "Agthia Enhancements";
+  wb.creator = "Shipping Tickets";
   const sheet = (name: string, cols: [string, number][]) => {
     const ws = wb.addWorksheet(name, { views: [{ state: "frozen", ySplit: 1 }] });
     ws.columns = cols.map(([header, width]) => ({ header, width }));
@@ -71,7 +71,7 @@ export async function GET() {
   return new Response(new Uint8Array(buffer as ArrayBuffer), {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="Agthia vendor quotes ${todayISO()}.xlsx"`,
+      "Content-Disposition": `attachment; filename="Shipping Tickets vendor quotes ${todayISO()}.xlsx"`,
       "Cache-Control": "private, no-store",
     },
   });

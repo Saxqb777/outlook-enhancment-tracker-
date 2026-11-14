@@ -210,7 +210,7 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
         )}
         {!open && <p className="ap-closed">This request is closed{a.status === "rejected" ? ". To try again, file a new request." : "."}</p>}
       </section>
-      <p className="ap-foot">Agthia Enhancements · {apRef(a.id)} · internal sign-off record · printed {fmtStamp(new Date())}</p>
+      <p className="ap-foot">Shipping Tickets · {apRef(a.id)} · internal sign-off record · printed {fmtStamp(new Date())}</p>
     </div>
   );
 }

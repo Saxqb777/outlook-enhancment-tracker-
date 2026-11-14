@@ -129,7 +129,7 @@ function finish(ws: ExcelJS.Worksheet, cols: number) {
 }
 
 function link(cell: ExcelJS.Cell, text: string, url: string) {
-  cell.value = { text, hyperlink: url, tooltip: "Open this case in Agthia Enhancements" };
+  cell.value = { text, hyperlink: url, tooltip: "Open this case in Shipping Tickets" };
   cell.font = { name: FONT, size: 11, color: { argb: "FF2F5BEA" }, underline: true };
 }
 
@@ -208,13 +208,13 @@ export async function buildWorkbook(me: User, requested: string[], opts: ExportO
   };
 
   const wb = new ExcelJS.Workbook();
-  wb.creator = "Agthia Enhancements";
+  wb.creator = "Shipping Tickets";
   wb.created = new Date();
 
   // ---------------- Summary
   const sum = wb.addWorksheet("Summary", { properties: { tabColor: { argb: INK } }, pageSetup: { orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 } });
   sum.columns = [{ width: 30 }, { width: 14 }, { width: 14 }, { width: 14 }, { width: 22 }, { width: 14 }];
-  const title = sum.addRow(["Agthia Enhancements · Case export"]);
+  const title = sum.addRow(["Shipping Tickets · Case export"]);
   title.font = { name: FONT, size: 16, bold: true };
   title.height = 26;
   const now = local(new Date())!;
@@ -459,5 +459,5 @@ export async function buildWorkbook(me: User, requested: string[], opts: ExportO
   const buffer = Buffer.from(await wb.xlsx.writeBuffer());
   const [y, m, d] = today.split("-").map(Number);
   const mon = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][m - 1];
-  return { buffer, filename: `Agthia-cases-${d}-${mon}-${y}.xlsx`, count: cases.length };
+  return { buffer, filename: `Shipping-Tickets-cases-${d}-${mon}-${y}.xlsx`, count: cases.length };
 }

@@ -26,7 +26,7 @@ export async function joinVendor(_prev: FormState, form: FormData): Promise<Form
   const password = String(form.get("password") ?? "");
   const fields = { name, email };
   const vendor = token ? await one<{ id: string }>("select id::text as id from vendors where invite_hash = $1 and invite_expires > now() and status = 'active'", [hashToken(token)]) : null;
-  if (!vendor) return { error: "This link has expired. Ask your contact at Agthia for a new one.", fields };
+  if (!vendor) return { error: "This link has expired. Ask the person who sent it for a new one.", fields };
   const problem = nameProblem(name) ?? (isEmail(email) ? null : "Enter a valid email address.") ?? passwordProblem(password, String(form.get("confirm") ?? ""));
   if (problem) return { error: problem, fields };
   if (await one("select 1 from users where lower(email) = $1", [email])) return { error: "That email already has an account. Use a different email.", fields };

@@ -159,7 +159,7 @@ async function LeadHome({ me, viewOnly }: { me: User; viewOnly: boolean }) {
             <h1 className="h1">
               <Greeting name={me.name} />
             </h1>
-            <p className="lede">Welcome to Agthia Enhancements. Here&apos;s how to get going.</p>
+            <p className="lede">Welcome to Shipping Tickets. Here&apos;s how to get going.</p>
           </div>
         </header>
         <section className="panel">

@@ -21,7 +21,7 @@ export default async function PortalLayout({ children }: { children: React.React
         <Link className="brand" href="/portal" aria-label="Vendor portal home">
           <Logo />
           <span className="brand-t">
-            Agthia <span>Vendor portal</span>
+            Shipping Tickets <span>Vendor portal</span>
           </span>
         </Link>
         <div className="top-r">

@@ -6,7 +6,7 @@ export default function AuthCard({ title, lede, children }: { title: string; led
       <div className="auth-brand">
         <Logo size={34} />
         <span>
-          Agthia <b>Enhancements</b>
+          <b>Shipping Tickets</b>
         </span>
       </div>
       <section className="auth-card">

@@ -60,7 +60,7 @@ export async function login(_prev: FormState, form: FormData): Promise<FormState
       [email],
     );
     if (vu && (await verifyPassword(password, vu.password_hash))) {
-      if (vu.status !== "active" || vu.vstatus !== "active") return { error: "Your access has been turned off. Ask your contact at Agthia.", fields };
+      if (vu.status !== "active" || vu.vstatus !== "active") return { error: "Your access has been turned off. Ask the person who sends you requests.", fields };
       await q("update login_attempts set ok = true where id = (select max(id) from login_attempts where lower(email) = $1)", [email]);
       await destroySession();
       await createVendorSession(vu.id);

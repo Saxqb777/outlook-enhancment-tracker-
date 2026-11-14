@@ -148,7 +148,7 @@ export function PortalChat({ id, canWrite }: { id: string; canWrite: boolean }) 
       url={`/api/portal/rfq/${id}/chat`}
       side="vendor"
       canWrite={canWrite}
-      placeholder="Message Agthia…"
+      placeholder="Message the team…"
       send={async (body) => {
         const r = await sendVendorMessage(id, body);
         if (r.ok) router.refresh();
@@ -202,7 +202,7 @@ export function PortalNotifier() {
             <Icon name={n.kind === "text" ? "chat" : "truck"} size={16} />
           </span>
           <div className="note-b">
-            <b>{n.kind === "text" ? `${n.who ?? "Agthia"} wrote` : "Agthia"}</b>
+            <b>{n.kind === "text" ? `${n.who ?? "The team"} wrote` : "Shipping Tickets"}</b>
             <span className="note-s">{n.title}</span>
             <span className="note-t">{n.body}</span>
             <span className="note-f">

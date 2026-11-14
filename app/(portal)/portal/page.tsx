@@ -48,8 +48,8 @@ export default async function PortalHome() {
   const jobs = rows.filter((r) => r.result === "confirmed");
   const past = rows.filter((r) => ["done", "lost", "cancelled"].includes(r.result));
   const groups: [string, PortalRow[], string][] = [
-    ["Needs your reply", need, "Nothing is waiting for you. New requests from Agthia will show up here."],
-    ["Quoted, waiting for Agthia", open, ""],
+    ["Needs your reply", need, "Nothing is waiting for you. New requests will show up here."],
+    ["Quoted, waiting for a decision", open, ""],
     ["Your jobs in progress", jobs, ""],
     ["Past requests", past, ""],
   ];
@@ -58,7 +58,7 @@ export default async function PortalHome() {
       <header className="ph">
         <div>
           <h1 className="h1">{v.admin ? `${v.vendor}: their portal` : `Hello, ${v.name.split(/\s+/)[0]}`}</h1>
-          <p className="lede">Requests from Agthia for {v.vendor}. Open one to send your price, say you can&apos;t do it, or chat about it.</p>
+          <p className="lede">Requests for {v.vendor}. Open one to send your price, say you can&apos;t do it, or chat about it.</p>
         </div>
         <div className="ph-act">
           <a className="btn" href="/portal/export" download>

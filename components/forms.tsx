@@ -61,7 +61,7 @@ export function LoginForm({ showSetup }: { showSetup: boolean }) {
       <FormError state={state} />
       <SubmitButton pending="Signing in">Sign in</SubmitButton>
       <p className="auth-note">
-        Forgot your password? Ask your Lead for a reset link. Vendors: ask your contact at Agthia. Admin: <Link href="/reset-admin">reset with the setup code</Link>.
+        Forgot your password? Ask your Lead for a reset link. Vendors: ask the person who sends you requests. Admin: <Link href="/reset-admin">reset with the setup code</Link>.
       </p>
       {showSetup && (
         <p className="auth-note">

@@ -10,7 +10,7 @@ const src = await readFile(path.join(root, "design", "preview.html"), "utf8");
 
 const html = src
   .replace(/<meta name="claude:viewport-fit-sides"[^>]*>\n?/, "")
-  .replace(/<title>[^<]*<\/title>/, "<title>Agthia Enhancements · Sandbox</title>");
+  .replace(/<title>[^<]*<\/title>/, "<title>Shipping Tickets · Sandbox</title>");
 
 const split = html.indexOf("</style>");
 if (split < 0) throw new Error("design/preview.html has no </style>");
@@ -23,7 +23,7 @@ const out = `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<meta name="description" content="Agthia Enhancements sandbox with sample freight data. Nothing is saved.">
+<meta name="description" content="Shipping Tickets sandbox with sample freight data. Nothing is saved.">
 ${head.trim()}
 </head>
 <body>

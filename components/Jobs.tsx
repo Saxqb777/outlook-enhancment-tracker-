@@ -321,7 +321,7 @@ export function JobBoard({
       )}
       {mode?.kind === "flag" && mode.step && (
         <Dialog title={`Problem at "${mode.step.title}"`} onClose={close}>
-          <p className="hint">{side === "vendor" ? "Agthia sees this straight away." : "The vendor sees this straight away."}</p>
+          <p className="hint">{side === "vendor" ? "The team sees this straight away." : "The vendor sees this straight away."}</p>
           <textarea className="inp" rows={3} value={text} onChange={(e) => setText(e.target.value)} placeholder="What happened? e.g. truck broke down near Al Ain" maxLength={500} autoFocus />
           <div className="field ap-date">
             <label htmlFor="job-eta">New expected date (optional)</label>

@@ -39,7 +39,7 @@ function sample(today: string): string {
   const pretty = fmtLongToday(today);
   return `From: Lena Visser <lena.visser@gulfline.example>
 Sent: ${pretty} ${y} 10:42
-To: Operations <ops@agthia.example>
+To: Operations <ops@shippingtickets.example>
 Subject: Arrival notice: 3 x 40' reefers of frozen poultry, Jebel Ali
 
 Hi team,

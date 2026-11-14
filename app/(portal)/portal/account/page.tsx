@@ -26,7 +26,7 @@ export default async function PortalAccountPage() {
       <section className="panel ap-new" aria-label="Change password">
         <h2 className="acc-h">Change my password</h2>
         {v.admin ? <p className="hint">You are looking at this portal as Admin.</p> : <ChangePasswordForm vendor />}
-        <p className="hint">Forgot it later? Ask your contact at Agthia for a reset link.</p>
+        <p className="hint">Forgot it later? Ask the person who sends you requests for a reset link.</p>
       </section>
     </div>
   );

@@ -39,13 +39,13 @@ export async function GET() {
   const user = await getCurrentUser();
   if (!user) return new Response("Sign in first.", { status: 401 });
   if (user.role !== "admin") return new Response("Admin only.", { status: 403 });
-  const out: Record<string, unknown> = { app: "Agthia Enhancements", made_at: new Date().toISOString(), note: "Passwords, sign-in sessions, link tokens and attached file contents are not included." };
+  const out: Record<string, unknown> = { app: "Shipping Tickets", made_at: new Date().toISOString(), note: "Passwords, sign-in sessions, link tokens and attached file contents are not included." };
   for (const [table, skip] of TABLES) {
     const rows = await q(`select * from ${table} order by 1`);
     out[table] = skip.length ? rows.map((r) => Object.fromEntries(Object.entries(r).filter(([k]) => !skip.includes(k)))) : rows;
   }
   await logActivity({ userId: user.id }, "backup", "Downloaded a backup file");
   return new Response(JSON.stringify(out), {
-    headers: { "Content-Type": "application/json", "Content-Disposition": `attachment; filename="agthia-backup-${todayISO()}.json"`, "Cache-Control": "private, no-store" },
+    headers: { "Content-Type": "application/json", "Content-Disposition": `attachment; filename="shipping-tickets-backup-${todayISO()}.json"`, "Cache-Control": "private, no-store" },
   });
 }

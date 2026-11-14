@@ -66,10 +66,10 @@ export default function TopBar({ me, navRole, viewOnly, badges }: { me: Me; navR
 
   return (
     <header className="top">
-      <Link className="brand" href="/" aria-label="Agthia Enhancements home">
+      <Link className="brand" href="/" aria-label="Shipping Tickets home">
         <Logo />
         <span className="brand-t">
-          Agthia <span>Enhancements</span>
+          Shipping Tickets
         </span>
       </Link>
       <nav className="tabs" ref={tabsRef} aria-label="Pages">

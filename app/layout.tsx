@@ -7,7 +7,7 @@ import "./work.css";
 const onest = Onest({ subsets: ["latin"], display: "swap", variable: "--font-onest" });
 
 export const metadata: Metadata = {
-  title: { default: "Agthia Enhancements", template: "%s · Agthia Enhancements" },
+  title: { default: "Shipping Tickets", template: "%s · Shipping Tickets" },
   description: "Turn emails into tracked work for your team.",
   robots: { index: false, follow: false },
 };

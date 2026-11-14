@@ -3,7 +3,7 @@ import { getVendorUser } from "@/lib/vendor-auth";
 
 export const dynamic = "force-dynamic";
 
-/** New things for this vendor since `after`: requests, messages from Agthia, awards. */
+/** New things for this vendor since `after`: requests, messages from the team, awards. */
 export async function GET(req: Request) {
   const v = await getVendorUser();
   if (!v) return Response.json({ error: "Sign in first." }, { status: 401 });

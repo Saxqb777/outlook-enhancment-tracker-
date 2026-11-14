@@ -45,7 +45,7 @@ export default async function PortalRequest({ params }: { params: Promise<{ id: 
           </p>
           <h1 className="h1">{r.title}</h1>
           <p className="lede">
-            {r.by} at Agthia asked on {fmtStamp(r.created_at)}
+            {r.by} asked on {fmtStamp(r.created_at)}
             {r.reply_by && (
               <>
                 {" · "}
@@ -113,9 +113,9 @@ export default async function PortalRequest({ params }: { params: Promise<{ id: 
             )}
           </div>
         </section>
-        <section className="panel rq-chat-p" aria-label="Chat with Agthia">
+        <section className="panel rq-chat-p" aria-label="Chat with the team">
           <div className="panel-h">
-            <h2>Chat with Agthia</h2>
+            <h2>Chat with the team</h2>
           </div>
           <PortalChat id={r.id} canWrite={!v.viewOnly && r.result !== "cancelled" && r.result !== "lost"} />
         </section>

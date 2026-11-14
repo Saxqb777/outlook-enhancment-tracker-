@@ -97,7 +97,7 @@ export default function ExportView({ cases, role, today }: { cases: CaseItem[]; 
   const chosen = cases.filter((c) => picked.has(c.id));
   const pointCount = chosen.reduce((n, c) => n + c.points.length, 0);
   const [d, m, y] = [Number(today.slice(8)), ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][Number(today.slice(5, 7)) - 1], today.slice(0, 4)];
-  const fileName = `Agthia-cases-${d}-${m}-${y}.xlsx`;
+  const fileName = `Shipping-Tickets-cases-${d}-${m}-${y}.xlsx`;
 
   const describe = () => {
     const parts: string[] = [];

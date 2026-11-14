@@ -7,11 +7,13 @@ import {
   addRfqVendors, askAboutQuotes, closeRfq, createRfq, createVendor, decideAward, deleteTemplate, pickWinner, remindVendors, saveTemplate,
   sendRfqMessage, setVendorPerson, withdrawAward, setVendorStatus, updateRfq, updateVendor, vendorInviteLink, vendorResetLink, type VendorInput,
 } from "@/app/actions/vendors";
+import { removeChatFile } from "@/app/actions/chat";
 import { Dialog, useAct } from "@/components/Approvals";
 import { AttachPicker, useAttach } from "@/components/Attach";
 import { Icon } from "@/components/Icon";
 import { MilestonePlanner, startSteps } from "@/components/Jobs";
 import RfqChat from "@/components/RfqChat";
+import { ListKeys } from "@/components/Shortcuts";
 import { toast, useViewOnly } from "@/components/work";
 import { DEFAULT_FIELDS, money, QUOTE_STATE, RFQ_STATUS, SERVICES, SUGGESTED_FIELDS, type Field, type QuoteState, type RfqStatus } from "@/lib/vendor-labels";
 
@@ -358,6 +360,7 @@ export function VendorsHome({ rfqs, vendors, initial, canAdd }: { rfqs: RfqItem[
           <span className="sr">Search</span>
           <input type="search" placeholder={tab === "requests" ? "Search requests" : tab === "jobs" ? "Search jobs" : "Search vendors"} value={q} onChange={(e) => setQ(e.target.value)} autoComplete="off" />
         </label>
+        <ListKeys />
       </div>
 
       {tab === "jobs" ? (
@@ -660,9 +663,10 @@ export function RfqBoard({ rfq, vendors, initialVendor, stepTemplates = [], toda
       {!viewOnly && (
         <div className="ap-tools no-print">
           {can && open && (
-            <button type="button" className="btn" onClick={() => (setTitle(rfq.title), setFields(rfq.fields), setNotes(rfq.notes), setReplyBy(rfq.replyBy), setMode("edit"))}>
+            <button type="button" className="btn" data-key="e" onClick={() => (setTitle(rfq.title), setFields(rfq.fields), setNotes(rfq.notes), setReplyBy(rfq.replyBy), setMode("edit"))}>
               <Icon name="edit" size={15} />
               Edit request
+              <kbd className="kbd">E</kbd>
             </button>
           )}
           {can && open && others.length > 0 && (
@@ -788,8 +792,9 @@ export function RfqBoard({ rfq, vendors, initialVendor, stepTemplates = [], toda
               url={`/api/rfq/${rfq.id}/chat?vendor=${current.vendor_id}`}
               side="team"
               canWrite={!viewOnly}
-              send={async (body) => {
-                const r = await sendRfqMessage(rfq.id, current.vendor_id, body);
+              onRemoveFile={rfq.lead && !viewOnly ? removeChatFile : undefined}
+              send={async (body, files) => {
+                const r = await sendRfqMessage(rfq.id, current.vendor_id, body, files);
                 if (r.ok) router.refresh();
                 return r;
               }}

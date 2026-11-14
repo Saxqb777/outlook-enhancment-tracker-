@@ -8,6 +8,7 @@ import { cancelApproval, changeSigner, createApproval, declineApproval, newVersi
 import { AttachPicker, useAttach } from "@/components/Attach";
 import { Avatar, Icon } from "@/components/Icon";
 import { toast } from "@/components/work";
+import { ListKeys } from "@/components/Shortcuts";
 import { progress, STATE_LABEL, STATUS_LABEL, type State, type Status } from "@/lib/approval-labels";
 
 type Result = { ok: true } | { ok: false; error: string };
@@ -513,6 +514,7 @@ export function ApprovalList({ items, meId, seeAll, initial }: { items: ApItem[]
           <span className="sr">Search approvals</span>
           <input type="search" placeholder="Search by number, title or person" value={q} onChange={(e) => setQ(e.target.value)} autoComplete="off" />
         </label>
+        <ListKeys />
       </div>
       <section className="panel" aria-label="Approvals">
         <div className="list">

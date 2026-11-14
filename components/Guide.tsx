@@ -4,13 +4,16 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { markNewsSeen } from "@/app/actions/news";
+import { SHORTCUTS } from "@/components/Shortcuts";
 import { Icon } from "@/components/Icon";
 import { helpFor, tourFor, type TourStep } from "@/lib/news";
 
 type R = "lead" | "member" | "admin";
 
 /** The "?" help on every page, and the update tour (shown once per update, replayable from the help). */
-export default function Guide({ role, autoTour, version }: { role: R; autoTour: boolean; version: number }) {
+export default function Guide({ role, autoTour, version, seen = 0 }: { role: R; autoTour: boolean; version: number; seen?: number }) {
+  // The pop-up tour only shows what is new to this person; "Replay" from the ? help shows all of it.
+  const [full, setFull] = useState(false);
   const path = usePathname();
   const [help, setHelp] = useState(false);
   const [tour, setTour] = useState(false);
@@ -61,12 +64,26 @@ export default function Guide({ role, autoTour, version }: { role: R; autoTour: 
                   </li>
                 ))}
               </ol>
+              <div className="help-keys">
+                <b>Keyboard shortcuts</b>
+                <dl>
+                  {SHORTCUTS.map(([k, d]) => (
+                    <div key={k}>
+                      <dt>
+                        <kbd className="kbd show">{k}</kbd>
+                      </dt>
+                      <dd>{d}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
               <div className="help-f">
                 <button
                   type="button"
                   className="btn btn-sm"
                   onClick={() => {
                     setHelp(false);
+                    setFull(true);
                     setTour(true);
                   }}
                 >
@@ -78,7 +95,7 @@ export default function Guide({ role, autoTour, version }: { role: R; autoTour: 
           </div>,
           document.body,
         )}
-      {tour && <Tour steps={tourFor(role)} onDone={endTour} />}
+      {tour && <Tour steps={tourFor(role, full ? 0 : seen)} onDone={endTour} />}
     </>
   );
 }

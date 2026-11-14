@@ -108,6 +108,11 @@ try {
   }
   await sql("insert into attachment_local (key, point_id, data) values ($1, null, 'hello')", [`${TAG}-file`]);
   const [bf] = await sql("insert into rfq_files (rfq_id, vendor_id, name, mime, size, storage, url, pathname) values ($1, $2, 'beta.txt', 'text/plain', 5, 'local', $3, 'vq/beta.txt') returning id::text as id", [rq.id, vB.id, `local:${TAG}-file`]);
+  // Files sent in chats: one in the case chat, one in vendor Beta's chat on the request.
+  const [cmsg] = await sql("insert into case_messages (case_id, user_id, kind, body) values ($1, $2, 'text', '') returning id", [c.id, memA.id]);
+  const [cf] = await sql("insert into chat_files (case_message_id, name, mime, size, storage, url, pathname) values ($1, 'case.txt', 'text/plain', 5, 'local', $2, 'apv/case.txt') returning id::text as id", [cmsg.id, `local:${TAG}-file`]);
+  const [vmsg] = await sql("insert into rfq_messages (rfq_id, vendor_id, vendor_user_id, kind, body) values ($1, $2, $3, 'text', '') returning id", [rq.id, vB.id, vB.userId]);
+  const [vf] = await sql("insert into chat_files (rfq_message_id, name, mime, size, storage, url, pathname) values ($1, 'beta-chat.txt', 'text/plain', 5, 'local', $2, 'vq/beta-chat.txt') returning id::text as id", [vmsg.id, `local:${TAG}-file`]);
   const [rqOther] = await sql("insert into rfqs (title, fields, created_by) values ('AccessTest other request', '[]', $1) returning id::text as id", [memA.id]);
   await sql("insert into rfq_vendors (rfq_id, vendor_id) values ($1, $2)", [rqOther.id, vB.id]);
 
@@ -143,7 +148,15 @@ try {
   check(ex.status === 200, "vendor: can export their own Excel");
   check(!(await get(vA, `/portal/r/${rqOther.id}`, `ae_view_vendor=${vB.id}`)).text.includes("AccessTest other request"), "vendor: forged 'view vendor' cookie is ignored");
 
+  check((await get(vA, `/chat-file/${vf.id}`)).status === 404, "vendor: can't open a file from the other vendor's chat");
+  check((await get(vB, `/chat-file/${vf.id}`)).status === 200, "vendor: can open a file from their own chat");
+  check((await get(vA, `/chat-file/${cf.id}`)).status === 404, "vendor: can't open a file from a case chat");
+  check((await get(null, `/chat-file/${vf.id}`)).status === 401, "signed out: chat files are refused");
+
   console.log("\n— Member limits");
+  check((await get(memB, `/chat-file/${cf.id}`)).status === 404, "member: can't open a chat file on someone else's case");
+  check((await get(memA, `/chat-file/${cf.id}`)).status === 200, "member: can open a chat file on their own case");
+  check(refused(await act(memA, "removeChatFile", [cf.id])), "member: can't remove a chat file (Lead only)");
   check(/isn't available/.test((await get(memB, `/cases/${c.id}`)).text), "member: can't open someone else's case");
   check(refused(await act(memB, "setPointStatus", [pt.id, "done"])), "member: can't change a point on someone else's case");
   check(refused(await act(memB, "postNote", [pt.id, "hello", []])), "member: can't add a note on someone else's case");

@@ -228,6 +228,7 @@ export default function CaseView({
           <button
             type="button"
             className={`btn btn-sm chat-open${side === "chat" ? " on" : ""}`}
+            data-key="c"
             onClick={() => {
               setSide("chat");
               setTab("chat");
@@ -236,12 +237,14 @@ export default function CaseView({
           >
             <Icon name="chat" size={15} />
             Chat
+            <kbd className="kbd">C</kbd>
             {unread > 0 && <span className="nav-badge blue">{unread}</span>}
           </button>
           {!viewOnly && (
-            <Link className="btn btn-sm" href={`/cases/${c.id}/reply`}>
+            <Link className="btn btn-sm" href={`/cases/${c.id}/reply`} data-key="r">
               <Icon name="reply" size={15} />
               Add a reply
+              <kbd className="kbd">R</kbd>
             </Link>
           )}
           {!viewOnly && (

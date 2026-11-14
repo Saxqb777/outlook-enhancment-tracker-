@@ -7,6 +7,7 @@ import { bulkSetOwner } from "@/app/actions/manage";
 import { toast, useViewOnly } from "@/components/work";
 import { Avatar, Icon } from "@/components/Icon";
 import { DueTag, firstName, Prio, SegBar } from "@/components/ui";
+import { ListKeys } from "@/components/Shortcuts";
 import type { Role } from "@/lib/auth";
 import { caseRef, closedStatus, type Priority, type Status } from "@/lib/status";
 import { diffDays, fmtShort, todayISO } from "@/lib/time";
@@ -155,6 +156,7 @@ export default function CaseList({
           <span className="sr">Filter cases</span>
           <input type="search" placeholder="Filter by sender, subject or ID" value={q} onChange={(e) => setQ(e.target.value)} autoComplete="off" />
         </label>
+        <ListKeys />
       </div>
 
       <section className="panel" aria-label="Cases">

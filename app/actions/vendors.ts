@@ -264,17 +264,22 @@ export async function addRfqVendors(id: string, vendorIds: string[]): Promise<Re
 }
 
 /** A chat message to one vendor, or the same message to every vendor on the request ("all"). */
-export async function sendRfqMessage(id: string, vendorId: string, body: string): Promise<Result> {
+export async function sendRfqMessage(id: string, vendorId: string, body: string, files?: Uploaded[]): Promise<Result> {
   const me = await actor(id);
   if (!me) return VIEW_ONLY;
   const msg = text(body, 2000);
-  if (!msg) return { ok: false, error: "Write a message first." };
+  const checked = files?.length && vendorId !== "all" ? await verifyUploads("apv", files) : [];
+  if (!Array.isArray(checked)) return { ok: false, error: checked.error };
+  if (!msg && !checked.length) return { ok: false, error: "Write a message or attach a file first." };
   const a = await ctx(id);
   if (!a) return GONE;
   if (vendorId !== "all" && !(await one("select 1 from rfq_vendors where rfq_id = $1 and vendor_id = $2", [a.id, isId(vendorId) ? vendorId : 0]))) return GONE;
   await tx(async (c) => {
     if (vendorId === "all") await sayAll(c, a.id, me.id, "text", msg);
-    else await say(c, a.id, vendorId, me.id, "text", msg);
+    else {
+      const m = await c.query<{ id: string }>("insert into rfq_messages (rfq_id, vendor_id, user_id, kind, body) values ($1, $2, $3, 'text', $4) returning id", [a.id, vendorId, me.id, msg]);
+      for (const f of checked) await c.query("insert into chat_files (rfq_message_id, name, mime, size, storage, url, pathname) values ($1, $2, $3, $4, $5, $6, $7)", [m.rows[0].id, f.name, f.mime, f.size, f.storage, f.url, f.pathname]);
+    }
     await c.query("update rfqs set updated_at = now() where id = $1", [a.id]);
   });
   touch(id);

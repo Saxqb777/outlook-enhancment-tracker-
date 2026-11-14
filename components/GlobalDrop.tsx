@@ -15,7 +15,7 @@ export default function GlobalDrop() {
     if (path === "/add" || /\/reply$/.test(path)) return;
     let depth = 0;
     const hasFile = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes("Files");
-    const inPicker = (e: DragEvent) => !!(e.target as HTMLElement | null)?.closest?.(".attp, .dialog, .pop");
+    const inPicker = (e: DragEvent) => !!(e.target as HTMLElement | null)?.closest?.(".attp, .dialog, .pop, .chat-in, .rq-chat-in");
     const enter = (e: DragEvent) => {
       if (!hasFile(e)) return;
       depth++;
@@ -27,7 +27,15 @@ export default function GlobalDrop() {
       if (!depth) document.body.classList.remove("filedrag");
     };
     const over = (e: DragEvent) => {
-      if (hasFile(e)) e.preventDefault();
+      if (!hasFile(e)) return;
+      e.preventDefault();
+      // Over a chat box or a file picker the file goes there instead, so the page-wide "drop the email" cover steps aside.
+      document.body.classList.toggle("filedrag", !inPicker(e));
+    };
+    // Runs before anything else handles the drop, so the cover can never be left on screen.
+    const clear = () => {
+      depth = 0;
+      document.body.classList.remove("filedrag");
     };
     const drop = async (e: DragEvent) => {
       if (!hasFile(e)) return;
@@ -48,12 +56,16 @@ export default function GlobalDrop() {
     window.addEventListener("dragleave", leave);
     window.addEventListener("dragover", over);
     window.addEventListener("drop", drop);
+    window.addEventListener("drop", clear, true);
+    window.addEventListener("dragend", clear, true);
     return () => {
       document.body.classList.remove("filedrag");
       window.removeEventListener("dragenter", enter);
       window.removeEventListener("dragleave", leave);
       window.removeEventListener("dragover", over);
       window.removeEventListener("drop", drop);
+      window.removeEventListener("drop", clear, true);
+      window.removeEventListener("dragend", clear, true);
     };
   }, [path, router]);
   return null;

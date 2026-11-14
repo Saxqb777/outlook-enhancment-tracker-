@@ -117,7 +117,7 @@ export default async function PortalRequest({ params }: { params: Promise<{ id: 
           <div className="panel-h">
             <h2>Chat with the team</h2>
           </div>
-          <PortalChat id={r.id} canWrite={!v.viewOnly && r.result !== "cancelled" && r.result !== "lost"} />
+          <PortalChat id={r.id} attachKey={v.admin ? "apv" : "vq"} canWrite={!v.viewOnly && r.result !== "cancelled" && r.result !== "lost"} />
         </section>
       </div>
     </div>

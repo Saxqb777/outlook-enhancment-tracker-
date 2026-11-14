@@ -6,6 +6,7 @@ import TopBar from "@/components/TopBar";
 import GlobalDrop from "@/components/GlobalDrop";
 import Guide from "@/components/Guide";
 import Notifier from "@/components/Notifier";
+import Shortcuts from "@/components/Shortcuts";
 import { Toasts, ViewOnlyProvider } from "@/components/work";
 import { getViewer } from "@/lib/auth";
 import { waitingForMe } from "@/lib/approvals";
@@ -53,7 +54,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </main>
       <BottomNav role={navRole} viewOnly={viewOnly} badges={badges} />
       <Toasts />
-      <Guide role={real.role} autoTour={(real.seen_news ?? 0) < NEWS_VERSION} version={NEWS_VERSION} />
+      <Guide role={real.role} autoTour={(real.seen_news ?? 0) < NEWS_VERSION} version={NEWS_VERSION} seen={real.seen_news ?? 0} />
+      <Shortcuts role={navRole} viewOnly={viewOnly} />
       {!viewOnly && <GlobalDrop />}
       {!viewOnly && <Notifier />}
       </AttachProvider>

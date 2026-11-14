@@ -135,10 +135,92 @@ export function AttachPicker({ att, compact = false, disabled = false }: { att: 
   );
 }
 
+/** The chosen files with their upload progress (used above a chat box). */
+export function AttachChips({ att }: { att: AttachState }) {
+  if (!att.items.length && !att.problem) return null;
+  return (
+    <div className="attp chat-files">
+      {att.items.length > 0 && (
+        <ul className="attp-list">
+          {att.items.map((x) => (
+            <li key={x.key} className={`attp-i ${x.state}`}>
+              <Icon name={x.state === "error" ? "x" : x.state === "done" ? "check" : "file"} size={14} />
+              <span className="attp-n">{x.file.name}</span>
+              <span className="attp-s">{x.state === "up" ? `${x.pct}%` : x.state === "error" ? (x.error ?? "Failed") : sizeLabel(x.file.size)}</span>
+              <button type="button" className="icon-btn sm" aria-label={`Remove ${x.file.name}`} onClick={() => att.remove(x.key)}>
+                <Icon name="x" size={13} />
+              </button>
+              {x.state === "up" && <i className="attp-bar" style={{ width: `${x.pct}%` }} />}
+            </li>
+          ))}
+        </ul>
+      )}
+      {att.problem && <span className="form-err sm">{att.problem}</span>}
+    </div>
+  );
+}
+
+/** A small paperclip button that opens the file picker (for a chat bar). */
+export function AttachClip({ att, disabled = false }: { att: AttachState; disabled?: boolean }) {
+  const input = useRef<HTMLInputElement>(null);
+  return (
+    <>
+      <button type="button" className="btn btn-sm btn-ghost chat-clip" aria-label="Attach a file" title="Attach a file. You can also drop a file on the box, or paste a screenshot." onClick={() => input.current?.click()} disabled={disabled || att.items.length >= ATT_MAX_FILES}>
+        <Icon name="clip" size={15} />
+      </button>
+      <input
+        ref={input}
+        type="file"
+        multiple
+        className="sr"
+        accept={ATT_ACCEPT}
+        tabIndex={-1}
+        aria-hidden="true"
+        onChange={(e) => {
+          if (e.target.files?.length) att.add(e.target.files);
+          e.target.value = "";
+        }}
+      />
+    </>
+  );
+}
+
+/** Lets a chat box take files by drag and drop and by pasting (screenshots). Spread `zone` on the box, `onPaste` on the text field. */
+export function useChatDrop(att: AttachState, enabled = true) {
+  const [over, setOver] = useState(false);
+  const isFiles = (e: React.DragEvent) => Array.from(e.dataTransfer.types).includes("Files");
+  const zone = enabled
+    ? {
+        onDragOver: (e: React.DragEvent) => {
+          if (!isFiles(e)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          setOver(true);
+        },
+        onDragLeave: () => setOver(false),
+        onDrop: (e: React.DragEvent) => {
+          if (!e.dataTransfer.files.length) return;
+          e.preventDefault();
+          e.stopPropagation();
+          setOver(false);
+          att.add(e.dataTransfer.files);
+        },
+      }
+    : {};
+  const onPaste = (e: React.ClipboardEvent) => {
+    if (!enabled || !e.clipboardData.files.length) return;
+    e.preventDefault();
+    // Pasted screenshots all arrive as "image.png": give each a time so names don't clash.
+    const stamp = new Date().toISOString().slice(11, 19).replace(/:/g, "");
+    att.add(Array.from(e.clipboardData.files).map((f, i) => (f.name === "image.png" ? new File([f], `screenshot-${stamp}${i ? `-${i}` : ""}.png`, { type: f.type }) : f)));
+  };
+  return { over: enabled && over, zone, onPaste };
+}
+
 export type FileView = { id: string; name: string; mime: string; size: number };
 
 /** Attached files shown in a point's history: small previews for photos, chips for everything else. */
-export function FileList({ files, onRemove }: { files: FileView[]; onRemove?: (f: FileView) => void }) {
+export function FileList({ files, onRemove, base = "/attachments" }: { files: FileView[]; onRemove?: (f: FileView) => void; base?: string }) {
   if (!files.length) return null;
   const x = (f: FileView) =>
     onRemove && (
@@ -154,9 +236,9 @@ export function FileList({ files, onRemove }: { files: FileView[]; onRemove?: (f
         <div className="files-pics">
           {pics.map((f) => (
             <span key={f.id} className="file-w">
-              <a className="file-pic" href={`/attachments/${f.id}`} target="_blank" rel="noopener noreferrer" title={f.name}>
+              <a className="file-pic" href={`${base}/${f.id}`} target="_blank" rel="noopener noreferrer" title={f.name}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`/attachments/${f.id}`} alt={f.name} loading="lazy" />
+                <img src={`${base}/${f.id}`} alt={f.name} loading="lazy" />
               </a>
               {x(f)}
             </span>
@@ -167,7 +249,7 @@ export function FileList({ files, onRemove }: { files: FileView[]; onRemove?: (f
         <span key={f.id} className="file-w">
         <a
           className="file-chip"
-          href={f.mime === "application/pdf" ? `/attachments/${f.id}` : `/attachments/${f.id}?download`}
+          href={f.mime === "application/pdf" ? `${base}/${f.id}` : `${base}/${f.id}?download`}
           target={f.mime === "application/pdf" ? "_blank" : undefined}
           rel="noopener noreferrer"
         >

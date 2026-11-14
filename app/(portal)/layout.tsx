@@ -6,6 +6,7 @@ import { AttachProvider } from "@/components/Attach";
 import { Icon, Logo } from "@/components/Icon";
 import { PortalNotifier } from "@/components/Portal";
 import { Toasts } from "@/components/work";
+import Shortcuts from "@/components/Shortcuts";
 import { getCurrentUser } from "@/lib/auth";
 import { getVendorUser } from "@/lib/vendor-auth";
 
@@ -58,6 +59,7 @@ export default async function PortalLayout({ children }: { children: React.React
         {children}
       </main>
       <Toasts />
+      <Shortcuts portal />
       {!v.admin && <PortalNotifier />}
     </AttachProvider>
   );

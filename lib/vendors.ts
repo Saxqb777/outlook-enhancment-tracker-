@@ -111,16 +111,21 @@ export async function getRfq(me: User, id: string, showTest = false): Promise<Rf
   return { ...r, files: files.filter((f) => !f.vendor_id), quotes: quotes.map((x) => ({ ...x, files: files.filter((f) => f.vendor_id === x.vendor_id) })) };
 }
 
-export type RfqMessage = { id: string; kind: "text" | "system" | "internal"; body: string; at: Date; who: string; side: "team" | "vendor" };
+export type RfqMessage = { id: string; kind: "text" | "system" | "internal"; body: string; at: Date; who: string; side: "team" | "vendor"; files?: { id: string; name: string; mime: string; size: number }[] };
 
 /** One request-and-vendor chat. Vendors never get the team's internal notes. */
 export async function rfqThread(rfqId: string, vendorId: string, forVendor: boolean): Promise<RfqMessage[]> {
-  return q<RfqMessage>(
+  const files = await q<{ id: string; mid: string; name: string; mime: string; size: number }>(
+    "select f.id::text as id, f.rfq_message_id::text as mid, f.name, f.mime, f.size from chat_files f join rfq_messages m on m.id = f.rfq_message_id where m.rfq_id = $1 and m.vendor_id = $2 order by f.id",
+    [rfqId, vendorId],
+  );
+  const rows = await q<RfqMessage>(
     `select m.id::text as id, m.kind, m.body, m.created_at as at, coalesce(u.name, vu.name, 'System') as who, case when m.vendor_user_id is not null then 'vendor' else 'team' end as side
        from rfq_messages m left join users u on u.id = m.user_id left join vendor_users vu on vu.id = m.vendor_user_id
       where m.rfq_id = $1 and m.vendor_id = $2 ${forVendor ? "and m.kind <> 'internal'" : ""} order by m.id limit 500`,
     [rfqId, vendorId],
   );
+  return rows.map((m) => ({ ...m, files: files.filter((f) => f.mid === m.id).map(({ mid: _m, ...f }) => (void _m, f)) }));
 }
 
 /** For the Vendors tab: unread vendor activity on requests this person watches, plus awards waiting for a Lead. */

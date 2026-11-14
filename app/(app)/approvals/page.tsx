@@ -38,9 +38,10 @@ export default async function ApprovalsPage() {
         </div>
         {!viewOnly && (
           <div className="ph-act">
-            <Link className="btn btn-primary" href="/approvals/new" data-tour="ap-new">
+            <Link className="btn btn-primary" href="/approvals/new" data-tour="ap-new" data-key="n">
               <Icon name="plus" size={15} />
               New request
+              <kbd className="kbd">N</kbd>
             </Link>
           </div>
         )}

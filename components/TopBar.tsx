@@ -76,7 +76,7 @@ export default function TopBar({ me, navRole, viewOnly, badges }: { me: Me; navR
         <span className="tab-thumb" ref={thumbRef} aria-hidden="true" />
         <span className="tab-links">
           {items.map((it) => (
-            <Link key={it.href} href={it.href} aria-current={isActive(pathname, it.href) ? "page" : undefined} data-tour={it.href === "/" ? "home" : it.href.slice(1)}>
+            <Link key={it.href} href={it.href} aria-current={isActive(pathname, it.href) ? "page" : undefined} data-tour={it.href === "/" ? "home" : it.href.slice(1)} title={it.href === "/admin" ? undefined : `Shortcut: G then ${it.label[0]}`}>
               {it.label}
               {it.href === "/vendors" && badges.vendors > 0 && <span className="nav-badge blue" title={`${badges.vendors} new from vendors`}>{badges.vendors}</span>}
               {it.href === "/approvals" && badges.sign > 0 && <span className="nav-badge" title={`${badges.sign} waiting for your signature`}>{badges.sign}</span>}
@@ -90,11 +90,13 @@ export default function TopBar({ me, navRole, viewOnly, badges }: { me: Me; navR
         <form className="top-find" action="/cases" role="search" data-tour="search">
           <Icon name="search" size={15} />
           <input name="q" type="search" placeholder="Search cases, BL, container…" aria-label="Search cases" autoComplete="off" />
+          <kbd className="kbd">/</kbd>
         </form>
         {!viewOnly && (
-          <Link className="btn btn-primary btn-sm add-top" data-tour="add" href="/add" aria-current={pathname === "/add" ? "page" : undefined}>
+          <Link className="btn btn-primary btn-sm add-top" data-tour="add" data-key="n" href="/add" aria-current={pathname === "/add" ? "page" : undefined}>
             <Icon name="plus" size={15} />
             Add email
+            <kbd className="kbd">N</kbd>
           </Link>
         )}
         <UserMenu me={me} />

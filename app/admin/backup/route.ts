@@ -16,6 +16,7 @@ const TABLES: [string, string[]][] = [
   ["point_events", []],
   ["attachments", []],
   ["case_messages", []],
+  ["chat_files", []],
   ["approvals", []],
   ["approval_signers", []],
   ["approval_files", []],

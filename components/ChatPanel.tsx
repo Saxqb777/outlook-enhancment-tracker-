@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { askAI, postMessage } from "@/app/actions/chat";
+import { askAI, postMessage, removeChatFile } from "@/app/actions/chat";
+import { AttachChips, AttachClip, FileList, useAttach, useChatDrop } from "@/components/Attach";
 import { addPoint, setPointDue, setPointStatus } from "@/app/actions/work";
 import { Avatar, Icon } from "@/components/Icon";
 import { firstName } from "@/components/ui";
@@ -31,6 +32,8 @@ export default function ChatPanel({ caseId, points, role, leadName, today, activ
   const box = useRef<HTMLDivElement>(null);
   const changeBtn = useRef<HTMLButtonElement>(null);
   const count = useRef(0);
+  const att = useAttach("apv");
+  const drop = useChatDrop(att, !ai);
 
   const load = useCallback(async () => {
     try {
@@ -70,8 +73,9 @@ export default function ChatPanel({ caseId, points, role, leadName, today, activ
 
   const send = (q?: string) => {
     const body = (q ?? text).trim();
-    if (!body || sending || thinking) return;
     const useAi = ai || !!q;
+    const files = useAi ? [] : att.uploaded;
+    if ((!body && !files.length) || sending || thinking || att.busy) return;
     setText("");
     if (useAi) {
       setThinking(true);
@@ -86,8 +90,9 @@ export default function ChatPanel({ caseId, points, role, leadName, today, activ
       return;
     }
     start(async () => {
-      if (await run(postMessage(caseId, body, about || null))) {
+      if (await run(postMessage(caseId, body, about || null, files))) {
         setAbout("");
+        att.clear();
         await load();
       } else setText(body);
     });
@@ -150,7 +155,24 @@ export default function ChatPanel({ caseId, points, role, leadName, today, activ
                       {m.point && <span className="tag">{m.point}</span>}
                       <time>{when.split(", ")[1]}</time>
                     </div>
-                    <div className="msg-t">{m.body}</div>
+                    {m.body && <div className="msg-t">{m.body}</div>}
+                    {!!m.files?.length && (
+                      <FileList
+                        files={m.files}
+                        base="/chat-file"
+                        onRemove={
+                          role === "lead" && !viewOnly
+                            ? (f) => {
+                                if (window.confirm(`Remove "${f.name}" from the chat for good?`)) void run(removeChatFile(f.id)).then((ok) => {
+                                  if (!ok) return;
+                                  toast("File removed.");
+                                  void load();
+                                });
+                              }
+                            : undefined
+                        }
+                      />
+                    )}
                     {m.kind === "ai" && !!m.actions?.length && !viewOnly && (
                       <div className="msg-acts">
                         {m.actions.map((a, k) => {
@@ -193,7 +215,8 @@ export default function ChatPanel({ caseId, points, role, leadName, today, activ
       </div>
 
       {!viewOnly && (
-        <div className="chat-in">
+        <div className={`chat-in${drop.over ? " over" : ""}`} {...drop.zone}>
+          {drop.over && <div className="chat-dropnote">Drop to attach to your message</div>}
           {ai && (
             <div className="chat-quick">
               {QUICK.map((qq) => (
@@ -215,9 +238,11 @@ export default function ChatPanel({ caseId, points, role, leadName, today, activ
                 send();
               }
             }}
-            placeholder={ai ? "Ask the AI about this case…" : "Message the people on this case…"}
+            placeholder={ai ? "Ask the AI about this case…" : "Message the people on this case… drop a file here to attach it"}
             aria-label={ai ? "Ask the AI" : "Message"}
+            onPaste={drop.onPaste}
           />
+          {!ai && <AttachChips att={att} />}
           <div className="chat-bar">
             <button type="button" className={`btn btn-sm ai-btn${ai ? " on" : ""}`} aria-pressed={ai} onClick={() => setAi((v) => !v)} title="Ask the AI about this case. Everyone on the case sees the answer.">
               <Icon name="spark" size={14} />
@@ -238,9 +263,11 @@ export default function ChatPanel({ caseId, points, role, leadName, today, activ
               </select>
             )}
             <span className="sp" />
-            <button type="button" className="btn btn-sm btn-primary" onClick={() => send()} disabled={!text.trim() || sending || thinking}>
+            {!ai && <AttachClip att={att} />}
+            <button type="button" className="btn btn-sm btn-primary" onClick={() => send()} disabled={(!text.trim() && (ai || !att.uploaded.length)) || sending || thinking || att.busy}>
               <Icon name="send" size={14} />
-              {ai ? "Ask" : "Send"}
+              {att.busy ? "Uploading…" : ai ? "Ask" : "Send"}
+              <kbd className="kbd">Enter</kbd>
             </button>
           </div>
           {changing && (

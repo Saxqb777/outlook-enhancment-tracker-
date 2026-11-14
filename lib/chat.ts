@@ -15,6 +15,7 @@ export type FeedItem = {
   point: number | null;
   actions: ChatAction[] | null;
   at: string;
+  files?: { id: string; name: string; mime: string; size: number }[];
 };
 
 export async function canSeeCase(user: User, caseId: string): Promise<boolean> {
@@ -48,7 +49,12 @@ export async function caseFeed(user: User, caseId: string): Promise<FeedItem[]> 
       [caseId],
     ),
   ]);
+  const files = await q<{ id: string; mid: string; name: string; mime: string; size: number }>(
+    "select f.id::text as id, f.case_message_id::text as mid, f.name, f.mime, f.size from chat_files f join case_messages m on m.id = f.case_message_id where m.case_id = $1 order by f.id",
+    [caseId],
+  );
   const items: FeedItem[] = msgs.map((m) => ({
+    files: files.filter((f) => f.mid === m.id).map(({ mid: _m, ...f }) => (void _m, f)),
     key: `m${m.id}`,
     kind: m.kind,
     id: m.id,

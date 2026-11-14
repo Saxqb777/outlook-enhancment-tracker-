@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { aiBlocked } from "@/lib/activity";
 import { requireUser } from "@/lib/auth";
 import { canSeeCase, markRead } from "@/lib/chat";
-import { one, q } from "@/lib/db";
+import { one, q, tx } from "@/lib/db";
+import type { Uploaded } from "@/lib/attach-rules";
+import { removeStored, verifyUploads } from "@/lib/attachments";
 import { askCase } from "@/lib/extract";
 import { STATUS_LABEL, type Status } from "@/lib/status";
 import { todayISO } from "@/lib/time";
@@ -12,14 +14,19 @@ import { todayISO } from "@/lib/time";
 type Result = { ok: true } | { ok: false; error: string };
 const VIEW_ONLY = { ok: false as const, error: "Admin is view only, so nothing can be posted from this account." };
 
-export async function postMessage(caseId: string, text: string, pointId?: string | null): Promise<Result> {
+export async function postMessage(caseId: string, text: string, pointId?: string | null, files?: Uploaded[]): Promise<Result> {
   const me = await requireUser();
   if (me.role === "admin") return VIEW_ONLY;
   const body = String(text ?? "").trim().slice(0, 4000);
-  if (!body) return { ok: false, error: "Write a message first." };
   if (!(await canSeeCase(me, String(caseId)))) return { ok: false, error: "That case isn't available." };
+  const checked = files?.length ? await verifyUploads("apv", files) : [];
+  if (!Array.isArray(checked)) return { ok: false, error: checked.error };
+  if (!body && !checked.length) return { ok: false, error: "Write a message or attach a file first." };
   const pid = pointId && /^\d{1,12}$/.test(pointId) ? ((await one<{ id: string }>("select id::text as id from points where id = $1 and case_id = $2", [pointId, caseId]))?.id ?? null) : null;
-  await q("insert into case_messages (case_id, user_id, kind, body, point_id) values ($1, $2, 'text', $3, $4)", [caseId, me.id, body, pid]);
+  await tx(async (c) => {
+    const m = await c.query<{ id: string }>("insert into case_messages (case_id, user_id, kind, body, point_id) values ($1, $2, 'text', $3, $4) returning id", [caseId, me.id, body, pid]);
+    for (const f of checked) await c.query("insert into chat_files (case_message_id, name, mime, size, storage, url, pathname) values ($1, $2, $3, $4, $5, $6, $7)", [m.rows[0].id, f.name, f.mime, f.size, f.storage, f.url, f.pathname]);
+  });
   await markRead(me.id, String(caseId));
   revalidatePath("/", "layout");
   return { ok: true };
@@ -107,5 +114,22 @@ Asked by: ${me.name} (${me.role === "lead" ? "Lead" : "Member"})`;
   }
   await q("insert into case_messages (case_id, kind, body, actions) values ($1, 'ai', $2, $3::jsonb)", [id, r.answer, JSON.stringify(r.actions)]);
   await markRead(me.id, id);
+  return { ok: true };
+}
+
+/** A Lead removes a file that was sent in a chat by mistake (case chat or vendor chat). The message stays. */
+export async function removeChatFile(fileId: string): Promise<Result> {
+  const me = await requireUser();
+  if (me.role === "admin") return VIEW_ONLY;
+  if (me.role !== "lead") return { ok: false, error: "Only a Lead can remove a file from a chat." };
+  if (!/^\d{1,12}$/.test(String(fileId))) return { ok: false, error: "That file isn't available." };
+  const f = await one<{ id: string; name: string; storage: string; url: string; cm: string | null; rm: string | null }>("select id::text as id, name, storage, url, case_message_id::text as cm, rfq_message_id::text as rm from chat_files where id = $1", [fileId]);
+  if (!f) return { ok: false, error: "That file isn't available." };
+  await q("delete from chat_files where id = $1", [f.id]);
+  // A message that was only that file would be left as an empty bubble: say what happened instead.
+  await q("update case_messages m set body = '(file removed)' where m.id = $1 and m.body = '' and not exists (select 1 from chat_files x where x.case_message_id = m.id)", [f.cm]);
+  await q("update rfq_messages m set body = '(file removed)' where m.id = $1 and m.body = '' and not exists (select 1 from chat_files x where x.rfq_message_id = m.id)", [f.rm]);
+  await removeStored(f).catch(() => {});
+  revalidatePath("/", "layout");
   return { ok: true };
 }

@@ -139,14 +139,19 @@ export async function confirmJob(id: string): Promise<Result> {
   return { ok: true };
 }
 
-export async function sendVendorMessage(id: string, body: string): Promise<Result> {
+export async function sendVendorMessage(id: string, body: string, files?: Uploaded[]): Promise<Result> {
   const v = await requireVendor();
   if (v.viewOnly) return VIEW;
   const r = await mine(v.vendor_id, id);
   if (!r) return GONE;
   const msg = String(body ?? "").trim().slice(0, 2000);
-  if (!msg) return { ok: false, error: "Write a message first." };
-  await q("insert into rfq_messages (rfq_id, vendor_id, vendor_user_id, kind, body) values ($1, $2, $3, 'text', $4)", [id, v.vendor_id, v.id, msg]);
+  const checked = files?.length ? await verifyUploads(v.admin ? "apv" : "vq", files) : [];
+  if (!Array.isArray(checked)) return { ok: false, error: checked.error };
+  if (!msg && !checked.length) return { ok: false, error: "Write a message or attach a file first." };
+  await tx(async (c) => {
+    const m = await c.query<{ id: string }>("insert into rfq_messages (rfq_id, vendor_id, vendor_user_id, kind, body) values ($1, $2, $3, 'text', $4) returning id", [id, v.vendor_id, v.id, msg]);
+    for (const f of checked) await c.query("insert into chat_files (rfq_message_id, name, mime, size, storage, url, pathname) values ($1, $2, $3, $4, $5, $6, $7)", [m.rows[0].id, f.name, f.mime, f.size, f.storage, f.url, f.pathname]);
+  });
   touch(id);
   return { ok: true };
 }

@@ -53,9 +53,10 @@ export default async function VendorsPage({ searchParams }: { searchParams: Prom
             <span className="m-only-i">Export</span>
           </a>
           {(!viewOnly || sandbox) && (
-            <Link className="btn btn-primary" href="/vendors/new" data-tour="vn-new">
+            <Link className="btn btn-primary" href="/vendors/new" data-tour="vn-new" data-key="n">
               <Icon name="plus" size={15} />
               {sandbox ? "New sandbox request" : "New request"}
+              <kbd className="kbd">N</kbd>
             </Link>
           )}
         </div>

@@ -1,9 +1,17 @@
 // The update tour and the "?" help on each page. Bump NEWS_VERSION and edit tourFor() to announce the next update.
-export const NEWS_VERSION = 5;
+export const NEWS_VERSION = 6;
 type R = "lead" | "member" | "admin";
 export type TourStep = { target?: string; title: string; text: string };
 
-export function tourFor(role: R): TourStep[] {
+export function tourFor(role: R, seen = 0): TourStep[] {
+  // Already saw the big tour: only show what is new since then.
+  if (seen >= 5)
+    return [
+      { title: "Two small things to make you faster", text: "Keyboard shortcuts, and files in chat." },
+      { target: '[data-tour="search"]', title: "Keyboard shortcuts", text: "Small grey key labels now sit on the buttons they work for. Press / to search, N for new, G then C for Cases, and the arrow keys to move through a list. Press ? for the full list. They only show on computers." },
+      { title: "Files in chat", text: role === "admin" ? "People can now drop a file onto a chat box, paste a screenshot, or use the paperclip. It works in the case chat and in the chat with a vendor." : "Drop a file onto a chat box to attach it to your message. You can also paste a screenshot or press the paperclip. It works in the case chat and in the chat with a vendor." },
+      { title: "Milestones go in order", text: "On a job, only the next milestone can be ticked, and only the last tick can be undone. Remove a milestone if it doesn't apply." },
+    ];
   const admin = role === "admin";
   const steps: TourStep[] = [
     { title: "Two big updates", text: "First the new Vendors section, then what changed in the look of the app. It takes about a minute, and you can replay it any time from the ? button." },
@@ -61,6 +69,7 @@ export function tourFor(role: R): TourStep[] {
   ];
   if (role === "lead") steps.push({ title: "Team moved", text: "Team is now in the menu under your name at the top right, to keep the bar short." });
   if (admin) steps.push({ title: "Change roles", text: "On the Admin page you can now make a Member a Lead, or a Lead a Member, at any time." }, { title: "See a vendor's portal, and a test area", text: "On the Admin page, See their portal shows what any vendor sees. The Test area is a sandbox with a request in every stage, where you can try every screen without touching real work." });
+  steps.push({ title: "Shortcuts and files in chat", text: "Small grey key labels sit on the buttons they work for (/ to search, N for new, ? for the full list). In any chat you can drop a file on the box, paste a screenshot, or press the paperclip." });
   steps.push({ target: '[data-tour="help"]', title: "Help on every page", text: "Press ? on any page for a short guide to that page, and to replay this tour." });
   return steps;
 }

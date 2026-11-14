@@ -141,7 +141,7 @@ export function PortalReply({ id, result, quote, today, viewOnly = false, sandbo
   );
 }
 
-export function PortalChat({ id, canWrite }: { id: string; canWrite: boolean }) {
+export function PortalChat({ id, canWrite, attachKey = "vq" }: { id: string; canWrite: boolean; attachKey?: "apv" | "vq" }) {
   const router = useRouter();
   return (
     <RfqChat
@@ -149,8 +149,9 @@ export function PortalChat({ id, canWrite }: { id: string; canWrite: boolean }) 
       side="vendor"
       canWrite={canWrite}
       placeholder="Message the team…"
-      send={async (body) => {
-        const r = await sendVendorMessage(id, body);
+      attachKey={attachKey}
+      send={async (body, files) => {
+        const r = await sendVendorMessage(id, body, files);
         if (r.ok) router.refresh();
         return r;
       }}

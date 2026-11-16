@@ -146,3 +146,16 @@ export async function resetSandbox(): Promise<void> {
   revalidatePath("/vendors", "layout");
   redirect("/admin#sandbox");
 }
+
+/** Admin only: who runs the freight rate book (can add and change rates). Leads can always look. */
+export async function setRates(form: FormData): Promise<void> {
+  const admin = await requireAdmin();
+  const id = String(form.get("userId") ?? "");
+  const on = form.get("on") === "1";
+  if (/^[0-9a-f-]{36}$/.test(id)) {
+    const u = await one<{ name: string }>("update users set can_rates = $2 where id = $1 and role <> 'admin' returning name", [id, on]);
+    if (u) await logActivity({ userId: admin.id }, "rates_access", `${on ? "Gave" : "Removed"} the rate book for ${u.name}`);
+  }
+  revalidatePath("/admin");
+  revalidatePath("/", "layout");
+}

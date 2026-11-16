@@ -189,7 +189,8 @@ function looksBinary(s: string): boolean {
 
 const SUPPORTED = "Use an .eml, .msg, .pdf or .txt file, or paste the text.";
 
-export async function readEmailFile(file: File): Promise<{ text: string; note: string } | { error: string }> {
+/** `maxBytes` is the limit for emails and text files (PDFs have their own). Supplier quotes often carry big attachments, so the rate book allows more. */
+export async function readEmailFile(file: File, maxBytes = 5_000_000): Promise<{ text: string; note: string } | { error: string }> {
   const ext = (file.name.split(".").pop() || "").toLowerCase();
   try {
     const head = new Uint8Array(await file.slice(0, 5).arrayBuffer());
@@ -205,7 +206,7 @@ export async function readEmailFile(file: File): Promise<{ text: string; note: s
     if (["doc", "docx", "xls", "xlsx", "ppt", "pptx", "png", "jpg", "jpeg", "gif", "heic", "webp", "zip", "rar", "7z"].includes(ext)) {
       return { error: `Can't read .${ext} files here. ${SUPPORTED}` };
     }
-    if (file.size > 5_000_000) return { error: "That file is over 5 MB. Paste the email text instead." };
+    if (file.size > maxBytes) return { error: `That file is over ${Math.round(maxBytes / 1_000_000)} MB. Paste the email text instead.` };
     if (ext === "msg") {
       const text = await readMsg(await file.arrayBuffer());
       return text ? { text, note: "Outlook email. Sender, date and subject were read from the file." } : { error: "That file has no readable text. Paste the email instead." };

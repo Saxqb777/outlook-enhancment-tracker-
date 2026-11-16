@@ -32,6 +32,11 @@ const TABLES: [string, string[]][] = [
   ["rfq_files", []],
   ["job_milestones", []],
   ["job_comments", []],
+  ["rate_suppliers", []],
+  ["rate_requests", []],
+  ["rate_quotes", []],
+  ["rate_files", []],
+  ["rate_settings", []],
   ["activity_log", []],
 ];
 

@@ -173,6 +173,21 @@ try {
   check(refused(await act(memB, "pickWinner", [rq.id, vA.id, "not mine"])), "member: can't choose the vendor on someone else's request");
   check(/isn't available/.test((await get(memB, `/cases/${c.id}`, `ae_view_as=${memA.id}`)).text), "member: forged 'view as' cookie is ignored");
 
+  console.log("\n— The rate book (one person runs it, Leads look, nobody else)");
+  await sql("update users set can_rates = true where id = $1", [memB.id]);
+  const enquiry = { title: "AccessTest rate", origin: "A", origin_country: "", origin_port: "", destination: "B", destination_country: "", destination_port: "", commodity: "", mode: "sea", service: "d2d", incoterm: "", equipment: [{ type: "40HC", qty: 1 }], notes: "", requested_on: "2026-01-01" };
+  check(/isn't here/.test((await get(memA, "/rates")).text), "member without Rates: the page isn't there for them");
+  check(refused(await act(memA, "createEnquiry", [enquiry, null, []])), "member without Rates: can't add to the rate book");
+  check(toLogin(await get(vA, "/rates")), "vendor: the rate book is closed to them");
+  check((await get(null, "/rates/file/1")).status === 401 && (await get(null, "/rates/template")).status === 401, "signed out: rate files are refused");
+  const made = await act(memB, "createEnquiry", [enquiry, { supplier: "AccessTest Supplier", state: "quoted", quoted_on: "2026-01-02", currency: "USD", rates: [{ type: "40HC", rate: 1000 }], charges: [], carrier: "", routing: "", transit: "", free_time: "", valid_until: "", remarks: "", exclusions: "", decline_reason: "", negotiated: false }, []]);
+  check(made.val?.ok === true, "the person who runs Rates can add an enquiry with a quote", JSON.stringify(made.val));
+  check((await get(lead, `/rates/${made.val?.id}`)).status === 200 && (await get(lead, `/rates/compare/${made.val?.id}`)).status === 200, "lead: can look at the rate book and export");
+  check(refused(await act(lead, "createEnquiry", [enquiry, null, []])), "lead: can't change the rate book");
+  check((await get(memA, `/rates/compare/${made.val?.id}`)).status === 404, "member without Rates: can't export a comparison");
+  await sql("delete from rate_requests where title = 'AccessTest rate'");
+  await sql("delete from rate_suppliers where name = 'AccessTest Supplier'");
+
   console.log("\n— New safety rules");
   const stale = await act(memB, "signApproval", [ap.id, SIG, "", false, 1]);
   check(stale.val?.ok === false && /updated/.test(stale.val.error ?? ""), "approval: signing an old version is refused", JSON.stringify(stale.val));

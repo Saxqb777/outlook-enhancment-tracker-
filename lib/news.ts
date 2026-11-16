@@ -1,9 +1,24 @@
 // The update tour and the "?" help on each page. Bump NEWS_VERSION and edit tourFor() to announce the next update.
-export const NEWS_VERSION = 6;
+export const NEWS_VERSION = 7;
 type R = "lead" | "member" | "admin";
 export type TourStep = { target?: string; title: string; text: string };
 
-export function tourFor(role: R, seen = 0): TourStep[] {
+const RATES_TOUR = (manage: boolean): TourStep[] => [
+  { target: '[data-tour="rates"]', title: "New: Rates", text: manage ? "Your freight rate book. Every quote you've ever received, searchable in seconds, so you never dig through old emails and sheets again." : "The freight rate book: every quotation on record. You can search, compare and export." },
+  { target: '[data-tour="rt-from"]', title: "Type a route, get the answer", text: "Type From and To. You see the lowest rate, the latest rate and the last agreed rate straight away, then suppliers compared and a price history chart." },
+  ...(manage
+    ? [
+        { title: "Drop the supplier's email", text: "When a quote arrives, drop the email, PDF or Excel on the box. The AI reads the supplier, the route, the rates and the conditions into a form. You check it and press Save. The file stays attached." },
+        { title: "One enquiry, many suppliers", text: "Each shipment you ask about is an enquiry. Add each supplier's answer under it, also Declined or No reply. The comparison builds itself: lowest in green, totals in AED and USD, and the saving." },
+        { title: "Award, approve, export", text: "Press Award for the winner; the PO value with buffer is worked out. Send for approval puts it in Approvals for a Lead to sign. Export comparison gives you the Excel sheet." },
+        { title: "Nothing is ever lost", text: "A new rate never replaces an old one, and corrections keep the earlier version. Old rates in Excel? Use Import from Excel with the template." },
+      ]
+    : []),
+];
+
+export function tourFor(role: R, seen = 0, rates: "none" | "view" | "manage" = "none"): TourStep[] {
+  // Saw everything up to the rate book: only that is new, and only for people who have it.
+  if (seen >= 6) return rates === "none" ? [] : RATES_TOUR(rates === "manage");
   // Already saw the big tour: only show what is new since then.
   if (seen >= 5)
     return [
@@ -11,6 +26,7 @@ export function tourFor(role: R, seen = 0): TourStep[] {
       { target: '[data-tour="search"]', title: "Keyboard shortcuts", text: "Small grey key labels now sit on the buttons they work for. Press / to search, N for new, G then C for Cases, and the arrow keys to move through a list. Press ? for the full list. They only show on computers." },
       { title: "Files in chat", text: role === "admin" ? "People can now drop a file onto a chat box, paste a screenshot, or use the paperclip. It works in the case chat and in the chat with a vendor." : "Drop a file onto a chat box to attach it to your message. You can also paste a screenshot or press the paperclip. It works in the case chat and in the chat with a vendor." },
       { title: "Milestones go in order", text: "On a job, only the next milestone can be ticked, and only the last tick can be undone. Remove a milestone if it doesn't apply." },
+      ...(rates === "none" ? [] : RATES_TOUR(rates === "manage")),
     ];
   const admin = role === "admin";
   const steps: TourStep[] = [
@@ -69,6 +85,7 @@ export function tourFor(role: R, seen = 0): TourStep[] {
   ];
   if (role === "lead") steps.push({ title: "Team moved", text: "Team is now in the menu under your name at the top right, to keep the bar short." });
   if (admin) steps.push({ title: "Change roles", text: "On the Admin page you can now make a Member a Lead, or a Lead a Member, at any time." }, { title: "See a vendor's portal, and a test area", text: "On the Admin page, See their portal shows what any vendor sees. The Test area is a sandbox with a request in every stage, where you can try every screen without touching real work." });
+  if (rates !== "none") steps.push(...RATES_TOUR(rates === "manage"));
   steps.push({ title: "Shortcuts and files in chat", text: "Small grey key labels sit on the buttons they work for (/ to search, N for new, ? for the full list). In any chat you can drop a file on the box, paste a screenshot, or press the paperclip." });
   steps.push({ target: '[data-tour="help"]', title: "Help on every page", text: "Press ? on any page for a short guide to that page, and to replay this tour." });
   return steps;
@@ -86,6 +103,31 @@ export function helpFor(path: string, role: R): HelpPage {
         ["Waiting for your approval", "Points people marked Done. Approve, or Reopen if it isn't finished."],
         ["Workload by person", "Each bar is one person's open points, coloured by status."],
         ["Blocked", "Points set to Waiting, with what they're waiting on and for how long."],
+      ],
+    };
+  if (/^\/rates\/\d+/.test(path))
+    return {
+      title: "A rate enquiry",
+      items: [
+        ["Drop the next reply", "Drop a supplier's email, PDF or Excel on the box. The AI fills the quote; you check it and save. The file stays attached."],
+        ["Comparison", "Suppliers across, freight and charges down. The lowest in each row is green. Totals are for the whole shipment, in AED and USD."],
+        ["Add a quote", "Type one in. Pick They declined or No reply to keep that on record too."],
+        ["Correct", "Changes a quote without losing the old one. Earlier versions are listed at the bottom."],
+        ["Award", "Marks the winner, with the reason, PR number and PO value with buffer. Send for approval creates a request in Approvals for a Lead to sign."],
+        ["Export comparison", "An Excel sheet laid out like a comparison: charges down, suppliers across, totals and the award."],
+      ],
+    };
+  if (path === "/rates")
+    return {
+      title: "Rates",
+      items: [
+        ["Find a rate", "Type From and To. The lowest, the latest and the last agreed rate show at the top, then suppliers compared and every matching quote. If there is nothing on that exact route, you get the closest ones."],
+        ["Narrow it", "Service type, mode, supplier, commodity, date, and Valid today only. If there are several container types, pick one to compare like with like."],
+        ["Drop a quotation", "Drop a supplier's email, PDF or Excel on the box. The AI reads the route, the supplier and the rates into a form for you to check."],
+        ["New enquiry", "One enquiry is one shipment you asked several suppliers about. Each supplier's answer is a quote under it."],
+        ["History is kept", "A new rate never replaces an old one. Corrections keep the earlier version."],
+        ["Import and export", "Import old rates from Excel with the template. Export any search, or everything."],
+        ["Exchange rates", "Set how many AED one USD (or other currency) is worth. Used only to compare; quoted amounts stay as they are."],
       ],
     };
   if (path === "/account") return { title: "My account", items: [["Change my password", "Type your current password, then the new one twice. Your other devices are signed out."], ["Forgot it?", "Ask a Lead for a reset link. The Admin can reset with the setup code from the sign-in page."]] };

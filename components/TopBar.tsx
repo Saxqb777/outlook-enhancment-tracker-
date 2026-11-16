@@ -9,7 +9,7 @@ import type { Role } from "@/lib/auth";
 
 type Me = { name: string; email: string; role: Role };
 
-export function navItems(role: Role): { href: string; label: string; icon: IconName }[] {
+export function navItems(role: Role, rates = false): { href: string; label: string; icon: IconName }[] {
   const items: { href: string; label: string; icon: IconName }[] = [
     { href: "/", label: "Home", icon: "home" },
     { href: "/cases", label: "Cases", icon: "cases" },
@@ -17,6 +17,7 @@ export function navItems(role: Role): { href: string; label: string; icon: IconN
     { href: "/approvals", label: "Approvals", icon: "sign" },
     { href: "/vendors", label: "Vendors", icon: "truck" },
   ];
+  if (rates) items.push({ href: "/rates", label: "Rates", icon: "rates" });
   if (role === "lead" || role === "admin") items.push({ href: "/dashboard", label: "Dashboard", icon: "chart" });
   // Team lives in the menu under your name, to keep the bar short.
   if (role === "admin") items.push({ href: "/admin", label: "Admin", icon: "shield" });
@@ -29,9 +30,9 @@ export function isActive(pathname: string, href: string) {
 
 export type Badges = { review: number; unread: number; sign: number; vendors: number };
 
-export default function TopBar({ me, navRole, viewOnly, badges }: { me: Me; navRole: Role; viewOnly: boolean; badges: Badges }) {
+export default function TopBar({ me, navRole, viewOnly, badges, rates = false }: { me: Me; navRole: Role; viewOnly: boolean; badges: Badges; rates?: boolean }) {
   const pathname = usePathname();
-  const items = navItems(navRole);
+  const items = navItems(navRole, rates);
   const tabsRef = useRef<HTMLElement>(null);
   const thumbRef = useRef<HTMLSpanElement>(null);
   const placed = useRef(false);
@@ -76,7 +77,7 @@ export default function TopBar({ me, navRole, viewOnly, badges }: { me: Me; navR
         <span className="tab-thumb" ref={thumbRef} aria-hidden="true" />
         <span className="tab-links">
           {items.map((it) => (
-            <Link key={it.href} href={it.href} aria-current={isActive(pathname, it.href) ? "page" : undefined} data-tour={it.href === "/" ? "home" : it.href.slice(1)} title={it.href === "/admin" ? undefined : `Shortcut: G then ${it.label[0]}`}>
+            <Link key={it.href} href={it.href} aria-current={isActive(pathname, it.href) ? "page" : undefined} data-tour={it.href === "/" ? "home" : it.href.slice(1)} title={it.href === "/admin" || it.href === "/rates" ? undefined : `Shortcut: G then ${it.label[0]}`}>
               {it.label}
               {it.href === "/vendors" && badges.vendors > 0 && <span className="nav-badge blue" title={`${badges.vendors} new from vendors`}>{badges.vendors}</span>}
               {it.href === "/approvals" && badges.sign > 0 && <span className="nav-badge" title={`${badges.sign} waiting for your signature`}>{badges.sign}</span>}

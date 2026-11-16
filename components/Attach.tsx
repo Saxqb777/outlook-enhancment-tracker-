@@ -37,6 +37,12 @@ async function send(mode: "blob" | "local", pointId: string, file: File, onPct: 
   return { url: r.url, pathname: r.pathname, name, size: file.size };
 }
 
+/** Uploads one file and gives back what the server needs to attach it. For flows that must wait for the upload. */
+export function useUploader(key: string) {
+  const mode = useContext(ModeCtx);
+  return (file: File) => send(mode, key, file, () => {});
+}
+
 /** Files picked for one point: they upload as soon as they're chosen. */
 export function useAttach(pointId: string) {
   const mode = useContext(ModeCtx);

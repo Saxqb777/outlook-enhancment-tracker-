@@ -5,7 +5,7 @@ import { createHash, randomBytes, scrypt as scryptCb, timingSafeEqual } from "no
 import { one, q } from "@/lib/db";
 
 export type Role = "lead" | "member" | "admin";
-export type User = { id: string; email: string; name: string; role: Role; seen_news?: number };
+export type User = { id: string; email: string; name: string; role: Role; seen_news?: number; can_rates?: boolean };
 
 export const SESSION_COOKIE = "ae_session";
 /** Set only for the Admin: whose view they are looking at. Ignored for everyone else. */
@@ -87,7 +87,7 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
   return one<User>(
-    `select u.id, u.email, u.name, u.role, u.seen_news
+    `select u.id, u.email, u.name, u.role, u.seen_news, u.can_rates
        from sessions s join users u on u.id = s.user_id
       where s.id = $1 and s.expires_at > now() and u.status = 'active'`,
     [hashToken(token)],
@@ -128,7 +128,7 @@ export const getViewer = cache(async (): Promise<Viewer> => {
   if (real.role !== "admin") return { me: real, real, viewOnly: false, viewingAs: null };
   const id = (await cookies()).get(VIEW_AS_COOKIE)?.value ?? "";
   const target = /^[0-9a-f-]{36}$/.test(id)
-    ? await one<User>("select id, email, name, role from users where id = $1 and status = 'active' and role <> 'admin'", [id])
+    ? await one<User>("select id, email, name, role, can_rates from users where id = $1 and status = 'active' and role <> 'admin'", [id])
     : null;
   return { me: target ?? real, real, viewOnly: true, viewingAs: target };
 });

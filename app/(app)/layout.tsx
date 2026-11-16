@@ -11,6 +11,7 @@ import { Toasts, ViewOnlyProvider } from "@/components/work";
 import { getViewer } from "@/lib/auth";
 import { waitingForMe } from "@/lib/approvals";
 import { vendorBadge } from "@/lib/vendors";
+import { ratesAccess } from "@/lib/rates";
 import { one } from "@/lib/db";
 import { NEWS_VERSION } from "@/lib/news";
 
@@ -33,7 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <ViewOnlyProvider value={viewOnly}>
       <AttachProvider local={!process.env.BLOB_READ_WRITE_TOKEN}>
-      <TopBar me={{ name: real.name, email: real.email, role: real.role }} navRole={navRole} viewOnly={viewOnly} badges={badges} />
+      <TopBar me={{ name: real.name, email: real.email, role: real.role }} navRole={navRole} viewOnly={viewOnly} badges={badges} rates={ratesAccess(me).view} />
       {viewingAs && (
         <div className="viewas" role="status">
           <Icon name="eye" size={16} />
@@ -52,9 +53,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <main className="page" id="main" data-viewer={me.id === real.id ? undefined : "as"}>
         {children}
       </main>
-      <BottomNav role={navRole} viewOnly={viewOnly} badges={badges} />
+      <BottomNav role={navRole} viewOnly={viewOnly} badges={badges} rates={ratesAccess(me).view} />
       <Toasts />
-      <Guide role={real.role} autoTour={(real.seen_news ?? 0) < NEWS_VERSION} version={NEWS_VERSION} seen={real.seen_news ?? 0} />
+      <Guide role={real.role} autoTour={(real.seen_news ?? 0) < NEWS_VERSION} version={NEWS_VERSION} seen={real.seen_news ?? 0} rates={ratesAccess(me).manage ? "manage" : ratesAccess(me).view ? "view" : "none"} />
       <Shortcuts role={navRole} viewOnly={viewOnly} />
       {!viewOnly && <GlobalDrop />}
       {!viewOnly && <Notifier />}

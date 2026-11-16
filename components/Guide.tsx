@@ -11,7 +11,7 @@ import { helpFor, tourFor, type TourStep } from "@/lib/news";
 type R = "lead" | "member" | "admin";
 
 /** The "?" help on every page, and the update tour (shown once per update, replayable from the help). */
-export default function Guide({ role, autoTour, version, seen = 0 }: { role: R; autoTour: boolean; version: number; seen?: number }) {
+export default function Guide({ role, autoTour, version, seen = 0, rates = "none" }: { role: R; autoTour: boolean; version: number; seen?: number; rates?: "none" | "view" | "manage" }) {
   // The pop-up tour only shows what is new to this person; "Replay" from the ? help shows all of it.
   const [full, setFull] = useState(false);
   const path = usePathname();
@@ -21,9 +21,14 @@ export default function Guide({ role, autoTour, version, seen = 0 }: { role: R; 
   useEffect(() => {
     setReady(true);
     if (!autoTour) return;
+    // Nothing new for this person in this update: just remember they are up to date.
+    if (!tourFor(role, seen, rates).length) {
+      void markNewsSeen(version).catch(() => {});
+      return;
+    }
     const t = setTimeout(() => setTour(true), 900);
     return () => clearTimeout(t);
-  }, [autoTour]);
+  }, [autoTour, role, seen, rates, version]);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (e.key === "Escape") setHelp(false);
@@ -95,7 +100,7 @@ export default function Guide({ role, autoTour, version, seen = 0 }: { role: R; 
           </div>,
           document.body,
         )}
-      {tour && <Tour steps={tourFor(role, full ? 0 : seen)} onDone={endTour} />}
+      {tour && <Tour steps={tourFor(role, full ? 0 : seen, rates)} onDone={endTour} />}
     </>
   );
 }

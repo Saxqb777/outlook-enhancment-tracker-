@@ -185,6 +185,34 @@ try {
   check((await get(lead, `/rates/${made.val?.id}`)).status === 200 && (await get(lead, `/rates/compare/${made.val?.id}`)).status === 200, "lead: can look at the rate book and export");
   check(refused(await act(lead, "createEnquiry", [enquiry, null, []])), "lead: can't change the rate book");
   check((await get(memA, `/rates/compare/${made.val?.id}`)).status === 404, "member without Rates: can't export a comparison");
+  // The sums: a charge for one container size is never added to another size.
+  const { quoteTotalAED, unitAllInAED, inferApplies } = await import("../lib/rate-calc.ts").catch(() => ({}));
+  if (quoteTotalAED) {
+    const nq = { currency: "AED", rates: [{ type: "40HC", rate: 19500 }, { type: "20FT", rate: 15400 }], charges: [{ label: "Origin export charges (40HC)", basis: "container", amount: 10350, currency: "AED" }, { label: "Origin export charges (20GP)", basis: "container", amount: 9550, currency: "AED" }, { label: "Telex release fee per BL", basis: "shipment", amount: 250, currency: "AED" }] };
+    const fx = { AED: 1, USD: 3.685 };
+    check(unitAllInAED(nq, "20FT", null, fx) === 24950 && unitAllInAED(nq, "40HC", null, fx) === 29850, "rates sums: all in for one 20FT is 24,950 and one 40HC is 29,850");
+    check(quoteTotalAED(nq, [{ type: "20FT", qty: 1 }], fx).total === 25200 && quoteTotalAED(nq, [{ type: "20FT", qty: 1 }, { type: "40HC", qty: 1 }], fx).total === 55050 && quoteTotalAED(nq, [{ type: "20FT", qty: 2 }], fx).total === 50150, "rates sums: shipment totals count each size's own charges only");
+    check(inferApplies("THC") === "" && inferApplies("Origin charges 40' HC") === "40HC" && inferApplies("Fee for 20 days") === "", "rates sums: only a named size ties a charge to that size");
+  }
+  check((await get(memA, "/rates/doc/1")).status === 404 && (await get(null, "/rates/doc/1")).status === 401, "rate documents: closed to people without Rates and when signed out");
+  check(refused(await act(lead, "addRateDocs", [[{ url: "local:x", pathname: "rt/x.pdf", name: "x.pdf", size: 1 }]])) && refused(await act(memA, "removeRateDoc", ["1"])), "rate documents: only the person who runs Rates can add or remove");
+  check(refused(await act(memA, "sendRateFeedback", ["trying to write feedback without access", "/rates"])), "rates feedback: only people who can see Rates can write it");
+  const fbk = await act(memB, "sendRateFeedback", ["AccessTest feedback note", "/rates"]);
+  check(fbk.val?.ok === true && (await sql("select 1 from rate_feedback where body = 'AccessTest feedback note'")).length === 1, "rates feedback: the person who runs Rates can leave a note");
+  await sql("delete from rate_feedback where body = 'AccessTest feedback note'");
+
+  console.log("\n— Notifications");
+  const subBody = JSON.stringify({ endpoint: "https://push.example.invalid/accesstest", keys: { p256dh: "BAccessTestKeyAccessTestKeyAccessTestKey", auth: "AccessTestAuthKey" } });
+  const push = (who, method, body) => fetch(BASE + "/api/push", { method, headers: { "Content-Type": "application/json", Cookie: who?.cookie ?? "" }, body }).then((r) => r.status);
+  const anonPush = await push(null, "POST", subBody);
+  check(anonPush === 401 || anonPush === 501, "notifications: signed out can't register a device");
+  const myPush = await push(memA, "POST", subBody);
+  if (myPush === 200) {
+    check((await sql("select 1 from push_subs where endpoint like '%accesstest' and user_id = $1", [memA.id])).length === 1, "notifications: a device is tied to the person signed in");
+    check((await push(memB, "DELETE", JSON.stringify({ endpoint: "https://push.example.invalid/accesstest" }))) === 200 && (await sql("select 1 from push_subs where endpoint like '%accesstest'")).length === 1, "notifications: nobody can switch off someone else's device");
+    check((await push(memA, "DELETE", JSON.stringify({ endpoint: "https://push.example.invalid/accesstest" }))) === 200 && (await sql("select 1 from push_subs where endpoint like '%accesstest'")).length === 0, "notifications: you can switch your own device off");
+  } else check(myPush === 501, "notifications: not set up on this server (skipped)");
+  await sql("delete from push_subs where endpoint like '%accesstest'");
   await sql("delete from rate_requests where title = 'AccessTest rate'");
   await sql("delete from rate_suppliers where name = 'AccessTest Supplier'");
 

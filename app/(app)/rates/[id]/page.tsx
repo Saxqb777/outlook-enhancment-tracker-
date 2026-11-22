@@ -7,7 +7,7 @@ import { isImage, sizeLabel } from "@/lib/attach-rules";
 import { getViewer } from "@/lib/auth";
 import { q } from "@/lib/db";
 import { MODES, rtRef, SERVICES } from "@/lib/rate-calc";
-import { getRequest, listQuotes, listRequests, listSuppliers, ratesAccess, rateSettings } from "@/lib/rates";
+import { getRequest, listFeedback, listQuotes, listRequests, listSuppliers, ratesAccess, rateSettings } from "@/lib/rates";
 import { fmtDay, fmtStamp, todayISO } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +24,7 @@ export default async function RateEnquiryPage({ params }: { params: Promise<{ id
   if (!access.view) notFound();
   const r = await getRequest(id);
   if (!r) notFound();
-  const [reqs, quotes, sups, settings, leads] = await Promise.all([listRequests(), listQuotes(), listSuppliers(), rateSettings(), q<{ id: string; name: string }>("select id, name from users where role = 'lead' and status = 'active' order by lower(name)")]);
+  const [reqs, quotes, sups, settings, notes, leads] = await Promise.all([listRequests(), listQuotes(), listSuppliers(), rateSettings(), listFeedback(), q<{ id: string; name: string }>("select id, name from users where role = 'lead' and status = 'active' order by lower(name)")]);
   const strip = <T extends { replaces_id: string | null; replaced_at: Date | null; created_at: Date }>({ replaces_id: _r, replaced_at: _a, created_at: _c, ...x }: T) => (void _r, void _a, void _c, x);
   const place = (a: string, b: string, c: string) => [a, c && c !== a ? c : "", b].filter(Boolean).join(", ");
   return (
@@ -72,6 +72,8 @@ export default async function RateEnquiryPage({ params }: { params: Promise<{ id
         today={todayISO()}
         leads={leads.filter((p) => p.id !== me.id)}
         approvalStatus={r.approval_status}
+        notes={notes.map((n) => ({ id: n.id, body: n.body, status: n.status, reply: n.reply, by: n.by, at: fmtStamp(n.created_at) }))}
+        canNote={!viewOnly && me.role !== "admin"}
       />
     </div>
   );

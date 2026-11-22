@@ -1,5 +1,7 @@
 import { getCurrentUser } from "@/lib/auth";
+import { after as later } from "next/server";
 import { q } from "@/lib/db";
+import { pushSweep } from "@/lib/push";
 
 export const dynamic = "force-dynamic";
 
@@ -7,6 +9,8 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const user = await getCurrentUser();
   if (!user) return Response.json({ error: "Sign in first." }, { status: 401 });
+  // Someone has the site open: use the moment to send phone notifications for anything new.
+  later(() => pushSweep());
   if (user.role === "admin") return Response.json({ now: new Date().toISOString(), items: [], unread: 0 });
   const raw = new URL(req.url).searchParams.get("after") ?? "";
   const after = /^\d{4}-\d\d-\d\dT[\d:.]+Z$/.test(raw) ? raw : null;

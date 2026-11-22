@@ -10,6 +10,8 @@ export const metadata: Metadata = {
   title: { default: "Shipping Tickets", template: "%s · Shipping Tickets" },
   description: "Turn emails into tracked work for your team.",
   robots: { index: false, follow: false },
+  icons: { icon: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }], apple: "/apple-touch-icon.png" },
+  appleWebApp: { capable: true, title: "Tickets", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {

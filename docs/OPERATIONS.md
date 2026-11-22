@@ -42,3 +42,17 @@ Once a day (on someone's sign-in) it removes expired sessions and links, sign-in
 - Original email files are stored in the database (up to 2.5 MB each). On the free Neon plan (about 0.5 GB) this will fill up over time; moving them to the file store is still to do.
 - No email or WhatsApp alerts: people and vendors only see news while the app is open.
 - No two-step sign-in.
+
+## Notifications on phones and computers
+
+- Two settings on Vercel: `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`. Without them the site works, notifications are simply off.
+- Do not change them: every device would stop getting notifications until people press Turn on again.
+- Each person switches it on per device: the card that pops up, or their name > My account > Notifications. "Send me a test" checks it.
+- iPhone: open the site in Safari, Share > Add to Home Screen, open it from the icon, then Turn on.
+- Notifications go out when anyone has the site open (it checks every few seconds). If nobody at all has it open, they go out the moment the next person opens it.
+- Table `push_subs` holds one row per device. A row goes away when that person signs out, or when the phone says the subscription is gone.
+
+## Rates feedback
+
+- People who use Rates write notes with the "Something not right?" button. They are in the table `rate_feedback` and on the Admin page.
+- To act on them: tell Claude "check the Rates feedback". After fixing, the note's `status` is set to `done` with a `reply`, which the writer sees.

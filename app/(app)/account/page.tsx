@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { ChangePasswordForm } from "@/components/forms";
+import { PushCard } from "@/components/Push";
 import { getViewer } from "@/lib/auth";
+import { pushPublicKey } from "@/lib/push";
 
 export const metadata: Metadata = { title: "My account" };
 export const dynamic = "force-dynamic";
@@ -17,6 +19,10 @@ export default async function AccountPage() {
           </p>
         </div>
       </header>
+      <section className="panel ap-new" aria-label="Notifications">
+        <h2 className="acc-h">Notifications</h2>
+        <PushCard publicKey={pushPublicKey()} />
+      </section>
       <section className="panel ap-new" aria-label="Change password">
         <h2 className="acc-h">Change my password</h2>
         <ChangePasswordForm />

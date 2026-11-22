@@ -196,7 +196,7 @@ export async function readEmailFile(file: File, maxBytes = 5_000_000): Promise<{
     const head = new Uint8Array(await file.slice(0, 5).arrayBuffer());
     const isPdf = ext === "pdf" || (head[0] === 0x25 && head[1] === 0x50 && head[2] === 0x44 && head[3] === 0x46); // %PDF
     if (isPdf) {
-      if (file.size > 25_000_000) return { error: "That PDF is over 25 MB. Save just the email as PDF, or paste the text." };
+      if (file.size > Math.max(25_000_000, maxBytes)) return { error: `That PDF is over ${Math.round(Math.max(25_000_000, maxBytes) / 1_000_000)} MB. Save just the email as PDF, or paste the text.` };
       const { text, pages } = await readPdf(await file.arrayBuffer());
       if (text.replace(/\s+/g, "").length < 40) {
         return { error: "This PDF is a picture of the email, so there's no text to read. Open it, copy the text and paste it instead." };

@@ -2,14 +2,16 @@
 
 import ExcelJS from "exceljs";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import type { PoolClient } from "pg";
 import { aiBlocked, logActivity } from "@/lib/activity";
 import type { Uploaded } from "@/lib/attach-rules";
-import { openAttachment, verifyUploads, type Verified } from "@/lib/attachments";
+import { openAttachment, removeStored, verifyUploads, type Verified } from "@/lib/attachments";
 import { requireUser, type User } from "@/lib/auth";
 import { one, q, tx } from "@/lib/db";
 import { extractRate, type RateExtract } from "@/lib/extract";
-import { CURRENCIES, normEquip, num, quoteTotalAED, rtRef, money, fromAED, SERVICES, MODES, type Charge, type Equip, type Mode, type QuoteState, type Service, type UnitRate } from "@/lib/rate-calc";
+import { CURRENCIES, inferApplies, normEquip, num, quoteTotalAED, rtRef, money, fromAED, SERVICES, MODES, type Charge, type Equip, type Mode, type QuoteState, type Service, type UnitRate } from "@/lib/rate-calc";
+import { pushSweep } from "@/lib/push";
 import { getRequest, rateSettings, ratesAccess } from "@/lib/rates";
 import { isISODate, todayISO } from "@/lib/time";
 
@@ -59,7 +61,7 @@ function cleanQuote(i: QuoteInput) {
   return {
     supplier: t(i?.supplier, 120), state, quoted_on: isISODate(i?.quoted_on) ? i.quoted_on : todayISO(), currency: cur(i?.currency),
     rates: state === "quoted" ? (Array.isArray(i?.rates) ? i.rates : []).map((r) => ({ type: normEquip(String(r?.type ?? "")), rate: Math.max(0, num(r?.rate)) })).filter((r) => r.type && r.rate > 0 && r.rate < 1e9).slice(0, 12) : [],
-    charges: state === "quoted" ? (Array.isArray(i?.charges) ? i.charges : []).map((c) => ({ label: t(c?.label, 80), basis: c?.basis === "shipment" ? ("shipment" as const) : ("container" as const), amount: Math.max(0, num(c?.amount)), currency: cur(c?.currency || i?.currency) })).filter((c) => c.label && c.amount > 0 && c.amount < 1e9).slice(0, 60) : [],
+    charges: state === "quoted" ? (Array.isArray(i?.charges) ? i.charges : []).map((c) => ({ label: t(c?.label, 80), basis: c?.basis === "shipment" ? ("shipment" as const) : ("container" as const), amount: Math.max(0, num(c?.amount)), currency: cur(c?.currency || i?.currency), applies: c?.basis === "shipment" ? "" : c?.applies === undefined ? inferApplies(t(c?.label, 80)) : c.applies ? normEquip(String(c.applies)) : "" })).filter((c) => c.label && c.amount > 0 && c.amount < 1e9).slice(0, 60) : [],
     carrier: t(i?.carrier, 80), routing: t(i?.routing, 200), transit: t(i?.transit, 120), free_time: t(i?.free_time, 80), valid_until: isISODate(i?.valid_until) ? i.valid_until : null,
     remarks: long(i?.remarks, 2000), exclusions: long(i?.exclusions, 500), decline_reason: long(i?.decline_reason, 300), negotiated: i?.negotiated === true && state === "quoted",
     contact: t(i?.contact, 120), contact_email: t(i?.contact_email, 160),
@@ -109,7 +111,7 @@ export async function createEnquiry(input: RequestInput, first?: QuoteInput | nu
   const k = first ? cleanQuote(first) : null;
   const bad = k ? checkQuote(k) : null;
   if (bad) return { ok: false, error: bad };
-  const checked = files?.length ? await verifyUploads("apv", files) : [];
+  const checked = files?.length ? await verifyUploads("rt", files) : [];
   if (!Array.isArray(checked)) return { ok: false, error: checked.error };
   const id = await tx(async (c) => {
     const rid = await insertRequest(c, me, r);
@@ -143,7 +145,7 @@ export async function saveQuote(requestId: string, input: QuoteInput, files?: Up
   const k = cleanQuote(input);
   const bad = checkQuote(k);
   if (bad) return { ok: false, error: bad };
-  const checked = files?.length ? await verifyUploads("apv", files) : [];
+  const checked = files?.length ? await verifyUploads("rt", files) : [];
   if (!Array.isArray(checked)) return { ok: false, error: checked.error };
   const r = await tx<Result>(async (c) => {
     const req = (await c.query<{ id: string; awarded_quote_id: string | null }>("select id::text as id, awarded_quote_id::text as awarded_quote_id from rate_requests where id = $1 for update", [requestId])).rows[0];
@@ -325,8 +327,9 @@ async function sheetText(file: Verified): Promise<string> {
 export async function readRateSheet(file: Uploaded): Promise<{ ok: true; data: RateExtract } | { ok: false; error: string }> {
   const me = await manager();
   if (!me) return NO;
-  const checked = await verifyUploads("apv", [file]);
+  const checked = await verifyUploads("rt", [file]);
   if (!Array.isArray(checked)) return { ok: false, error: checked.error };
+  if (checked[0].size > 15 * 1024 * 1024) return { ok: false, error: "That spreadsheet is too big for the AI to read (over 15 MB). It can still be kept in Documents; type this quote in yourself." };
   let text = "";
   try {
     text = await sheetText(checked[0]);
@@ -367,7 +370,7 @@ const dateOf = (v: unknown): string => {
 export async function importRates(file: Uploaded): Promise<{ ok: true; enquiries: number; quotes: number; skipped: number } | { ok: false; error: string }> {
   const me = await manager();
   if (!me) return NO;
-  const checked = await verifyUploads("apv", [file]);
+  const checked = await verifyUploads("rt", [file]);
   if (!Array.isArray(checked)) return { ok: false, error: checked.error };
   const body = await openAttachment(checked[0]);
   if (!body) return { ok: false, error: "That file didn't upload properly. Try again." };
@@ -425,7 +428,7 @@ export async function importRates(file: Uploaded): Promise<{ ok: true; enquiries
     const extra = num(r.extra);
     const k = g.quotes.get(supplier.toLowerCase()) ?? cleanQuote({ supplier, state: "quoted", quoted_on: date, currency, rates: [], charges: [], carrier: s(r.carrier, 80), routing: "", transit: s(r.transit), free_time: s(r.free_time, 80), valid_until: dateOf(r.valid), remarks: long(r.remarks instanceof Date ? "" : r.remarks, 2000), exclusions: "", decline_reason: "", negotiated: false });
     if (!k.rates.some((x) => x.type === type)) k.rates.push({ type, rate });
-    if (extra > 0 && !k.charges.length) k.charges.push({ label: "Additional charges", basis: "container", amount: extra, currency: CURRENCIES.includes(currency) ? currency : "USD" });
+    if (extra > 0 && !k.charges.length) k.charges.push({ label: "Additional charges", basis: "container", amount: extra, currency: CURRENCIES.includes(currency) ? currency : "USD", applies: type === "Shipment" ? "" : type });
     else if (!extra && typeof r.extra === "string" && r.extra.trim() && !k.remarks.includes(r.extra.trim())) k.remarks = `${k.remarks}${k.remarks ? "\n" : ""}Additional charges: ${r.extra.trim()}`.slice(0, 2000);
     g.quotes.set(supplier.toLowerCase(), k);
     groups.set(key, g);
@@ -444,4 +447,59 @@ export async function importRates(file: Uploaded): Promise<{ ok: true; enquiries
   await logActivity({ userId: me.id }, "rates_import", `Imported ${quotes} freight quotes into ${groups.size} enquiries`);
   touch();
   return { ok: true, enquiries: groups.size, quotes, skipped };
+}
+
+// ------------------------------------------------------------------ documents: any file worth keeping (old rate sheets, contracts, emails)
+
+/** Keeps files that were just uploaded. Each starts with its file name as the title; details can be added after. */
+export async function addRateDocs(files: Uploaded[], info?: { route?: string; supplier?: string; doc_date?: string; notes?: string }): Promise<{ ok: true; added: number } | { ok: false; error: string }> {
+  const me = await manager();
+  if (!me) return NO;
+  const checked = await verifyUploads("rt", files);
+  if (!Array.isArray(checked)) return { ok: false, error: checked.error };
+  if (!checked.length) return { ok: false, error: "No files." };
+  for (const f of checked)
+    await q("insert into rate_docs (title, route, supplier, doc_date, notes, name, mime, size, storage, url, pathname, created_by) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)", [
+      f.name.replace(/\.[a-z0-9]{2,5}$/i, "").slice(0, 160) || f.name, t(info?.route, 160), t(info?.supplier, 120), isISODate(info?.doc_date) ? info!.doc_date : null, long(info?.notes, 1000), f.name, f.mime, f.size, f.storage, f.url, f.pathname, me.id,
+    ]);
+  touch();
+  return { ok: true, added: checked.length };
+}
+export async function updateRateDoc(id: string, input: { title: string; route: string; supplier: string; doc_date: string; notes: string }): Promise<Result> {
+  const me = await manager();
+  if (!me) return NO;
+  if (!isId(id)) return GONE;
+  const title = t(input?.title, 160);
+  if (!title) return { ok: false, error: "Give the document a name." };
+  const r = await q("update rate_docs set title = $2, route = $3, supplier = $4, doc_date = $5, notes = $6 where id = $1 returning id", [id, title, t(input.route, 160), t(input.supplier, 120), isISODate(input.doc_date) ? input.doc_date : null, long(input.notes, 1000)]);
+  if (!r.length) return GONE;
+  touch();
+  return { ok: true };
+}
+export async function removeRateDoc(id: string): Promise<Result> {
+  const me = await manager();
+  if (!me) return NO;
+  if (!isId(id)) return GONE;
+  const f = await one<{ storage: string; url: string; title: string }>("delete from rate_docs where id = $1 returning storage, url, title", [id]);
+  if (!f) return GONE;
+  await removeStored(f);
+  await logActivity({ userId: me.id }, "rates_doc_removed", `Removed the document "${f.title}" from the rate book`);
+  touch();
+  return { ok: true };
+}
+
+// ------------------------------------------------------------------ feedback: what still feels off, written where the work happens
+
+export async function sendRateFeedback(body: string, page: string): Promise<Result> {
+  const me = await requireUser();
+  if (!ratesAccess(me).view || me.role === "admin") return { ok: false, error: "Feedback is for the people who use the rate book." };
+  const text = long(body, 3000);
+  if (text.length < 5) return { ok: false, error: "Write a few words about what is wrong or missing." };
+  const recent = await one<{ n: number }>("select count(*)::int as n from rate_feedback where user_id = $1 and created_at > now() - interval '1 hour'", [me.id]);
+  if ((recent?.n ?? 0) >= 20) return { ok: false, error: "That's a lot of notes in one hour. Try again a little later." };
+  await q("insert into rate_feedback (user_id, body, page) values ($1, $2, $3)", [me.id, text, t(page, 200)]);
+  await logActivity({ userId: me.id }, "rates_feedback", `Left feedback on Rates: ${text.slice(0, 200)}`);
+  after(() => pushSweep(true));
+  touch();
+  return { ok: true };
 }

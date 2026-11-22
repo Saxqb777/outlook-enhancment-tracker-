@@ -1,6 +1,11 @@
 // What can be attached to a point. Shared by the browser and the server.
 export const ATT_MAX_BYTES = 10 * 1024 * 1024;
 export const ATT_MAX_FILES = 5;
+// The rate book keeps big files (old rate sheets, contracts, long email threads).
+export const RT_MAX_BYTES = 50 * 1024 * 1024;
+export const RT_MAX_FILES = 20;
+export const maxBytesFor = (key: string) => (key === "rt" ? RT_MAX_BYTES : ATT_MAX_BYTES);
+export const maxFilesFor = (key: string) => (key === "rt" ? RT_MAX_FILES : ATT_MAX_FILES);
 
 export const ATT_TYPES: Record<string, string> = {
   pdf: "application/pdf",
@@ -39,9 +44,9 @@ export const sizeLabel = (n: number) => (n < 1024 ? `${n} B` : n < 1024 * 1024 ?
 /** What the browser sends after a file is uploaded. */
 export type Uploaded = { url: string; pathname: string; name: string; size: number };
 
-export function checkFile(f: { name: string; size: number }): string | null {
+export function checkFile(f: { name: string; size: number }, max = ATT_MAX_BYTES): string | null {
   if (!mimeFor(f.name)) return `${f.name}: this kind of file can't be attached. Use PDF, photos, Excel, Word, Outlook emails or text.`;
-  if (f.size > ATT_MAX_BYTES) return `${f.name} is over 10 MB.`;
+  if (f.size > max) return `${f.name} is over ${Math.round(max / 1024 / 1024)} MB.`;
   if (f.size === 0) return `${f.name} is empty.`;
   return null;
 }

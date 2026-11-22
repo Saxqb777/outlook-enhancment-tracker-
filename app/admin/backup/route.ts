@@ -37,6 +37,8 @@ const TABLES: [string, string[]][] = [
   ["rate_quotes", []],
   ["rate_files", []],
   ["rate_settings", []],
+  ["rate_docs", []],
+  ["rate_feedback", []],
   ["activity_log", []],
 ];
 

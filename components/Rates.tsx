@@ -7,10 +7,11 @@ import { awardQuote, createEnquiry, importRates, removeQuote, saveFx, saveQuote,
 import { Dialog, useAct } from "@/components/Approvals";
 import { useAttach, useUploader } from "@/components/Attach";
 import { Icon } from "@/components/Icon";
+import { DocsTab, FeedbackBox, MonthBook, type DocV, type NoteV } from "@/components/RateExtras";
 import { blankQuote, blankRequest, fromExtract, QuoteFields, RateDrop, RequestFields, useRateReader, type Hints } from "@/components/RateForms";
 import { toast } from "@/components/work";
 import type { Uploaded } from "@/lib/attach-rules";
-import { CURRENCIES, fromAED, MODES, money, normEquip, placeMatch, quoteTotalAED, rtRef, SERVICE_SHORT, SERVICES, STATES, toAED, unitAllInAED, type Charge, type Equip, type Fx, type Mode, type QuoteState, type Service, type UnitRate } from "@/lib/rate-calc";
+import { basisText, chargeFor, CURRENCIES, fromAED, MODES, money, normEquip, placeMatch, quoteTotalAED, rtRef, SERVICE_SHORT, SERVICES, shipmentChargesAED, STATES, toAED, unitAllInAED, type Charge, type Equip, type Fx, type Mode, type QuoteState, type Service, type UnitRate } from "@/lib/rate-calc";
 
 export type Req = {
   id: string; title: string; origin: string; origin_country: string; origin_port: string; destination: string; destination_country: string; destination_port: string;
@@ -56,7 +57,7 @@ function EnquiryEditor({ start, hints, today, last, onClose }: { start?: { reque
   const [req, setReq] = useState<RequestInput>(start?.request ?? blankRequest(today));
   const [withQuote, setWithQuote] = useState(!!start);
   const [quote, setQuote] = useState<QuoteInput>(start?.quote ?? blankQuote(today));
-  const att = useAttach("apv");
+  const att = useAttach("rt");
   const [busy, go] = useTransition();
   const types = req.equipment.map((e) => normEquip(e.type)).filter(Boolean);
   const save = () =>
@@ -98,7 +99,7 @@ function EnquiryEditor({ start, hints, today, last, onClose }: { start?: { reque
 
 function QuoteEditor({ requestId, types, start, replaceId, file, hints, last, onClose }: { requestId: string; types: string[]; start: QuoteInput; replaceId?: string; file?: Uploaded | null; hints: Hints; last: Record<string, Partial<QuoteInput>>; onClose: () => void }) {
   const [quote, setQuote] = useState<QuoteInput>(start);
-  const att = useAttach("apv");
+  const att = useAttach("rt");
   const { busy, act } = useAct();
   return (
     <Dialog title={replaceId ? `Correct ${start.supplier}'s quote` : "Add a quote"} onClose={onClose} wide>
@@ -119,9 +120,11 @@ function QuoteEditor({ requestId, types, start, replaceId, file, hints, last, on
 
 // ------------------------------------------------------------------ the rate book home: search, dashboard, enquiries, suppliers
 
-export function RatesHome({ reqs, quotes, sups, fx, charges, manage, today, initial }: { reqs: Req[]; quotes: Quo[]; sups: Sup[]; fx: Fx; charges: [string, "container" | "shipment"][]; manage: boolean; today: string; initial?: { from?: string; to?: string; supplier?: string } }) {
+export function RatesHome({ reqs, quotes, sups, fx, charges, manage, today, initial, docs, notes, canNote }: { reqs: Req[]; quotes: Quo[]; sups: Sup[]; fx: Fx; charges: [string, "container" | "shipment"][]; manage: boolean; today: string; initial?: { from?: string; to?: string; supplier?: string }; docs: DocV[]; notes: NoteV[]; canNote: boolean }) {
   const router = useRouter();
-  const [tab, setTab] = useState<"overview" | "enquiries" | "suppliers">("overview");
+  const [tab, setTab] = useState<"overview" | "enquiries" | "suppliers" | "documents">("overview");
+  const [month, setMonth] = useState("");
+  const [fb, setFb] = useState(false);
   const [from, setFrom] = useState(initial?.from ?? "");
   const [to, setTo] = useState(initial?.to ?? "");
   const [service, setService] = useState<"" | Service>("");
@@ -152,19 +155,36 @@ export function RatesHome({ reqs, quotes, sups, fx, charges, manage, today, init
     return out;
   }, [quotes, byId, fx, today]);
 
-  const searching = !!(from.trim() || to.trim() || service || mode || supplier || commodity.trim() || since || validOnly);
-  const rest = (l: Line) =>
-    (!service || l.r.service === service) && (!mode || l.r.mode === mode) && (!supplier || l.q.supplier === supplier) && (!commodity.trim() || l.r.commodity.toLowerCase().includes(commodity.trim().toLowerCase())) && (!since || l.q.quoted_on >= since) && (!validOnly || l.active);
-  const exact = lines.filter((l) => rest(l) && placeMatch(from, l.r.origin, l.r.origin_port, l.r.origin_country) && placeMatch(to, l.r.destination, l.r.destination_port, l.r.destination_country));
+  const searching = !!(from.trim() || to.trim() || service || mode || supplier || commodity.trim() || since || month || validOnly);
+  const basic = (r: Req) => (!service || r.service === service) && (!mode || r.mode === mode) && (!commodity.trim() || r.commodity.toLowerCase().includes(commodity.trim().toLowerCase()));
+  const rest = (l: Line) => basic(l.r) && (!supplier || l.q.supplier === supplier) && (!validOnly || l.active);
+  const inDates = (l: Line) => (!since || l.q.quoted_on >= since) && (!month || l.q.quoted_on.startsWith(month));
+  const ends = (r: Req) => placeMatch(from, r.origin, r.origin_port, r.origin_country) && placeMatch(to, r.destination, r.destination_port, r.destination_country);
+  // One box filled and nothing that way round: look for the place at either end, so "Auckland" typed under From still finds it.
+  const single = from.trim() && !to.trim() ? from : to.trim() && !from.trim() ? to : "";
+  const eitherEnd = (r: Req) => !!single && placeMatch(single, r.origin, r.origin_port, r.origin_country, r.destination, r.destination_port, r.destination_country);
+  const direct = lines.filter((l) => rest(l) && ends(l.r));
+  const flipped = !direct.length && !!single && lines.some((l) => rest(l) && eitherEnd(l.r));
+  const place = (r: Req) => (flipped ? eitherEnd(r) : ends(r));
+  const exactAll = flipped ? lines.filter((l) => rest(l) && eitherEnd(l.r)) : direct;
   // Nothing on that exact route: fall back to the same country on each end. A place we have never seen
   // doesn't narrow the search, so there is still something to go on.
   const cFrom = lines.find((x) => from.trim() && placeMatch(from, x.r.origin, x.r.origin_port, x.r.origin_country))?.r.origin_country;
   const cTo = lines.find((x) => to.trim() && placeMatch(to, x.r.destination, x.r.destination_port, x.r.destination_country))?.r.destination_country;
-  const similar = !exact.length && (cFrom || cTo) ? lines.filter((l) => rest(l) && (!cFrom || l.r.origin_country === cFrom) && (!cTo || l.r.destination_country === cTo)) : [];
+  const similarAll = !exactAll.length && (cFrom || cTo) ? lines.filter((l) => rest(l) && (!cFrom || l.r.origin_country === cFrom) && (!cTo || l.r.destination_country === cTo)) : [];
+  // Every date (for the month-by-month book), and the ones inside the dates asked for (for the answer and the list).
+  const poolAll = exactAll.length ? exactAll : similarAll;
+  const exact = exactAll.filter(inDates);
+  const similar = similarAll.filter(inDates);
+  // Enquiries on this route that have no price yet: they must still be findable.
+  const quotedReq = new Set(lines.map((l) => l.r.id));
+  const waiting = reqs.filter((r) => !quotedReq.has(r.id));
+  const waitingHere = searching ? waiting.filter((r) => basic(r) && (place(r) || ends(r) || eitherEnd(r))) : [];
   const pool = exact.length ? exact : similar;
-  const types = [...new Map(pool.map((l) => [l.type, pool.filter((x) => x.type === l.type).length])).entries()].sort((a, b) => b[1] - a[1]);
+  const types = [...new Map(poolAll.map((l) => [l.type, poolAll.filter((x) => x.type === l.type).length])).entries()].sort((a, b) => b[1] - a[1]);
   const curType = types.some(([t]) => t === type) ? type : (types[0]?.[0] ?? "");
   const shown = pool.filter((l) => !curType || l.type === curType).sort((a, b) => b.q.quoted_on.localeCompare(a.q.quoted_on) || a.allIn - b.allIn);
+  const book = poolAll.filter((l) => !curType || l.type === curType);
   const lowest = [...shown].sort((a, b) => a.allIn - b.allIn)[0];
   const latest = shown[0];
   const agreed = shown.find((l) => l.awarded || l.q.negotiated);
@@ -188,7 +208,7 @@ export function RatesHome({ reqs, quotes, sups, fx, charges, manage, today, init
     a.click();
     URL.revokeObjectURL(a.href);
   };
-  const clear = () => (setFrom(""), setTo(""), setService(""), setMode(""), setSupplier(""), setCommodity(""), setSince(""), setValidOnly(false), setType(""));
+  const clear = () => (setFrom(""), setTo(""), setService(""), setMode(""), setSupplier(""), setCommodity(""), setSince(""), setMonth(""), setValidOnly(false), setType(""));
 
   const activeQ = quotes.filter((q) => q.state === "quoted" && (!q.valid_until || q.valid_until >= today));
   const soon = quotes.filter((q) => q.state === "quoted" && q.valid_until && q.valid_until >= today && q.valid_until <= new Date(Date.parse(today) + 7 * 864e5).toISOString().slice(0, 10));
@@ -196,6 +216,17 @@ export function RatesHome({ reqs, quotes, sups, fx, charges, manage, today, init
 
   return (
     <>
+      <div className="rt-helpbar no-print">
+        <Link className="btn btn-sm btn-ghost" href="/rates/guide">
+          <Icon name="help" size={14} />
+          How Rates works
+        </Link>
+        <button type="button" className="btn btn-sm" onClick={() => setFb(true)} data-tour="rt-feedback">
+          <Icon name="chat" size={14} />
+          {canNote ? "Something not right? Tell us" : "Feedback notes"}
+          {notes.some((n) => n.status !== "done") && <span className="n">{notes.filter((n) => n.status !== "done").length}</span>}
+        </button>
+      </div>
       <section className="panel rt-search" aria-label="Find a rate">
         <datalist id="rt-places-s">{hints.places.concat(hints.ports, hints.countries).filter((x, i, a) => a.indexOf(x) === i).map((x) => <option key={x} value={x} />)}</datalist>
         <div className="rt-search-row">
@@ -235,6 +266,10 @@ export function RatesHome({ reqs, quotes, sups, fx, charges, manage, today, init
               <span>Quoted since</span>
               <input type="date" className="inp inp-date" value={since} onChange={(e) => setSince(e.target.value)} />
             </label>
+            <label className="rt-since">
+              <span>Only the month</span>
+              <input type="month" className="inp inp-date" value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Only quotes from this month" />
+            </label>
             <label className="ap-check">
               <input type="checkbox" checked={validOnly} onChange={(e) => setValidOnly(e.target.checked)} />
               Valid today only
@@ -250,13 +285,43 @@ export function RatesHome({ reqs, quotes, sups, fx, charges, manage, today, init
 
       {searching ? (
         <>
-          {!pool.length ? (
-            <section className="panel">
-              <p className="empty">No rates on record for that yet. {manage ? "When a quote comes in, drop the supplier's email below or press New enquiry." : ""}</p>
+          {waitingHere.length > 0 && (
+            <section className="panel" aria-label="Enquiries with no quote yet">
+              <div className="panel-h">
+                <h2>Saved, but no quote yet <span className="count">{waitingHere.length}</span></h2>
+                <span className="small muted">Open one to add the supplier&apos;s price. It then shows in the rates below.</span>
+              </div>
+              <div className="list">
+                {waitingHere.map((r) => (
+                  <Link key={r.id} className="aprow rqrow" href={`/rates/${r.id}`}>
+                    <span className="cid">{rtRef(r.id)}</span>
+                    <span className="ap-main">
+                      <span className="ap-title">{r.title}</span>
+                      <span className="ap-sub"><span>{fmtDate(r.requested_on)}</span><span>{route(r)}</span><span>{SERVICE_SHORT[r.service]}</span></span>
+                    </span>
+                    <span className="ap-end"><span className="ap-st rq-open">No quote yet</span></span>
+                  </Link>
+                ))}
+              </div>
             </section>
+          )}
+          {!poolAll.length ? (
+            !waitingHere.length && (
+              <section className="panel">
+                <p className="empty">No rates on record for that yet. {manage ? "When a quote comes in, drop the supplier's email on the Rates page or press New enquiry." : ""}</p>
+              </section>
+            )
+          ) : !pool.length ? (
+            <>
+              <section className="panel">
+                <p className="empty">No quotes in {month ? "that month" : "those dates"} for this route. The months that do have quotes are below.</p>
+              </section>
+              <MonthBook lines={book.map((l) => ({ key: l.key, date: l.q.quoted_on, supplier: l.q.supplier, allIn: l.allIn, freight: money(l.rate, l.q.currency), agreed: l.awarded || l.q.negotiated }))} type={curType} usd={usd} onMonth={setMonth} />
+            </>
           ) : (
             <>
-              {!exact.length && <p className="rt-note">Nothing on that exact route yet. These are the closest on record{cFrom && cTo ? `: ${cFrom} to ${cTo}` : cTo ? `: anything going to ${cTo}` : `: anything from ${cFrom}`}.</p>}
+              {flipped && <p className="rt-note">Nothing {from.trim() ? "from" : "to"} &ldquo;{single.trim()}&rdquo; that way round. Showing every route that has it at either end.</p>}
+              {!exactAll.length && <p className="rt-note">Nothing on that exact route yet. These are the closest on record{cFrom && cTo ? `: ${cFrom} to ${cTo}` : cTo ? `: anything going to ${cTo}` : `: anything from ${cFrom}`}.</p>}
               {types.length > 1 && (
                 <div className="chips" role="group" aria-label="Container or truck type">
                   {types.map(([t, n]) => (
@@ -268,18 +333,18 @@ export function RatesHome({ reqs, quotes, sups, fx, charges, manage, today, init
               )}
               <section className="stats rt-answer" aria-label="The answer">
                 <div className="stat attn">
-                  <span className="lab">Lowest rate{curType ? ` · ${curType}` : ""}</span>
-                  <span className="val">{money(lowest.rate, lowest.q.currency)}</span>
-                  <span className="ctx">{lowest.q.supplier} · {fmtDate(lowest.q.quoted_on)}{lowest.allIn > lowest.aed + 1 ? ` · all in ${aedText(lowest.allIn)}` : ` · ${aedText(lowest.aed)}`}</span>
+                  <span className="lab">Lowest, all in{curType ? ` · one ${curType}` : ""}</span>
+                  <span className="val">{aedText(lowest.allIn)}</span>
+                  <span className="ctx">{lowest.q.supplier} · {fmtDate(lowest.q.quoted_on)} · freight {money(lowest.rate, lowest.q.currency)}{lowest.allIn > lowest.aed + 1 ? ` + charges ${aedText(lowest.allIn - lowest.aed)}` : ""}</span>
                 </div>
                 <div className="stat">
-                  <span className="lab">Latest rate</span>
-                  <span className="val">{money(latest.rate, latest.q.currency)}</span>
-                  <span className="ctx">{latest.q.supplier} · {fmtDate(latest.q.quoted_on)} · {latest.active ? "still valid" : "expired"}</span>
+                  <span className="lab">Latest, all in</span>
+                  <span className="val">{aedText(latest.allIn)}</span>
+                  <span className="ctx">{latest.q.supplier} · {fmtDate(latest.q.quoted_on)} · {latest.active ? "still valid" : "expired"} · freight {money(latest.rate, latest.q.currency)}</span>
                 </div>
                 <div className="stat">
-                  <span className="lab">Last agreed rate</span>
-                  <span className="val">{agreed ? money(agreed.rate, agreed.q.currency) : "None yet"}</span>
+                  <span className="lab">Last agreed, all in</span>
+                  <span className="val">{agreed ? aedText(agreed.allIn) : "None yet"}</span>
                   <span className="ctx">{agreed ? `${agreed.q.supplier} · ${fmtDate(agreed.q.quoted_on)} · ${agreed.awarded ? "awarded" : "negotiated"}` : "No awarded or negotiated rate on this route"}</span>
                 </div>
                 <div className="stat">
@@ -288,6 +353,8 @@ export function RatesHome({ reqs, quotes, sups, fx, charges, manage, today, init
                   <span className="ctx">{perSupplier.length > 1 ? `${Math.round(((highest.allIn - lowest.allIn) / (lowest.allIn || 1)) * 100)}% from lowest to highest, ${perSupplier.length} suppliers` : "Only one supplier has quoted this"}</span>
                 </div>
               </section>
+              <p className="rt-foot rt-allin">All in = the freight for one {curType || "container"} plus the charges that belong to it. Charges made once per shipment (documents, telex release) are shown on the enquiry, not spread in here.</p>
+              <MonthBook lines={book.map((l) => ({ key: l.key, date: l.q.quoted_on, supplier: l.q.supplier, allIn: l.allIn, freight: money(l.rate, l.q.currency), agreed: l.awarded || l.q.negotiated }))} type={curType} usd={usd} onMonth={setMonth} />
               <div className="rt-two-col">
                 <section className="panel" aria-label="Suppliers compared">
                   <div className="panel-h">
@@ -334,6 +401,7 @@ export function RatesHome({ reqs, quotes, sups, fx, charges, manage, today, init
               <button type="button" aria-pressed={tab === "overview"} onClick={() => setTab("overview")}>Overview</button>
               <button type="button" aria-pressed={tab === "enquiries"} onClick={() => setTab("enquiries")}>Enquiries<span className="n">{reqs.length}</span></button>
               <button type="button" aria-pressed={tab === "suppliers"} onClick={() => setTab("suppliers")}>Suppliers<span className="n">{sups.length}</span></button>
+              <button type="button" aria-pressed={tab === "documents"} onClick={() => setTab("documents")} data-tour="rt-docs">Documents<span className="n">{docs.length}</span></button>
             </div>
             <span className="sp" />
             {manage && (
@@ -366,9 +434,29 @@ export function RatesHome({ reqs, quotes, sups, fx, charges, manage, today, init
                 <div className={`stat${soon.length ? " bad" : ""}`}><span className="lab">Expiring this week</span><span className="val">{soon.length}</span><span className="ctx">{quotes.filter((q) => q.state === "quoted" && q.valid_until && q.valid_until < today).length} already expired</span></div>
                 <div className="stat"><span className="lab">Suppliers</span><span className="val">{sups.length}</span><span className="ctx">{quotes.filter((q) => q.state === "declined").length} declines on record</span></div>
               </section>
+              {waiting.length > 0 && (
+                <section className="panel" aria-label="Waiting for quotes">
+                  <div className="panel-h">
+                    <h2>Waiting for a quote <span className="count">{waiting.length}</span></h2>
+                    <span className="small muted">Saved enquiries with no price yet. They show in the search once a quote is added.</span>
+                  </div>
+                  <div className="list">
+                    {waiting.slice(0, 8).map((r) => (
+                      <Link key={r.id} className="aprow rqrow" href={`/rates/${r.id}`}>
+                        <span className="cid">{rtRef(r.id)}</span>
+                        <span className="ap-main">
+                          <span className="ap-title">{r.title}</span>
+                          <span className="ap-sub"><span>{fmtDate(r.requested_on)}</span><span>{route(r)}</span></span>
+                        </span>
+                        <span className="ap-end"><span className="ap-st rq-open">{manage ? "Add a quote" : "No quote yet"}</span></span>
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              )}
               <div className="rt-two-col">
                 <section className="panel" aria-label="Best available rates">
-                  <div className="panel-h"><h2>Best available rates</h2><span className="small muted">Lowest valid rate per route</span></div>
+                  <div className="panel-h"><h2>Best available rates</h2><span className="small muted">Lowest valid all-in rate per route, one container</span></div>
                   <div className="list">
                     {best.map((l) => (
                       <button key={l.key} type="button" className="aprow rt-best" onClick={() => (setFrom(l.r.origin || l.r.origin_port), setTo(l.r.destination || l.r.destination_port), setType(l.type))}>
@@ -376,7 +464,7 @@ export function RatesHome({ reqs, quotes, sups, fx, charges, manage, today, init
                           <span className="ap-title">{route(l.r)}</span>
                           <span className="ap-sub"><span>{l.type}</span><span>{SERVICE_SHORT[l.r.service]}</span><span>{l.q.supplier}</span></span>
                         </span>
-                        <span className="rq-best">{money(l.rate, l.q.currency)}</span>
+                        <span className="rq-best" title={`Freight ${money(l.rate, l.q.currency)}`}>{aedText(l.allIn)}</span>
                       </button>
                     ))}
                     {!best.length && <p className="empty">Rates will show here once quotes are added.</p>}
@@ -455,6 +543,8 @@ export function RatesHome({ reqs, quotes, sups, fx, charges, manage, today, init
         </>
       )}
 
+      {tab === "documents" && !searching && <DocsTab docs={docs} manage={manage} />}
+      {fb && <FeedbackBox notes={notes} canWrite={canNote} page="/rates" onClose={() => setFb(false)} />}
       {editor && <EnquiryEditor start={editor.start} hints={hints} today={today} last={last} onClose={() => setEditor(null)} />}
       {dlg === "import" && <ImportDialog onClose={() => (setDlg(null), router.refresh())} />}
       {dlg === "fx" && <FxDialog fx={fx} onClose={() => setDlg(null)} />}
@@ -526,7 +616,7 @@ function History({ lines }: { lines: Line[] }) {
 }
 
 function ImportDialog({ onClose }: { onClose: () => void }) {
-  const upload = useUploader("apv");
+  const upload = useUploader("rt");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const run = async (f: File) => {
@@ -558,7 +648,7 @@ function RateDropPlain({ onFile, busy }: { onFile: (f: File) => void; busy: bool
   return (
     <label className={`rt-drop compact${busy ? " busy" : ""}`}>
       {busy ? <span className="spinner" aria-hidden="true" /> : <Icon name="upload" size={18} />}
-      <span><b>{busy ? "Importing…" : "Choose the Excel file"}</b><span>.xlsx, up to 10 MB</span></span>
+      <span><b>{busy ? "Importing…" : "Choose the Excel file"}</b><span>.xlsx, up to 50 MB</span></span>
       <input type="file" className="sr" accept=".xlsx" disabled={busy} onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
     </label>
   );
@@ -604,10 +694,11 @@ function SupplierDialog({ sup, onClose }: { sup: Sup | null; onClose: () => void
 // ------------------------------------------------------------------ one enquiry: comparison, quotes, award
 
 export type FileV = { id: string; quote_id: string | null; name: string; size: string; view: boolean };
-export function EnquiryView({ req, quotes, old, files, fx, charges, sups, allQuotes, allReqs, manage, today, leads, approvalStatus }: {
+export function EnquiryView({ req, quotes, old, files, fx, charges, sups, allQuotes, allReqs, manage, today, leads, approvalStatus, notes, canNote }: {
   req: Req; quotes: Quo[]; old: (Quo & { replaced: string })[]; files: FileV[]; fx: Fx; charges: [string, "container" | "shipment"][]; sups: Sup[]; allQuotes: Quo[]; allReqs: Req[];
-  manage: boolean; today: string; leads: { id: string; name: string }[]; approvalStatus: string | null;
+  manage: boolean; today: string; leads: { id: string; name: string }[]; approvalStatus: string | null; notes: NoteV[]; canNote: boolean;
 }) {
+  const [fb, setFb] = useState(false);
   const router = useRouter();
   const { busy, act } = useAct();
   const reader = useRateReader();
@@ -630,8 +721,13 @@ export function EnquiryView({ req, quotes, old, files, fx, charges, sups, allQuo
   const cheapest = ranked[0];
   const dearest = ranked[ranked.length - 1];
   const won = quotes.find((q) => q.id === req.awarded_quote_id) ?? null;
-  const labels = [...new Map(quoted.flatMap((q) => q.charges).map((c) => [c.label.toLowerCase(), c])).values()];
-  const cell = (q: Quo, label: string) => q.charges.find((c) => c.label.toLowerCase() === label.toLowerCase());
+  const ckey = (c: Charge) => `${c.label.toLowerCase()}|${c.basis}|${chargeFor(c)}`;
+  const labels = [...new Map(quoted.flatMap((q) => q.charges).map((c) => [ckey(c), c])).values()].sort((a, b) => (a.basis === b.basis ? 0 : a.basis === "container" ? -1 : 1));
+  const cell = (q: Quo, c: Charge) => q.charges.find((x) => ckey(x) === ckey(c));
+  // Sizes a supplier priced that are not part of this shipment: shown, but not counted in the total.
+  const allTypes = [...new Set([...types, ...quoted.flatMap((q) => q.rates.map((u) => normEquip(u.type)))])];
+  const extraTypes = allTypes.filter((t) => !types.includes(t));
+  const qtyOf = (t: string) => req.equipment.find((e) => normEquip(e.type) === t)?.qty ?? 0;
   const minOf = (vals: (number | null)[]) => {
     const xs = vals.filter((v): v is number => v != null && v > 0);
     return xs.length > 1 ? Math.min(...xs) : null;
@@ -680,9 +776,31 @@ export function EnquiryView({ req, quotes, old, files, fx, charges, sups, allQuo
           <Icon name="download" size={15} />
           Export comparison
         </a>
+        <span className="sp" />
+        <button type="button" className="btn btn-ghost" onClick={() => setFb(true)}>
+          <Icon name="chat" size={15} />
+          {canNote ? "Something not right?" : "Feedback notes"}
+        </button>
       </div>
       {manage && <RateDrop compact onFile={onFile} busy={reader.busy} label="Drop the next supplier's reply here" />}
 
+      {extraTypes.length > 0 && (
+        <div className="ap-decide rq-banner rt-extra">
+          <p className="ap-decide-t">
+            <b>{extraTypes.join(" and ")}</b> {extraTypes.length === 1 ? "was" : "were"} quoted, but this shipment is saved as {req.equipment.map((e) => `${e.qty} × ${normEquip(e.type)}`).join(" + ") || "no containers"}. The total counts only what is in the shipment.
+          </p>
+          {manage && (
+            <div className="ap-decide-b">
+              {extraTypes.map((t) => (
+                <button key={t} type="button" className="btn btn-primary" disabled={busy} onClick={() => act(() => updateEnquiry(req.id, { ...toInput(req), equipment: [...req.equipment, { type: t, qty: 1 }] }), `1 × ${t} added to the shipment.`)}>
+                  <Icon name="plus" size={14} />
+                  Add 1 × {t} to the shipment
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       <section className="panel" aria-label="Comparison">
         <div className="panel-h">
           <h2>Comparison <span className="count">{quoted.length} quoted</span></h2>
@@ -705,34 +823,48 @@ export function EnquiryView({ req, quotes, old, files, fx, charges, sups, allQuo
                 </tr>
               </thead>
               <tbody>
-                {req.equipment.map((e) => {
-                  const vals = ranked.map((q) => { const u = q.rates.find((x) => normEquip(x.type) === normEquip(e.type)); return u ? toAED(u.rate, q.currency, fx) : null; });
+                {allTypes.map((t) => {
+                  const vals = ranked.map((q) => { const u = q.rates.find((x) => normEquip(x.type) === t); return u ? toAED(u.rate, q.currency, fx) : null; });
                   const m = minOf(vals);
+                  const out = !types.includes(t);
                   return (
-                    <tr key={e.type}>
-                      <td><b>Freight, {e.type}</b>{e.qty > 1 ? ` × ${e.qty}` : ""}</td>
-                      <td>per container</td>
-                      {ranked.map((q, i) => { const u = q.rates.find((x) => normEquip(x.type) === normEquip(e.type)); return <td key={q.id} className={`r${m != null && vals[i] === m ? " low" : ""}`}>{u ? money(u.rate, q.currency) : <span className="muted">not quoted</span>}</td>; })}
+                    <tr key={t} className={out ? "rt-out" : ""}>
+                      <td><b>Freight, {t}</b>{qtyOf(t) > 1 ? ` × ${qtyOf(t)}` : ""}{out && <span className="muted"> · not in this shipment</span>}</td>
+                      <td>per {t}</td>
+                      {ranked.map((q, i) => { const u = q.rates.find((x) => normEquip(x.type) === t); return <td key={q.id} className={`r${m != null && vals[i] === m ? " low" : ""}`}>{u ? money(u.rate, q.currency) : <span className="muted">not quoted</span>}</td>; })}
                       {others.map((q) => <td key={q.id} className="r off">{STATES[q.state]}</td>)}
                     </tr>
                   );
                 })}
                 {labels.map((c) => {
-                  const vals = ranked.map((q) => { const x = cell(q, c.label); return x ? toAED(x.amount, x.currency, fx) : null; });
+                  const vals = ranked.map((q) => { const x = cell(q, c); return x ? toAED(x.amount, x.currency, fx) : null; });
+                  const m = minOf(vals);
+                  const out = !!chargeFor(c) && !types.includes(chargeFor(c));
+                  return (
+                    <tr key={ckey(c)} className={out ? "rt-out" : ""}>
+                      <td>{c.label}{out && <span className="muted"> · not in this shipment</span>}</td>
+                      <td>{basisText(c)}</td>
+                      {ranked.map((q, i) => { const x = cell(q, c); return <td key={q.id} className={`r${m != null && vals[i] === m ? " low" : ""}`}>{x ? money(x.amount, x.currency) : <span className="muted">–</span>}</td>; })}
+                      {others.map((q) => <td key={q.id} className="r off" />)}
+                    </tr>
+                  );
+                })}
+                {ranked.length > 0 && allTypes.map((t) => {
+                  const vals = ranked.map((q) => unitAllInAED(q, t, null, fx));
                   const m = minOf(vals);
                   return (
-                    <tr key={c.label}>
-                      <td>{c.label}</td>
-                      <td>per {c.basis}</td>
-                      {ranked.map((q, i) => { const x = cell(q, c.label); return <td key={q.id} className={`r${m != null && vals[i] === m ? " low" : ""}`}>{x ? money(x.amount, x.currency) : <span className="muted">–</span>}</td>; })}
+                    <tr key={`all-${t}`} className={`sum rt-allin-row${types.includes(t) ? "" : " rt-out"}`}>
+                      <td>All in, one {t} (AED)</td>
+                      <td>freight + its charges</td>
+                      {ranked.map((q, i) => <td key={q.id} className={`r${m != null && vals[i] === m ? " low" : ""}`} title={vals[i] != null ? usd(vals[i]!) : undefined}>{vals[i] != null ? <b>{Math.round(vals[i]!).toLocaleString("en-US")}</b> : <span className="muted">–</span>}</td>)}
                       {others.map((q) => <td key={q.id} className="r off" />)}
                     </tr>
                   );
                 })}
                 {ranked.length > 0 && (
                   <>
-                    <tr className="sum"><td>Total, whole shipment (AED)</td><td />{ranked.map((q) => <td key={q.id} className={`r${q.id === cheapest.id && ranked.length > 1 ? " low" : ""}`}><b>{Math.round(totals.get(q.id)!.total).toLocaleString("en-US")}</b>{!totals.get(q.id)!.complete && <span className="muted" title="Not every container type was quoted"> *</span>}</td>)}{others.map((q) => <td key={q.id} className="r off" />)}</tr>
-                    <tr className="sum"><td>Total, whole shipment (USD)</td><td />{ranked.map((q) => <td key={q.id} className="r">{Math.round(fromAED(totals.get(q.id)!.total, "USD", fx)).toLocaleString("en-US")}</td>)}{others.map((q) => <td key={q.id} className="r off" />)}</tr>
+                    <tr className="sum"><td>Total for this shipment (AED)</td><td>{req.equipment.map((e) => `${e.qty} × ${normEquip(e.type)}`).join(" + ") || "–"}</td>{ranked.map((q) => <td key={q.id} className={`r${q.id === cheapest.id && ranked.length > 1 ? " low" : ""}`}><b>{Math.round(totals.get(q.id)!.total).toLocaleString("en-US")}</b>{!totals.get(q.id)!.complete && <span className="muted" title="Not every container type was quoted"> *</span>}</td>)}{others.map((q) => <td key={q.id} className="r off" />)}</tr>
+                    <tr className="sum"><td>Total for this shipment (USD)</td><td />{ranked.map((q) => <td key={q.id} className="r">{Math.round(fromAED(totals.get(q.id)!.total, "USD", fx)).toLocaleString("en-US")}</td>)}{others.map((q) => <td key={q.id} className="r off" />)}</tr>
                     {ranked.length > 1 && <tr><td>Above the lowest</td><td />{ranked.map((q) => { const d = totals.get(q.id)!.total - totals.get(cheapest.id)!.total; return <td key={q.id} className="r">{d > 0 ? `+${Math.round(d).toLocaleString("en-US")} (+${Math.round((d / (totals.get(cheapest.id)!.total || 1)) * 100)}%)` : "lowest"}</td>; })}{others.map((q) => <td key={q.id} className="r off" />)}</tr>}
                   </>
                 )}
@@ -747,7 +879,7 @@ export function EnquiryView({ req, quotes, old, files, fx, charges, sups, allQuo
         ) : (
           <p className="empty">{manage ? "No quotes yet. Drop a supplier's reply above, or press Add a quote." : "No quotes yet."}</p>
         )}
-        <p className="rt-foot">Amounts are shown as quoted. Totals use 1 USD = {fx.USD} AED{[...new Set(quoted.flatMap((q) => [q.currency, ...q.charges.map((c) => c.currency)]))].filter((c) => c !== "USD" && c !== "AED").map((c) => `, 1 ${c} = ${fx[c] ?? 1} AED`).join("")}.</p>
+        <p className="rt-foot">All in = freight for one container plus the charges that belong to that size. Amounts are shown as quoted. Totals use 1 USD = {fx.USD} AED{[...new Set(quoted.flatMap((q) => [q.currency, ...q.charges.map((c) => c.currency)]))].filter((c) => c !== "USD" && c !== "AED").map((c) => `, 1 ${c} = ${fx[c] ?? 1} AED`).join("")}.</p>
       </section>
 
       <section className="panel" aria-label="Quotes">
@@ -766,6 +898,7 @@ export function EnquiryView({ req, quotes, old, files, fx, charges, sups, allQuo
                 {q.state === "quoted" ? (
                   <>
                     <span className="rq-price">{q.rates.map((u) => `${u.type} ${money(u.rate, q.currency)}`).join("  ·  ")}</span>
+                    {q.charges.length > 0 && <span className="rq-q-note rt-allin-line">All in: {q.rates.map((u) => `${normEquip(u.type)} ${aedText(unitAllInAED(q, u.type, null, fx) ?? 0)}`).join("  ·  ")}{shipmentChargesAED(q, fx) > 0 ? `  ·  plus ${aedText(shipmentChargesAED(q, fx))} once per shipment` : ""}</span>}
                     <span className="rq-q-meta">
                       {q.carrier && <span>Carrier {q.carrier}</span>}
                       {q.transit && <span>Transit {q.transit}</span>}
@@ -810,6 +943,7 @@ export function EnquiryView({ req, quotes, old, files, fx, charges, sups, allQuo
         )}
       </section>
 
+      {fb && <FeedbackBox notes={notes} canWrite={canNote} page={`/rates/${req.id}`} onClose={() => setFb(false)} />}
       {ed && <QuoteEditor requestId={req.id} types={types} start={ed.start} replaceId={ed.replaceId} file={ed.file} hints={hints} last={last} onClose={() => (setEd(null), router.refresh())} />}
       {mode === "edit" && (
         <Dialog title="Edit the shipment" onClose={() => setMode(null)} wide>

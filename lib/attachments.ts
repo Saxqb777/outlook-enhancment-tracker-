@@ -2,7 +2,7 @@
 import { randomBytes } from "node:crypto";
 import { del, get, head } from "@vercel/blob";
 import type { User } from "@/lib/auth";
-import { ATT_MAX_BYTES, ATT_MAX_FILES, cleanName, mimeFor, type Uploaded } from "@/lib/attach-rules";
+import { cleanName, maxBytesFor, maxFilesFor, mimeFor, type Uploaded } from "@/lib/attach-rules";
 import { one, q } from "@/lib/db";
 
 export const useBlob = () => !!process.env.BLOB_READ_WRITE_TOKEN;
@@ -17,15 +17,15 @@ export async function editablePoint(user: User, pointId: string): Promise<{ id: 
   );
 }
 
-/** Uploads not tied to a point: "apv" = approvals and quote requests (team), "vq" = a vendor's quote. */
-export const FREE = new Set(["apv", "vq"]);
+/** Uploads not tied to a point: "apv" = approvals and quote requests (team), "vq" = a vendor's quote, "rt" = the rate book (bigger files). */
+export const FREE = new Set(["apv", "vq", "rt"]);
 
 export type Verified = { name: string; mime: string; size: number; storage: "blob" | "local"; url: string; pathname: string };
 
 /** Checks each uploaded file really is in storage, belongs to this point and follows the rules. */
 export async function verifyUploads(pointId: string, files: unknown): Promise<Verified[] | { error: string }> {
   const list = (Array.isArray(files) ? files : []) as Uploaded[];
-  if (list.length > ATT_MAX_FILES) return { error: `Attach up to ${ATT_MAX_FILES} files at a time.` };
+  if (list.length > maxFilesFor(pointId)) return { error: `Attach up to ${maxFilesFor(pointId)} files at a time.` };
   const out: Verified[] = [];
   for (const f of list) {
     const name = cleanName(String(f?.name ?? ""));
@@ -43,7 +43,7 @@ export async function verifyUploads(pointId: string, files: unknown): Promise<Ve
     } else {
       if (!useBlob() || !/^https:\/\/[a-z0-9.-]+\.vercel-storage\.com\//i.test(url)) return { error: `${name} didn't upload properly. Try again.` };
       const meta = await head(url).catch(() => null);
-      if (!meta || !meta.pathname.startsWith(FREE.has(pointId) ? `${pointId}/` : `att/${pointId}/`) || meta.size > ATT_MAX_BYTES) return { error: `${name} didn't upload properly. Try again.` };
+      if (!meta || !meta.pathname.startsWith(FREE.has(pointId) ? `${pointId}/` : `att/${pointId}/`) || meta.size > maxBytesFor(pointId)) return { error: `${name} didn't upload properly. Try again.` };
       out.push({ name, mime, size: meta.size, storage: "blob", url: meta.url, pathname: meta.pathname });
     }
   }

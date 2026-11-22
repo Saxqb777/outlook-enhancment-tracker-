@@ -7,6 +7,7 @@ import { Avatar, Icon } from "@/components/Icon";
 import { plural } from "@/components/ui";
 import { requireAdmin } from "@/lib/auth";
 import { one, q } from "@/lib/db";
+import { listFeedback } from "@/lib/rates";
 import { fmtShort, fmtWhen, todayISO } from "@/lib/time";
 
 export const metadata: Metadata = { title: "Admin" };
@@ -304,6 +305,33 @@ export default async function AdminPage() {
           </>
         )}
       </section>
+
+      {(await listFeedback()).length > 0 && (
+        <section className="panel" id="feedback" aria-label="Rates feedback">
+          <div className="panel-h">
+            <h2>Feedback on Rates</h2>
+            <span className="hint">Written by the people who use the rate book. Share it in the chat with Claude to get it fixed.</span>
+          </div>
+          <div className="rt-notes">
+            {(await listFeedback()).map((n) => (
+              <div key={n.id} className="rt-note-row">
+                <p>
+                  <span className={`ap-st ${n.status === "done" ? "signed" : "rq-open"}`}>{n.status === "done" ? "Fixed" : n.status === "working" ? "Being fixed" : "New"}</span>
+                  <span className="small muted">
+                    {n.by ?? "Someone"} · {fmtWhen(n.created_at, today)}{n.page ? ` · ${n.page}` : ""}
+                  </span>
+                </p>
+                <p className="rt-note-b">{n.body}</p>
+                {n.reply && (
+                  <p className="rt-note-r">
+                    <b>Reply:</b> {n.reply}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="panel" aria-label="Activity">
         <div className="panel-h">

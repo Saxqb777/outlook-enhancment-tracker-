@@ -1,5 +1,5 @@
 // The update tour and the "?" help on each page. Bump NEWS_VERSION and edit tourFor() to announce the next update.
-export const NEWS_VERSION = 7;
+export const NEWS_VERSION = 8;
 type R = "lead" | "member" | "admin";
 export type TourStep = { target?: string; title: string; text: string };
 
@@ -16,7 +16,23 @@ const RATES_TOUR = (manage: boolean): TourStep[] => [
     : []),
 ];
 
+const RATES_NEW = (manage: boolean): TourStep[] =>
+  manage
+    ? [
+        { target: '[data-tour="rates"]', title: "Rates: the sums are fixed", text: "The main number is now the all-in rate for ONE container: its freight plus only the charges for that size. A 40HC charge is never added to a 20FT again. Charges made once per shipment are added once to the shipment total." },
+        { title: "What was the rate in January?", text: "Search a route and look at \"Rate by month\". Pick a month under Then and a month under Now: it shows the difference in AED and percent. Enquiries with no quote yet now show in the search too." },
+        { target: '[data-tour="rt-docs"]', title: "Documents: keep your files here", text: "Drop old rate sheets, contracts and emails under Documents. Up to 50 MB each. Add the route and supplier so you can find them later." },
+        { target: '[data-tour="rt-feedback"]', title: "Something not right? Say it here", text: "Write what is wrong or missing in your own words. It is saved with a status, and you see the reply when it is fixed. \"How Rates works\" next to it is the full guide." },
+      ]
+    : [{ target: '[data-tour="rates"]', title: "Rates got clearer", text: "It now shows the all-in rate for one container, a month-by-month view of each route, and a Documents tab. \"How Rates works\" explains the sums." }];
+const PUSH_STEP: TourStep = { title: "New: notifications on your phone", text: "Get a notification for messages, approvals and updates that are for you, even when the site is closed. Press Turn on when the card asks, or go to your name > My account > Notifications. On iPhone: add the site to your Home Screen first (Share > Add to Home Screen)." };
+
 export function tourFor(role: R, seen = 0, rates: "none" | "view" | "manage" = "none"): TourStep[] {
+  // Saw everything up to the last update: only what is new in this one.
+  if (seen >= 7) return [...(rates === "none" ? [] : RATES_NEW(rates === "manage")), PUSH_STEP];
+  return [...tourBefore(role, seen, rates), PUSH_STEP];
+}
+function tourBefore(role: R, seen = 0, rates: "none" | "view" | "manage" = "none"): TourStep[] {
   // Saw everything up to the rate book: only that is new, and only for people who have it.
   if (seen >= 6) return rates === "none" ? [] : RATES_TOUR(rates === "manage");
   // Already saw the big tour: only show what is new since then.

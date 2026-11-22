@@ -3,7 +3,7 @@
 import { createContext, useContext, useRef, useState } from "react";
 import { upload } from "@vercel/blob/client";
 import { Icon } from "@/components/Icon";
-import { ATT_ACCEPT, ATT_MAX_FILES, checkFile, cleanName, isImage, mimeFor, sizeLabel, type Uploaded } from "@/lib/attach-rules";
+import { ATT_ACCEPT, checkFile, cleanName, isImage, maxBytesFor, maxFilesFor, mimeFor, sizeLabel, type Uploaded } from "@/lib/attach-rules";
 
 // "blob": straight to private Vercel file storage. "local": through the app (testing without Vercel storage).
 const ModeCtx = createContext<"blob" | "local">("blob");
@@ -27,7 +27,7 @@ async function send(mode: "blob" | "local", pointId: string, file: File, onPct: 
     return { url: j.url, pathname: j.pathname, name, size: file.size };
   }
   // "apv" = a file for an approval request (not tied to a point).
-  const r = await upload(pointId === "apv" || pointId === "vq" ? `${pointId}/${name}` : `att/${pointId}/${name}`, file, {
+  const r = await upload(pointId === "apv" || pointId === "vq" || pointId === "rt" ? `${pointId}/${name}` : `att/${pointId}/${name}`, file, {
     access: "private",
     handleUploadUrl: "/api/attachments",
     contentType: mimeFor(name) ?? undefined,
@@ -52,10 +52,10 @@ export function useAttach(pointId: string) {
   const add = (list: FileList | File[]) => {
     setProblem(null);
     const files = Array.from(list);
-    const room = ATT_MAX_FILES - items.length;
-    if (files.length > room) setProblem(`Up to ${ATT_MAX_FILES} files at a time.`);
+    const room = maxFilesFor(pointId) - items.length;
+    if (files.length > room) setProblem(`Up to ${maxFilesFor(pointId)} files at a time.`);
     for (const file of files.slice(0, Math.max(0, room))) {
-      const bad = checkFile(file);
+      const bad = checkFile(file, maxBytesFor(pointId));
       if (bad) {
         setProblem(bad);
         continue;
@@ -77,7 +77,7 @@ export function useAttach(pointId: string) {
   const busy = items.some((x) => x.state === "up");
   const failed = items.some((x) => x.state === "error");
   const uploaded = items.filter((x) => x.state === "done" && x.result).map((x) => x.result!);
-  return { items, add, remove, clear, busy, failed, uploaded, problem };
+  return { items, add, remove, clear, busy, failed, uploaded, problem, max: maxFilesFor(pointId) };
 }
 export type AttachState = ReturnType<typeof useAttach>;
 
@@ -120,7 +120,7 @@ export function AttachPicker({ att, compact = false, disabled = false }: { att: 
         </ul>
       )}
       {att.problem && <span className="form-err sm">{att.problem}</span>}
-      <button type="button" className={`btn btn-sm btn-ghost attp-btn${compact ? " c" : ""}`} onClick={() => input.current?.click()} disabled={disabled || att.items.length >= ATT_MAX_FILES}>
+      <button type="button" className={`btn btn-sm btn-ghost attp-btn${compact ? " c" : ""}`} onClick={() => input.current?.click()} disabled={disabled || att.items.length >= att.max}>
         <Icon name="clip" size={15} />
         {compact ? "Attach" : "Attach files"}
       </button>
@@ -171,7 +171,7 @@ export function AttachClip({ att, disabled = false }: { att: AttachState; disabl
   const input = useRef<HTMLInputElement>(null);
   return (
     <>
-      <button type="button" className="btn btn-sm btn-ghost chat-clip" aria-label="Attach a file" title="Attach a file. You can also drop a file on the box, or paste a screenshot." onClick={() => input.current?.click()} disabled={disabled || att.items.length >= ATT_MAX_FILES}>
+      <button type="button" className="btn btn-sm btn-ghost chat-clip" aria-label="Attach a file" title="Attach a file. You can also drop a file on the box, or paste a screenshot." onClick={() => input.current?.click()} disabled={disabled || att.items.length >= att.max}>
         <Icon name="clip" size={15} />
       </button>
       <input

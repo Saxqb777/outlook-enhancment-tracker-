@@ -56,3 +56,12 @@ export async function getRequest(id: string) {
   ]);
   return { ...r, quotes: quotes.filter((x) => !x.replaced_at), old: quotes.filter((x) => x.replaced_at), files, approval_status: approval?.status ?? null };
 }
+
+export type RateDoc = { id: string; title: string; route: string; supplier: string; doc_date: string | null; notes: string; name: string; mime: string; size: number; created_at: Date; by: string | null };
+export const listDocs = () =>
+  q<RateDoc>(`select d.id::text as id, d.title, d.route, d.supplier, d.doc_date::text as doc_date, d.notes, d.name, d.mime, d.size::float as size, d.created_at, u.name as by
+                from rate_docs d left join users u on u.id = d.created_by order by coalesce(d.doc_date, d.created_at::date) desc, d.id desc limit 3000`);
+
+export type RateNote = { id: string; body: string; page: string; status: "new" | "working" | "done"; reply: string | null; created_at: Date; by: string | null };
+export const listFeedback = () =>
+  q<RateNote>(`select f.id::text as id, f.body, f.page, f.status, f.reply, f.created_at, u.name as by from rate_feedback f left join users u on u.id = f.user_id order by f.id desc limit 200`);

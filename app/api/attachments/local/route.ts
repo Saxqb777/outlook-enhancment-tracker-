@@ -1,4 +1,5 @@
-import { checkFile, mimeFor } from "@/lib/attach-rules";
+import { checkFile, maxBytesFor, mimeFor } from "@/lib/attach-rules";
+import { ratesAccess } from "@/lib/rates";
 import { editablePoint, saveLocal, useBlob } from "@/lib/attachments";
 import { getCurrentUser } from "@/lib/auth";
 import { getVendorUser } from "@/lib/vendor-auth";
@@ -15,9 +16,9 @@ export async function POST(request: Request) {
   const vendorOk = !user && pointId === "vq" && !!(await getVendorUser());
   if (!user && !vendorOk) return Response.json({ error: "Sign in first." }, { status: 401 });
   if (!file || typeof file === "string") return Response.json({ error: "No file." }, { status: 400 });
-  const approval = vendorOk || (pointId === "apv" && !!user);
+  const approval = vendorOk || (pointId === "apv" && !!user) || (pointId === "rt" && !!user && ratesAccess(user).manage);
   if (!approval && !(user && (await editablePoint(user, pointId)))) return Response.json({ error: "You can't attach files to this point." }, { status: 403 });
-  const problem = checkFile(file);
+  const problem = checkFile(file, maxBytesFor(pointId));
   if (problem || !mimeFor(file.name)) return Response.json({ error: problem ?? "Not allowed." }, { status: 400 });
   const url = await saveLocal(approval ? null : pointId, Buffer.from(await file.arrayBuffer()));
   return Response.json({ url, pathname: `att/${pointId}/${file.name}` });

@@ -6,6 +6,8 @@ import TopBar from "@/components/TopBar";
 import GlobalDrop from "@/components/GlobalDrop";
 import Guide from "@/components/Guide";
 import Notifier from "@/components/Notifier";
+import { PushAsk } from "@/components/Push";
+import { pushPublicKey } from "@/lib/push";
 import Shortcuts from "@/components/Shortcuts";
 import { Toasts, ViewOnlyProvider } from "@/components/work";
 import { getViewer } from "@/lib/auth";
@@ -59,6 +61,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <Shortcuts role={navRole} viewOnly={viewOnly} />
       {!viewOnly && <GlobalDrop />}
       {!viewOnly && <Notifier />}
+      {!viewingAs && <PushAsk publicKey={pushPublicKey()} />}
       </AttachProvider>
     </ViewOnlyProvider>
   );

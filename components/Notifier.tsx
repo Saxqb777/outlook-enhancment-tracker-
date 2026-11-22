@@ -62,7 +62,8 @@ export default function Notifier() {
         setNotes((v) => [...v, ...fresh].slice(-3));
         router.refresh();
         fresh.forEach((n) => setTimeout(() => setNotes((v) => v.filter((x) => x.id !== n.id)), 12000));
-        if (document.visibilityState !== "visible" && typeof Notification !== "undefined" && Notification.permission === "granted") {
+        // With phone-style notifications on, the device already shows one: don't double up.
+        if (document.visibilityState !== "visible" && typeof Notification !== "undefined" && Notification.permission === "granted" && !(window as unknown as { __pushOn?: boolean }).__pushOn) {
           const n = fresh[fresh.length - 1];
           const d = new Notification(head(n), { body: isAp(n) ? `${apRef(n.case_id)} · ${n.subject}` : n.body, tag: `${isRq(n) ? "rq" : isAp(n) ? "ap" : "case"}-${n.case_id}` });
           d.onclick = () => {

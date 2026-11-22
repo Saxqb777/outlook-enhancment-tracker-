@@ -1,6 +1,6 @@
 // Excel files for the rate book: a flat list of quotations, one enquiry's comparison, and the import template.
 import ExcelJS from "exceljs";
-import { fromAED, MODES, normEquip, quoteTotalAED, rtRef, SERVICES, STATES, toAED, unitAllInAED, type Fx } from "@/lib/rate-calc";
+import { basisText, chargeFor, fromAED, MODES, normEquip, quoteTotalAED, rtRef, SERVICES, STATES, toAED, unitAllInAED, type Fx } from "@/lib/rate-calc";
 import type { RateQuote, RateRequest } from "@/lib/rates";
 
 const DARK = "FF11161F";
@@ -31,13 +31,13 @@ export function ratesWorkbook(reqs: RateRequest[], quotes: RateQuote[], fx: Fx, 
     if (!r || q.state !== "quoted") continue;
     for (const u of q.rates) {
       if (keys && !keys.has(`${q.id}:${normEquip(u.type)}`) && !keys.has(`${q.id}:${u.type}`)) continue;
-      ws.addRow([q.quoted_on, rtRef(r.id), q.supplier, r.origin, r.origin_country, r.origin_port, r.destination, r.destination_country, r.destination_port, r.commodity, MODES[r.mode], SERVICES[r.service], r.incoterm, normEquip(u.type), u.rate, q.currency, Math.round(toAED(u.rate, q.currency, fx) * 100) / 100, Math.round((unitAllInAED(q, u.type, r.equipment, fx) ?? 0) * 100) / 100, q.charges.map((c) => `${c.label}: ${c.currency} ${c.amount} per ${c.basis}`).join("; "), q.transit, q.free_time, q.valid_until ?? "", !q.valid_until || q.valid_until >= today ? "Active" : "Expired", r.awarded_quote_id === q.id ? "Awarded" : q.negotiated ? "Negotiated" : "", q.carrier, [q.remarks, q.exclusions && `Not included: ${q.exclusions}`].filter(Boolean).join(" | ")]);
+      ws.addRow([q.quoted_on, rtRef(r.id), q.supplier, r.origin, r.origin_country, r.origin_port, r.destination, r.destination_country, r.destination_port, r.commodity, MODES[r.mode], SERVICES[r.service], r.incoterm, normEquip(u.type), u.rate, q.currency, Math.round(toAED(u.rate, q.currency, fx) * 100) / 100, Math.round((unitAllInAED(q, u.type, r.equipment, fx) ?? 0) * 100) / 100, q.charges.map((c) => `${c.label}: ${c.currency} ${c.amount} ${basisText(c)}`).join("; "), q.transit, q.free_time, q.valid_until ?? "", !q.valid_until || q.valid_until >= today ? "Active" : "Expired", r.awarded_quote_id === q.id ? "Awarded" : q.negotiated ? "Negotiated" : "", q.carrier, [q.remarks, q.exclusions && `Not included: ${q.exclusions}`].filter(Boolean).join(" | ")]);
     }
   }
   for (const c of [15, 17, 18]) ws.getColumn(c).numFmt = "#,##0.00";
   const info = wb.addWorksheet("About");
   info.columns = [{ width: 22 }, { width: 70 }];
-  info.addRows([["Freight rates", title || "All quotations"], ["Exported on", today], ["Rows", ws.rowCount - 1], ["Exchange rates", Object.entries(fx).filter(([k]) => k !== "AED").map(([k, v]) => `1 ${k} = ${v} AED`).join(", ")], ["All in", "Rate for one unit plus its share of the additional charges, in AED."]]);
+  info.addRows([["Freight rates", title || "All quotations"], ["Exported on", today], ["Rows", ws.rowCount - 1], ["Exchange rates", Object.entries(fx).filter(([k]) => k !== "AED").map(([k, v]) => `1 ${k} = ${v} AED`).join(", ")], ["All in", "Freight for one unit plus the per-container charges that belong to that size, in AED. Charges made once per shipment are not included."]]);
   info.getColumn(1).font = { bold: true };
   return wb;
 }
@@ -76,10 +76,15 @@ export function comparisonWorkbook(r: RateRequest & { quotes: RateQuote[] }, fx:
     const vals = all.map((q) => { const u = q.rates.find((x) => normEquip(x.type) === normEquip(e.type)); return q.state === "quoted" && u ? toAED(u.rate, q.currency, fx) : null; });
     line(`Freight, ${e.type}${e.qty > 1 ? ` × ${e.qty}` : ""}`, "Per container", vals, all.map((q) => { const u = q.rates.find((x) => normEquip(x.type) === normEquip(e.type)); return q.state !== "quoted" ? (q.state === "declined" ? "Declined" : "Not quoted") : u ? `${q.currency} ${u.rate.toLocaleString("en-US")}` : "Not quoted"; }));
   }
-  const labels = [...new Map(quoted.flatMap((q) => q.charges).map((c) => [c.label.toLowerCase(), c])).values()];
+  const ckey = (c: RateQuote["charges"][number]) => `${c.label.toLowerCase()}|${c.basis}|${chargeFor(c)}`;
+  const labels = [...new Map(quoted.flatMap((q) => q.charges).map((c) => [ckey(c), c])).values()];
   for (const c of labels) {
-    const cell = (q: RateQuote) => q.charges.find((x) => x.label.toLowerCase() === c.label.toLowerCase());
-    line(c.label, c.basis === "container" ? "Per container" : "Per shipment", all.map((q) => { const x = cell(q); return x ? toAED(x.amount, x.currency, fx) : null; }), all.map((q) => { const x = cell(q); return x ? `${x.currency} ${x.amount.toLocaleString("en-US")}` : ""; }));
+    const cell = (q: RateQuote) => q.charges.find((x) => ckey(x) === ckey(c));
+    line(c.label, basisText(c).replace(/^p/, "P"), all.map((q) => { const x = cell(q); return x ? toAED(x.amount, x.currency, fx) : null; }), all.map((q) => { const x = cell(q); return x ? `${x.currency} ${x.amount.toLocaleString("en-US")}` : ""; }));
+  }
+  for (const e of r.equipment) {
+    const vals = all.map((q) => (q.state === "quoted" ? unitAllInAED(q, e.type, null, fx) : null));
+    line(`All in, one ${normEquip(e.type)} (AED)`, "Freight + its charges", vals, vals.map((v) => (v != null ? Math.round(v).toLocaleString("en-US") : "")));
   }
   const sum = (label: string, f: (q: RateQuote) => number | string) => {
     const row = ws.addRow(["", label, "", ...all.map((q) => (q.state === "quoted" ? f(q) : ""))]);

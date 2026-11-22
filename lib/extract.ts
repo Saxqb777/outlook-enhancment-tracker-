@@ -353,7 +353,7 @@ const RATE_SCHEMA = {
     charges: {
       type: "array",
       description: "Extra charges that are NOT already inside the rates above. Leave empty when the rate is all-in.",
-      items: { type: "object", properties: { label: { type: "string" }, basis: { type: "string", enum: ["container", "shipment"] }, amount: { type: "number" }, currency: { type: "string" } }, required: ["label", "basis", "amount", "currency"], additionalProperties: false },
+      items: { type: "object", properties: { label: { type: "string" }, basis: { type: "string", enum: ["container", "shipment"] }, amount: { type: "number" }, currency: { type: "string" }, applies: { type: "string", description: "For a per-container charge that is only for one equipment type (e.g. 'Origin charges 40HC'), that type, written like in rates. Empty when it is for every container, or for per-shipment charges." } }, required: ["label", "basis", "amount", "currency", "applies"], additionalProperties: false },
     },
     carrier: { type: "string" },
     routing: { type: "string" },
@@ -375,6 +375,8 @@ Rules:
 - Never invent a number. If a rate is not stated, leave it out. Do not convert currencies.
 - "rates" holds the price for one unit of each equipment type. If the supplier gives an all-in door to door price per container, that is the rate and "charges" stays empty.
 - Put a charge in "charges" only when it is listed separately and is not already inside a rate.
+- When a quotation prices several container sizes, list a rate for EVERY size and put every size in "equipment". A charge quoted separately for each size (e.g. origin charges for 20GP and for 40HC) becomes one charge per size, each with "applies" set to its size. Never leave a size out because the request mentioned only one.
+- A charge made once per bill of lading, per document or per shipment has basis "shipment".
 - If the supplier says they can't quote, set declined true with their reason, and leave rates empty.
 - Dates as YYYY-MM-DD. Unknown text fields are empty strings. Keep remarks short and factual.`;
 
@@ -382,7 +384,7 @@ export type RateExtract = {
   supplier: string; contact: string; contact_email: string; quoted_on: string; declined: boolean; decline_reason: string; title: string;
   origin: string; origin_country: string; origin_port: string; destination: string; destination_country: string; destination_port: string;
   commodity: string; mode: "sea" | "road" | "air"; service: "d2d" | "p2p" | "d2p" | "p2d"; incoterm: string; equipment: { type: string; qty: number }[];
-  currency: string; rates: { type: string; rate: number }[]; charges: { label: string; basis: "container" | "shipment"; amount: number; currency: string }[];
+  currency: string; rates: { type: string; rate: number }[]; charges: { label: string; basis: "container" | "shipment"; amount: number; currency: string; applies: string }[];
   carrier: string; routing: string; transit: string; free_time: string; valid_until: string; remarks: string; exclusions: string;
 };
 
@@ -403,7 +405,7 @@ export async function extractRate(text: string, today: string): Promise<{ ok: tr
     equipment: arr<{ type: string; qty: number }>(j.equipment).slice(0, 10).map((e) => ({ type: clip(e?.type, 40), qty: Math.max(1, Math.round(n(e?.qty)) || 1) })).filter((e) => e.type),
     currency: clip(j.currency, 3).toUpperCase() || "USD",
     rates: arr<{ type: string; rate: number }>(j.rates).slice(0, 12).map((x) => ({ type: clip(x?.type, 40), rate: n(x?.rate) })).filter((x) => x.type && x.rate > 0),
-    charges: arr<{ label: string; basis: string; amount: number; currency: string }>(j.charges).slice(0, 60).map((c) => ({ label: clip(c?.label, 80), basis: c?.basis === "shipment" ? ("shipment" as const) : ("container" as const), amount: n(c?.amount), currency: clip(c?.currency, 3).toUpperCase() })).filter((c) => c.label && c.amount > 0),
+    charges: arr<{ label: string; basis: string; amount: number; currency: string; applies?: string }>(j.charges).slice(0, 60).map((c) => ({ label: clip(c?.label, 80), basis: c?.basis === "shipment" ? ("shipment" as const) : ("container" as const), amount: n(c?.amount), currency: clip(c?.currency, 3).toUpperCase(), applies: c?.basis === "shipment" ? "" : clip(c?.applies, 40) })).filter((c) => c.label && c.amount > 0),
     carrier: clip(j.carrier, 80), routing: clip(j.routing, 200), transit: clip(j.transit, 120), free_time: clip(j.free_time, 80), valid_until: isISODate(j.valid_until) ? (j.valid_until as string) : "",
     remarks: clip(j.remarks, 1500), exclusions: clip(j.exclusions, 500),
   };

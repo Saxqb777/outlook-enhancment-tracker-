@@ -5,6 +5,8 @@ import { portalLogout } from "@/app/actions/portal";
 import { AttachProvider } from "@/components/Attach";
 import { Icon, Logo } from "@/components/Icon";
 import { PortalNotifier } from "@/components/Portal";
+import { PushAsk } from "@/components/Push";
+import { pushPublicKey } from "@/lib/push";
 import { Toasts } from "@/components/work";
 import Shortcuts from "@/components/Shortcuts";
 import { getCurrentUser } from "@/lib/auth";
@@ -61,6 +63,7 @@ export default async function PortalLayout({ children }: { children: React.React
       <Toasts />
       <Shortcuts portal />
       {!v.admin && <PortalNotifier />}
+      {!v.admin && <PushAsk publicKey={pushPublicKey()} />}
     </AttachProvider>
   );
 }

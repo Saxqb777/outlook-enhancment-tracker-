@@ -5,10 +5,10 @@ import { readRateSheet, readRateText, type QuoteInput, type RequestInput } from 
 import { AttachPicker, useUploader, type AttachState } from "@/components/Attach";
 import { Icon } from "@/components/Icon";
 import { toast } from "@/components/work";
-import { checkFile, type Uploaded } from "@/lib/attach-rules";
+import { checkFile, RT_MAX_BYTES, type Uploaded } from "@/lib/attach-rules";
 import type { RateExtract } from "@/lib/extract";
 import { readEmailFile } from "@/lib/mailfile";
-import { CURRENCIES, EQUIPMENT, INCOTERMS, MODES, normEquip, SERVICES, type Charge, type Equip, type Mode, type Service, type UnitRate } from "@/lib/rate-calc";
+import { chargeFor, CURRENCIES, EQUIPMENT, inferApplies, INCOTERMS, MODES, normEquip, SERVICES, type Charge, type Equip, type Mode, type Service, type UnitRate } from "@/lib/rate-calc";
 
 export type Hints = { places: string[]; countries: string[]; ports: string[]; commodities: string[]; suppliers: string[]; carriers: string[]; charges: [string, "container" | "shipment"][] };
 export const blankRequest = (today: string): RequestInput => ({ title: "", origin: "", origin_country: "", origin_port: "", destination: "", destination_country: "", destination_port: "", commodity: "", mode: "sea", service: "d2d", incoterm: "", equipment: [{ type: "40HC", qty: 1 }], notes: "", requested_on: today });
@@ -16,10 +16,12 @@ export const blankQuote = (today: string, types: string[] = []): QuoteInput => (
 
 /** What the AI read from a supplier's file, split into the enquiry part and the quote part. */
 export function fromExtract(d: RateExtract, today: string): { request: RequestInput; quote: QuoteInput } {
-  const equipment = d.equipment.length ? d.equipment.map((e) => ({ type: normEquip(e.type), qty: e.qty })) : d.rates.map((r) => ({ type: normEquip(r.type), qty: 1 }));
+  // Every size the supplier priced belongs to the shipment, even if the request text named only one.
+  const equipment = d.equipment.map((e) => ({ type: normEquip(e.type), qty: e.qty }));
+  for (const r of d.rates) if (!equipment.some((e) => e.type === normEquip(r.type))) equipment.push({ type: normEquip(r.type), qty: 1 });
   return {
     request: { title: d.title, origin: d.origin, origin_country: d.origin_country, origin_port: d.origin_port, destination: d.destination, destination_country: d.destination_country, destination_port: d.destination_port, commodity: d.commodity, mode: d.mode, service: d.service, incoterm: d.incoterm, equipment: equipment.length ? equipment : [{ type: "40HC", qty: 1 }], notes: "", requested_on: d.quoted_on || today },
-    quote: { supplier: d.supplier, state: d.declined ? "declined" : "quoted", quoted_on: d.quoted_on || today, currency: d.currency, rates: d.rates.map((r) => ({ type: normEquip(r.type), rate: r.rate })), charges: d.charges, carrier: d.carrier, routing: d.routing, transit: d.transit, free_time: d.free_time, valid_until: d.valid_until, remarks: d.remarks, exclusions: d.exclusions, decline_reason: d.decline_reason, negotiated: false, contact: d.contact, contact_email: d.contact_email },
+    quote: { supplier: d.supplier, state: d.declined ? "declined" : "quoted", quoted_on: d.quoted_on || today, currency: d.currency, rates: d.rates.map((r) => ({ type: normEquip(r.type), rate: r.rate })), charges: d.charges.map((c) => ({ ...c, applies: c.basis === "shipment" ? "" : c.applies ? normEquip(c.applies) : inferApplies(c.label) })), carrier: d.carrier, routing: d.routing, transit: d.transit, free_time: d.free_time, valid_until: d.valid_until, remarks: d.remarks, exclusions: d.exclusions, decline_reason: d.decline_reason, negotiated: false, contact: d.contact, contact_email: d.contact_email },
   };
 }
 
@@ -28,10 +30,10 @@ export function fromExtract(d: RateExtract, today: string): { request: RequestIn
  * and the AI fills the form. The file is uploaded too, so it stays attached to the quote.
  */
 export function useRateReader() {
-  const upload = useUploader("apv");
+  const upload = useUploader("rt");
   const [busy, setBusy] = useState<string | null>(null);
   const read = async (file: File): Promise<{ data: RateExtract; file: Uploaded | null } | null> => {
-    const bad = checkFile(file);
+    const bad = checkFile(file, RT_MAX_BYTES);
     if (bad) return toast(bad), null;
     setBusy(file.name);
     try {
@@ -43,7 +45,7 @@ export function useRateReader() {
         if (!u) return toast("That file didn't upload. Check your connection and try again."), null;
         r = await readRateSheet(u);
       } else {
-        const t = await readEmailFile(file, 10_000_000);
+        const t = await readEmailFile(file, RT_MAX_BYTES);
         if ("error" in t) return toast(t.error), null;
         r = await readRateText(t.text);
       }
@@ -227,7 +229,7 @@ export function QuoteFields({ v, set, hints, types, att, last }: { v: QuoteInput
     const name = l.trim();
     if (!name) return;
     const known = hints.charges.find(([x]) => x.toLowerCase() === name.toLowerCase());
-    up({ charges: [...v.charges, { label: known?.[0] ?? name, basis: known?.[1] ?? "container", amount: 0, currency: v.currency === "USD" ? "AED" : v.currency }] });
+    up({ charges: [...v.charges, { label: known?.[0] ?? name, basis: known?.[1] ?? "container", amount: 0, currency: v.currency === "USD" ? "AED" : v.currency, applies: inferApplies(name) }] });
     setLabel("");
     setMore(true);
   };
@@ -275,7 +277,7 @@ export function QuoteFields({ v, set, hints, types, att, last }: { v: QuoteInput
                 </label>
               ))}
             </div>
-            <span className="hint">The freight rate, or the all-in price if they gave one. Extra charges go below.</span>
+            <span className="hint">The freight rate, or the all-in price if they gave one. Extra charges go below: say which size each one is for, so the all-in rate per container comes out right.</span>
           </div>
           <div className="fields-row">
             <div className="field">
@@ -294,9 +296,19 @@ export function QuoteFields({ v, set, hints, types, att, last }: { v: QuoteInput
                 {v.charges.map((c, i) => (
                   <div className="rt-charge" key={i}>
                     <input className="inp" list="rt-charges" value={c.label} onChange={(e) => ch(i, { label: e.target.value })} aria-label="Charge" autoComplete="off" />
-                    <select className="inp" value={c.basis} onChange={(e) => ch(i, { basis: e.target.value as Charge["basis"] })} aria-label="Per container or per shipment">
-                      <option value="container">per container</option>
-                      <option value="shipment">per shipment</option>
+                    <select
+                      className="inp"
+                      value={c.basis === "shipment" ? "shipment" : `c:${chargeFor(c)}`}
+                      onChange={(e) => ch(i, e.target.value === "shipment" ? { basis: "shipment", applies: "" } : { basis: "container", applies: e.target.value.slice(2) })}
+                      aria-label="What this charge is for"
+                    >
+                      <option value="c:">{rows.length > 1 ? "per container, every size" : "per container"}</option>
+                      {[...new Set([...rows.map((r) => normEquip(r.type)), chargeFor(c)].filter(Boolean))].map((x) => (
+                        <option key={x} value={`c:${x}`}>
+                          per {x} only
+                        </option>
+                      ))}
+                      <option value="shipment">once per shipment</option>
                     </select>
                     <input className="inp" inputMode="decimal" value={c.amount || ""} onChange={(e) => ch(i, { amount: Number(e.target.value.replace(/[, ]/g, "")) || 0 })} placeholder="0" aria-label="Amount" autoComplete="off" />
                     <select className="inp rt-cur" value={c.currency} onChange={(e) => ch(i, { currency: e.target.value })} aria-label="Currency">

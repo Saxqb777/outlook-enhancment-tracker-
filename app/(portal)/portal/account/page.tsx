@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ChangePasswordForm } from "@/components/forms";
 import { Icon } from "@/components/Icon";
+import { PushCard } from "@/components/Push";
+import { pushPublicKey } from "@/lib/push";
 import { requireVendor } from "@/lib/vendor-auth";
 
 export const metadata: Metadata = { title: "My account" };
@@ -23,6 +25,12 @@ export default async function PortalAccountPage() {
           </p>
         </div>
       </header>
+      {!v.admin && (
+        <section className="panel ap-new" aria-label="Notifications">
+          <h2 className="acc-h">Notifications</h2>
+          <PushCard publicKey={pushPublicKey()} />
+        </section>
+      )}
       <section className="panel ap-new" aria-label="Change password">
         <h2 className="acc-h">Change my password</h2>
         {v.admin ? <p className="hint">You are looking at this portal as Admin.</p> : <ChangePasswordForm vendor />}

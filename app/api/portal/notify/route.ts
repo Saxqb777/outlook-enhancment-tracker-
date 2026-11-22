@@ -1,4 +1,6 @@
+import { after as later } from "next/server";
 import { q } from "@/lib/db";
+import { pushSweep } from "@/lib/push";
 import { getVendorUser } from "@/lib/vendor-auth";
 
 export const dynamic = "force-dynamic";
@@ -7,6 +9,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const v = await getVendorUser();
   if (!v) return Response.json({ error: "Sign in first." }, { status: 401 });
+  later(() => pushSweep());
   const raw = new URL(req.url).searchParams.get("after") ?? "";
   const after = /^\d{4}-\d\d-\d\dT[\d:.]+Z$/.test(raw) ? raw : null;
   const [items, count, now] = await Promise.all([

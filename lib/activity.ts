@@ -48,7 +48,8 @@ export async function housekeeping(): Promise<void> {
           and not exists (select 1 from approval_files a where a.url = 'local:' || l.key)
           and not exists (select 1 from rfq_files a where a.url = 'local:' || l.key)
           and not exists (select 1 from chat_files a where a.url = 'local:' || l.key)
-          and not exists (select 1 from rate_files a where a.url = 'local:' || l.key)`,
+          and not exists (select 1 from rate_files a where a.url = 'local:' || l.key)
+          and not exists (select 1 from rate_docs a where a.url = 'local:' || l.key)`,
     ).catch(() => {});
   } catch (err) {
     console.error("housekeeping failed", err);

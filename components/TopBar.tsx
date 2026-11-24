@@ -37,12 +37,17 @@ export default function TopBar({ me, navRole, viewOnly, badges, rates = false, d
   const tabsRef = useRef<HTMLElement>(null);
   const thumbRef = useRef<HTMLSpanElement>(null);
   const placed = useRef(false);
+  const topRef = useRef<HTMLElement>(null);
+  const measureRef = useRef<HTMLSpanElement>(null);
+  // How many menu items fit in the bar. The rest go under "More", so nothing is ever cut off.
+  const [fit, setFit] = useState(items.length);
+  const [more, setMore] = useState(false);
 
   const moveThumb = useCallback(() => {
     const tabs = tabsRef.current;
     const thumb = thumbRef.current;
     if (!tabs || !thumb) return;
-    const active = tabs.querySelector<HTMLAnchorElement>('a[aria-current="page"]');
+    const active = tabs.querySelector<HTMLElement>('.tab-links > [aria-current="page"]');
     if (!active || getComputedStyle(tabs).display === "none") {
       thumb.style.opacity = "0";
       return;
@@ -58,16 +63,69 @@ export default function TopBar({ me, navRole, viewOnly, badges, rates = false, d
     }
   }, []);
 
-  // Badges change the width of a tab, so the highlight is measured again when they do.
-  useLayoutEffect(moveThumb, [pathname, moveThumb, badges.review, badges.unread, badges.sign, badges.vendors]);
+  const measure = useCallback(() => {
+    const top = topRef.current;
+    const tabs = tabsRef.current;
+    const m = measureRef.current;
+    if (!top || !tabs || !m || getComputedStyle(tabs).display === "none") return;
+    const cs = getComputedStyle(top);
+    const gap = parseFloat(cs.columnGap || cs.gap) || 12;
+    let others = 0;
+    let n = 0;
+    for (const el of Array.from(top.children) as HTMLElement[]) {
+      if (getComputedStyle(el).display === "none") continue;
+      n++;
+      if (el !== tabs) others += el.offsetWidth;
+    }
+    // The search box can shrink to 120px before the menu has to give anything up.
+    const find = top.querySelector<HTMLElement>(".top-find");
+    if (find && getComputedStyle(find).display !== "none") others -= Math.max(0, find.offsetWidth - 120);
+    const room = top.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - others - gap * Math.max(0, n - 1) - 36;
+    const widths = (Array.from(m.children) as HTMLElement[]).map((el) => el.offsetWidth + 2);
+    const all = widths.reduce((a, b) => a + b, 0);
+    if (all <= room) return setFit(widths.length);
+    let used = 86; // the "More" button
+    let k = 0;
+    while (k < widths.length && used + widths[k] <= room) used += widths[k++];
+    setFit(Math.max(1, k));
+  }, []);
+
+  // Badges change the width of a tab, so the fit and the highlight are measured again when they do.
+  useLayoutEffect(measure, [measure, items.length, viewOnly, badges.review, badges.unread, badges.sign, badges.vendors]);
+  useLayoutEffect(moveThumb, [pathname, moveThumb, fit, badges.review, badges.unread, badges.sign, badges.vendors]);
   useEffect(() => {
-    window.addEventListener("resize", moveThumb);
-    document.fonts?.ready.then(moveThumb).catch(() => {});
-    return () => window.removeEventListener("resize", moveThumb);
-  }, [moveThumb]);
+    const again = () => (measure(), moveThumb());
+    window.addEventListener("resize", again);
+    document.fonts?.ready.then(again).catch(() => {});
+    return () => window.removeEventListener("resize", again);
+  }, [measure, moveThumb]);
+  useEffect(() => setMore(false), [pathname]);
+  useEffect(() => {
+    if (!more) return;
+    const down = (e: MouseEvent) => !(e.target as HTMLElement).closest?.(".tab-more-wrap") && setMore(false);
+    const key = (e: KeyboardEvent) => e.key === "Escape" && setMore(false);
+    document.addEventListener("mousedown", down);
+    document.addEventListener("keydown", key);
+    return () => {
+      document.removeEventListener("mousedown", down);
+      document.removeEventListener("keydown", key);
+    };
+  }, [more]);
+
+  const badgeOf = (href: string) => (
+    <>
+      {href === "/vendors" && badges.vendors > 0 && <span className="nav-badge blue" title={`${badges.vendors} new from vendors`}>{badges.vendors}</span>}
+      {href === "/approvals" && badges.sign > 0 && <span className="nav-badge" title={`${badges.sign} waiting for your signature`}>{badges.sign}</span>}
+      {href === "/" && badges.review > 0 && <span className="nav-badge" title={`${badges.review} waiting for approval`}>{badges.review}</span>}
+      {href === "/cases" && badges.unread > 0 && <span className="nav-badge blue" title={`${badges.unread} new chat messages`}>{badges.unread}</span>}
+    </>
+  );
+  const shown = items.slice(0, fit);
+  const rest = items.slice(fit);
+  const restActive = rest.some((it) => isActive(pathname, it.href));
 
   return (
-    <header className="top">
+    <header className="top" ref={topRef}>
       <Link className="brand" href="/" aria-label="Shipping Tickets home">
         <Logo />
         <span className="brand-t">
@@ -76,17 +134,38 @@ export default function TopBar({ me, navRole, viewOnly, badges, rates = false, d
       </Link>
       <nav className="tabs" ref={tabsRef} aria-label="Pages">
         <span className="tab-thumb" ref={thumbRef} aria-hidden="true" />
-        <span className="tab-links">
+        <span className="tab-measure" ref={measureRef} aria-hidden="true">
           {items.map((it) => (
-            <Link key={it.href} href={it.href} aria-current={isActive(pathname, it.href) ? "page" : undefined} data-tour={it.href === "/" ? "home" : it.href.slice(1)} title={it.href === "/admin" || it.href === "/rates" ? undefined : `Shortcut: G then ${it.label[0]}`}>
+            <a key={it.href} tabIndex={-1}>
               {it.label}
-              {it.href === "/vendors" && badges.vendors > 0 && <span className="nav-badge blue" title={`${badges.vendors} new from vendors`}>{badges.vendors}</span>}
-              {it.href === "/approvals" && badges.sign > 0 && <span className="nav-badge" title={`${badges.sign} waiting for your signature`}>{badges.sign}</span>}
-              {it.href === "/" && badges.review > 0 && <span className="nav-badge" title={`${badges.review} waiting for approval`}>{badges.review}</span>}
-              {it.href === "/cases" && badges.unread > 0 && <span className="nav-badge blue" title={`${badges.unread} new chat messages`}>{badges.unread}</span>}
-            </Link>
+              {badgeOf(it.href)}
+            </a>
           ))}
         </span>
+        <span className="tab-links">
+          {shown.map((it) => (
+            <Link key={it.href} href={it.href} aria-current={isActive(pathname, it.href) ? "page" : undefined} data-tour={it.href === "/" ? "home" : it.href.slice(1)} title={it.href === "/admin" || it.href === "/rates" || it.href === "/docs" ? undefined : `Shortcut: G then ${it.label[0]}`}>
+              {it.label}
+              {badgeOf(it.href)}
+            </Link>
+          ))}
+          {rest.length > 0 && (
+            <button type="button" className="tab-more tab-more-wrap" aria-haspopup="menu" aria-expanded={more} aria-current={restActive ? "page" : undefined} onClick={() => setMore((v) => !v)} data-tour={rest.map((it) => it.href.slice(1)).join(" ")}>
+              {restActive ? rest.find((it) => isActive(pathname, it.href))!.label : "More"}
+              <span aria-hidden="true">▾</span>
+            </button>
+          )}
+        </span>
+        {rest.length > 0 && more && (
+          <span className="menu tab-more-menu tab-more-wrap" role="menu">
+            {rest.map((it) => (
+              <Link key={it.href} role="menuitem" href={it.href} aria-current={isActive(pathname, it.href) ? "page" : undefined} onClick={() => setMore(false)}>
+                {it.label}
+                {badgeOf(it.href)}
+              </Link>
+            ))}
+          </span>
+        )}
       </nav>
       <div className="top-r">
         <form className="top-find" action="/cases" role="search" data-tour="search">

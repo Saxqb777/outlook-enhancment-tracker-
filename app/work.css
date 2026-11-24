@@ -6600,17 +6600,71 @@ a.aprow:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
-/* Many menu items (Lead with Rates and Docs): the menu scrolls sideways inside the bar instead of pushing it wider than the page. */
+/* Many menu items (Lead with Rates and Docs): what doesn't fit goes under "More", so nothing is ever hidden off the edge. */
 .top .tabs {
   min-width: 0;
-  flex-shrink: 1;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
 }
-.top .tabs::-webkit-scrollbar {
-  display: none;
-}
+/* The search box gives up width first, so more of the menu fits before anything moves under "More". */
 .top .top-r {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.top .top-r > :not(.top-find) {
   flex-shrink: 0;
+}
+.tab-measure {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  gap: 2px;
+  visibility: hidden;
+  pointer-events: none;
+  height: 0;
+  overflow: hidden;
+}
+.tab-more {
+  position: relative;
+  z-index: 1;
+  height: 36px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  font: inherit;
+  font-weight: 550;
+  color: var(--ink-3);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tab-more:hover,
+.tab-more[aria-current="page"],
+.tab-more[aria-expanded="true"] {
+  color: var(--ink);
+}
+.tab-more-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  z-index: 50;
+  min-width: 190px;
+  padding: 6px;
+  border-radius: 14px;
+  display: grid;
+  gap: 2px;
+}
+.tabs .tab-more-menu a {
+  height: 38px;
+  padding: 0 12px;
+  justify-content: space-between;
+  gap: 10px;
+  border-radius: 9px;
+}
+.tabs .tab-more-menu a:hover,
+.tabs .tab-more-menu a[aria-current="page"] {
+  background: var(--wash);
+  color: var(--ink);
 }

@@ -201,6 +201,32 @@ try {
   check(fbk.val?.ok === true && (await sql("select 1 from rate_feedback where body = 'AccessTest feedback note'")).length === 1, "rates feedback: the person who runs Rates can leave a note");
   await sql("delete from rate_feedback where body = 'AccessTest feedback note'");
 
+  console.log("\n— Export Docs and card expenses (the keeper and the Leads use it, the Admin looks)");
+  await sql("update users set can_docs = true where id = $1", [memB.id]);
+  const shipIn = { customer: "AccessTest Customer", country: "Testland", invoice_no: "AT-1", incoterm: "EXW", shipped_on: "", notes: "" };
+  check(/isn't here/.test((await get(memA, "/docs")).text) && /isn't here/.test((await get(memA, "/docs/cards")).text), "member without Export Docs: the pages aren't there for them");
+  check(refused(await act(memA, "saveShipment", [null, shipIn])), "member without Export Docs: can't add a shipment");
+  check(toLogin(await get(vA, "/docs")) && (await get(null, "/docs/file/1")).status === 401 && (await get(null, "/docs/export?kind=month")).status === 401, "vendor and signed out: Export Docs is closed");
+  check((await get(memA, "/docs/export?kind=month")).status === 404 && (await get(memA, "/docs/file/1")).status === 404, "member without Export Docs: no reports, no files");
+  const shp = await act(memB, "saveShipment", [null, shipIn]);
+  check(shp.val?.ok === true, "keeper: can add a shipment", JSON.stringify(shp.val));
+  const card = (await sql("insert into xd_cards (name, credit_limit, alert_at) values ('AccessTest card', 1000, 800) returning id::text as id"))[0].id;
+  const cat = (await sql("select id::text as id from xd_categories order by position limit 1"))[0].id;
+  const txn = { card_id: card, kind: "spend", amount: 500, on_date: "2026-01-05", category_id: cat, description: "AccessTest spend", shipment_id: "", charge_customer: false, customer: "" };
+  check(refused(await act(memA, "saveTxn", [null, txn])) && refused(await act(memA, "saveCard", [card, { name: "AccessTest card", credit_limit: 9, alert_at: 5, statement_day: 1, opening_used: 0, active: true }])), "member without Export Docs: can't touch cards or expenses");
+  check((await act(lead, "saveTxn", [null, txn])).val?.ok === true, "lead: can add an expense");
+  check((await sql("select count(*)::int as n from xd_alerts where card_id = $1", [card]))[0].n === 0, "card alert: nothing below the warning level");
+  check((await act(memB, "saveTxn", [null, { ...txn, amount: 350 }])).val?.ok === true && (await sql("select count(*)::int as n from xd_alerts where card_id = $1", [card]))[0].n === 1, "card alert: raised once when the level is crossed");
+  await act(memB, "saveTxn", [null, { ...txn, amount: 10 }]);
+  check((await sql("select count(*)::int as n from xd_alerts where card_id = $1", [card]))[0].n === 1, "card alert: not repeated while still above the level");
+  await act(memB, "saveTxn", [null, { ...txn, kind: "topup", amount: 700 }]);
+  await act(memB, "saveTxn", [null, { ...txn, amount: 650 }]);
+  check((await sql("select count(*)::int as n from xd_alerts where card_id = $1", [card]))[0].n === 2, "card alert: armed again after a top-up");
+  check((await get(lead, "/docs/reports")).status === 200 && (await get(lead, "/docs/export?kind=finance&from=2026-01-01&to=2026-01-31")).status === 200, "lead: sees the reports");
+  await sql("delete from xd_txns where card_id = $1", [card]);
+  await sql("delete from xd_cards where id = $1", [card]);
+  await sql("delete from xd_shipments where customer = 'AccessTest Customer'");
+
   console.log("\n— Notifications");
   const subBody = JSON.stringify({ endpoint: "https://push.example.invalid/accesstest", keys: { p256dh: "BAccessTestKeyAccessTestKeyAccessTestKey", auth: "AccessTestAuthKey" } });
   const push = (who, method, body) => fetch(BASE + "/api/push", { method, headers: { "Content-Type": "application/json", Cookie: who?.cookie ?? "" }, body }).then((r) => r.status);

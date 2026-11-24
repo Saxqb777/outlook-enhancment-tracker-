@@ -159,3 +159,15 @@ export async function setRates(form: FormData): Promise<void> {
   revalidatePath("/admin");
   revalidatePath("/", "layout");
 }
+
+export async function setDocs(form: FormData): Promise<void> {
+  const admin = await requireAdmin();
+  const id = String(form.get("userId") ?? "");
+  const on = form.get("on") === "1";
+  if (/^[0-9a-f-]{36}$/.test(id)) {
+    const u = await one<{ name: string }>("update users set can_docs = $2 where id = $1 and role <> 'admin' returning name", [id, on]);
+    if (u) await logActivity({ userId: admin.id }, "docs_access", `${on ? "Gave" : "Removed"} Export Docs and Card Expenses for ${u.name}`);
+  }
+  revalidatePath("/admin");
+  revalidatePath("/", "layout");
+}

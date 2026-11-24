@@ -13,7 +13,7 @@ export default function GlobalDrop() {
   useEffect(() => {
     // The Add and Reply pages handle drops themselves.
     // The rate book takes its own drops (supplier quotations), so the email drop stays out of it.
-    if (path === "/add" || /\/reply$/.test(path) || path.startsWith("/rates")) return;
+    if (path === "/add" || /\/reply$/.test(path) || path.startsWith("/rates") || path.startsWith("/docs")) return;
     let depth = 0;
     const hasFile = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes("Files");
     const inPicker = (e: DragEvent) => !!(e.target as HTMLElement | null)?.closest?.(".attp, .dialog, .pop, .chat-in, .rq-chat-in");

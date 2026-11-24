@@ -6409,3 +6409,165 @@ a.aprow:focus-visible {
     transform: none;
   }
 }
+
+/* ---------- Export Docs and Card Expenses ---------- */
+.xd-tabs {
+  align-self: flex-start;
+}
+.xd-search .rt-big {
+  display: grid;
+  gap: 6px;
+}
+.xd-docrow {
+  align-items: center;
+}
+.xd-grow {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.xd-grow .inp {
+  flex: 1;
+  min-width: 0;
+}
+.xd-table td {
+  vertical-align: middle;
+}
+.xd-acts {
+  white-space: nowrap;
+}
+.xd-topup td {
+  background: rgba(18, 147, 106, 0.06);
+}
+.xd-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 16px;
+}
+.xd-card {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+.xd-card.low {
+  box-shadow: inset 0 0 0 2px rgba(208, 59, 59, 0.45), var(--sh-1);
+}
+.xd-card p {
+  margin: 0;
+}
+.xd-left {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.xd-left b {
+  font-size: 30px;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.xd-left span {
+  color: var(--ink-3);
+  font-size: 13px;
+}
+.xd-bar {
+  display: block;
+  height: 10px;
+  border-radius: 99px;
+  background: var(--wash);
+  overflow: hidden;
+}
+.xd-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--late);
+}
+.xd-bar i.best {
+  background: var(--ok);
+}
+.xd-warn {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(208, 59, 59, 0.1);
+  color: #8f2323;
+  font-size: 13px;
+  font-weight: 600;
+}
+.xd-match {
+  color: var(--ok);
+  font-weight: 600;
+}
+.xd-off {
+  color: #8a5a00;
+  font-weight: 600;
+}
+.xd-card-b {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.xd-filter {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.xd-periods {
+  margin: 4px 0 2px;
+}
+.xd-periods a {
+  text-decoration: none;
+}
+.xd-sign {
+  display: none;
+}
+@media print {
+  .xd-report .panel,
+  .xd-report .stat {
+    box-shadow: none;
+    border: 1px solid #ccc;
+    break-inside: avoid;
+  }
+  .xd-sign {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 40px;
+    margin-top: 56px;
+  }
+  .xd-sign div {
+    border-top: 1px solid #000;
+    padding-top: 6px;
+    display: grid;
+    gap: 2px;
+    font-size: 12px;
+  }
+}
+
+/* Panels have no padding of their own: give these inner blocks their side space. */
+.xd-search {
+  padding: 18px;
+}
+.xd-card {
+  padding-bottom: 16px;
+}
+.xd-card > :not(.panel-h) {
+  margin-left: 18px;
+  margin-right: 18px;
+}
+.panel > .xd-filter {
+  padding: 0 18px;
+}
+.rt-book > .rt-then,
+.rt-book > .rt-note {
+  margin: 0 18px 14px;
+}
+.panel > .rt-find {
+  margin: 4px 18px 8px;
+  width: auto;
+}
+.panel > .rt-drop.compact {
+  margin: 0 18px 10px;
+}

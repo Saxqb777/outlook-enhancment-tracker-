@@ -1,5 +1,5 @@
 // The update tour and the "?" help on each page. Bump NEWS_VERSION and edit tourFor() to announce the next update.
-export const NEWS_VERSION = 8;
+export const NEWS_VERSION = 9;
 type R = "lead" | "member" | "admin";
 export type TourStep = { target?: string; title: string; text: string };
 
@@ -27,10 +27,24 @@ const RATES_NEW = (manage: boolean): TourStep[] =>
     : [{ target: '[data-tour="rates"]', title: "Rates got clearer", text: "It now shows the all-in rate for one container, a month-by-month view of each route, and a Documents tab. \"How Rates works\" explains the sums." }];
 const PUSH_STEP: TourStep = { title: "New: notifications on your phone", text: "Get a notification for messages, approvals and updates that are for you, even when the site is closed. Press Turn on when the card asks, or go to your name > My account > Notifications. On iPhone: add the site to your Home Screen first (Share > Add to Home Screen)." };
 
-export function tourFor(role: R, seen = 0, rates: "none" | "view" | "manage" = "none"): TourStep[] {
+const DOCS_TOUR = (manage: boolean): TourStep[] =>
+  manage
+    ? [
+        { target: '[data-tour="docs"]', title: "New: Export Docs", text: "One record for each export shipment, with all its documents in one place: Invoice, Packing List, COO, Health Certificate, Phytosanitary, BL, BOE. No more hunting through folders." },
+        { title: "Add a shipment, then its documents", text: "Press New shipment: customer, country, invoice number, Incoterm. Then Add a document: choose which one, type its number, attach the file, and enter what it cost and which card paid." },
+        { target: '[data-tour="xd-find"]', title: "Find any document by its number", text: "Type a document number, a customer, an invoice number or a country. The document opens straight from the result." },
+        { title: "Card expenses: every payment, typed once", text: "Under Card expenses, each card shows what is used and what is left. A cost typed on a document appears there by itself. Add food, visitors, duty exemption and anything else with Add an expense. Record a top-up when Finance pays the card." },
+        { title: "Low card warning", text: "When a card reaches its warning level, you and the Leads get a notification to ask Finance for a top-up. Type the bank's balance from its message now and then: the page shows if it matches." },
+        { title: "Monthly report for Finance", text: "Reports shows where the money went by category and by card, and the list of costs to charge to customers. Download it as Excel or print it to sign." },
+      ]
+    : [{ target: '[data-tour="docs"]', title: "New: Export Docs", text: "Every export shipment with all its documents, searchable by document number. Card expenses and the monthly report for Finance are under the same section." }];
+
+export function tourFor(role: R, seen = 0, rates: "none" | "view" | "manage" = "none", docs: "none" | "view" | "manage" = "none"): TourStep[] {
+  const d = docs === "none" ? [] : DOCS_TOUR(docs === "manage");
   // Saw everything up to the last update: only what is new in this one.
-  if (seen >= 7) return [...(rates === "none" ? [] : RATES_NEW(rates === "manage")), PUSH_STEP];
-  return [...tourBefore(role, seen, rates), PUSH_STEP];
+  if (seen >= 8) return d;
+  if (seen >= 7) return [...(rates === "none" ? [] : RATES_NEW(rates === "manage")), PUSH_STEP, ...d];
+  return [...tourBefore(role, seen, rates), PUSH_STEP, ...d];
 }
 function tourBefore(role: R, seen = 0, rates: "none" | "view" | "manage" = "none"): TourStep[] {
   // Saw everything up to the rate book: only that is new, and only for people who have it.
@@ -131,6 +145,38 @@ export function helpFor(path: string, role: R): HelpPage {
         ["Correct", "Changes a quote without losing the old one. Earlier versions are listed at the bottom."],
         ["Award", "Marks the winner, with the reason, PR number and PO value with buffer. Send for approval creates a request in Approvals for a Lead to sign."],
         ["Export comparison", "An Excel sheet laid out like a comparison: charges down, suppliers across, totals and the award."],
+      ],
+    };
+  if (path === "/docs" || /^\/docs\/\d+$/.test(path))
+    return {
+      title: "Export Docs",
+      items: [
+        ["One shipment, all its documents", "Each shipment holds its Invoice, Packing List, COO, Health Certificate, Phytosanitary, BL, BOE and anything else, each with its number and its file."],
+        ["Find", "Type a document number, customer, invoice number or country. Documents with that number show first and open straight away."],
+        ["Costs", "On each document, enter what it cost and which card paid. It appears under Card expenses by itself."],
+        ["Charge to customer", "Tick it when the customer pays the cost back (it starts ticked for Ex-Works). Those costs go on Finance's monthly list."],
+        ["Document names", "Pick from the list so everyone uses the same name. Choose \"Add a new one\" if it is missing."],
+      ],
+    };
+  if (path === "/docs/cards")
+    return {
+      title: "Card expenses",
+      items: [
+        ["Each card", "Shows what is left, what is used, the warning level and the days to the statement date."],
+        ["Add an expense", "Every time a card is used: amount, date, card, what for. Link it to a shipment if it belongs to one."],
+        ["Top-up", "When Finance pays the card, record it. It lowers what is used."],
+        ["Bank balance", "Type the available balance from the bank's message. The card shows whether it matches the entries, or how much is not entered yet."],
+        ["Running low", "At the warning level, the person who keeps the documents and the Leads get a notification."],
+      ],
+    };
+  if (path === "/docs/reports")
+    return {
+      title: "Reports",
+      items: [
+        ["Pick the period", "This month, an earlier month, the statement period (19th to 18th), or your own dates."],
+        ["Where the money went", "Totals by what the card was used for and by card."],
+        ["For Finance", "Costs marked \"charge to customer\", grouped by customer, with a total each."],
+        ["Download or print", "Excel for either list, or Print to sign and hand over."],
       ],
     };
   if (path === "/rates")

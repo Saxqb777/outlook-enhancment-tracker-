@@ -18,7 +18,7 @@ export async function editablePoint(user: User, pointId: string): Promise<{ id: 
 }
 
 /** Uploads not tied to a point: "apv" = approvals and quote requests (team), "vq" = a vendor's quote, "rt" = the rate book (bigger files). */
-export const FREE = new Set(["apv", "vq", "rt"]);
+export const FREE = new Set(["apv", "vq", "rt", "xd"]);
 
 export type Verified = { name: string; mime: string; size: number; storage: "blob" | "local"; url: string; pathname: string };
 

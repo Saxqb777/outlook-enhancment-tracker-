@@ -1,6 +1,7 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { ATT_MAX_BYTES, ATT_TYPES, RT_MAX_BYTES } from "@/lib/attach-rules";
 import { ratesAccess } from "@/lib/rates";
+import { docsAccess } from "@/lib/xdocs";
 import { editablePoint, useBlob } from "@/lib/attachments";
 import { getCurrentUser } from "@/lib/auth";
 import { getVendorUser } from "@/lib/vendor-auth";
@@ -30,6 +31,11 @@ export async function POST(request: Request) {
         // The rate book: only the person who runs it, and bigger files.
         if (/^rt\/[^/]{1,160}$/.test(pathname)) {
           if (!ratesAccess(user).manage) throw new Error("Only the person who runs the rate book can add files to it.");
+          return { allowedContentTypes: [...new Set(Object.values(ATT_TYPES))], maximumSizeInBytes: RT_MAX_BYTES, addRandomSuffix: true, validUntil: Date.now() + 30 * 60 * 1000 };
+        }
+        // Export documents: the person who keeps them and the Leads.
+        if (/^xd\/[^/]{1,160}$/.test(pathname)) {
+          if (!docsAccess(user).manage) throw new Error("You can't add export documents.");
           return { allowedContentTypes: [...new Set(Object.values(ATT_TYPES))], maximumSizeInBytes: RT_MAX_BYTES, addRandomSuffix: true, validUntil: Date.now() + 30 * 60 * 1000 };
         }
         const approval = /^apv\/[^/]{1,160}$/.test(pathname);

@@ -9,7 +9,7 @@ import type { Role } from "@/lib/auth";
 
 type Me = { name: string; email: string; role: Role };
 
-export function navItems(role: Role, rates = false): { href: string; label: string; icon: IconName }[] {
+export function navItems(role: Role, rates = false, docs = false): { href: string; label: string; icon: IconName }[] {
   const items: { href: string; label: string; icon: IconName }[] = [
     { href: "/", label: "Home", icon: "home" },
     { href: "/cases", label: "Cases", icon: "cases" },
@@ -18,6 +18,7 @@ export function navItems(role: Role, rates = false): { href: string; label: stri
     { href: "/vendors", label: "Vendors", icon: "truck" },
   ];
   if (rates) items.push({ href: "/rates", label: "Rates", icon: "rates" });
+  if (docs) items.push({ href: "/docs", label: "Docs", icon: "folder" });
   if (role === "lead" || role === "admin") items.push({ href: "/dashboard", label: "Dashboard", icon: "chart" });
   // Team lives in the menu under your name, to keep the bar short.
   if (role === "admin") items.push({ href: "/admin", label: "Admin", icon: "shield" });
@@ -30,9 +31,9 @@ export function isActive(pathname: string, href: string) {
 
 export type Badges = { review: number; unread: number; sign: number; vendors: number };
 
-export default function TopBar({ me, navRole, viewOnly, badges, rates = false }: { me: Me; navRole: Role; viewOnly: boolean; badges: Badges; rates?: boolean }) {
+export default function TopBar({ me, navRole, viewOnly, badges, rates = false, docs = false }: { me: Me; navRole: Role; viewOnly: boolean; badges: Badges; rates?: boolean; docs?: boolean }) {
   const pathname = usePathname();
-  const items = navItems(navRole, rates);
+  const items = navItems(navRole, rates, docs);
   const tabsRef = useRef<HTMLElement>(null);
   const thumbRef = useRef<HTMLSpanElement>(null);
   const placed = useRef(false);

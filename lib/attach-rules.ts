@@ -4,8 +4,10 @@ export const ATT_MAX_FILES = 5;
 // The rate book keeps big files (old rate sheets, contracts, long email threads).
 export const RT_MAX_BYTES = 50 * 1024 * 1024;
 export const RT_MAX_FILES = 20;
-export const maxBytesFor = (key: string) => (key === "rt" ? RT_MAX_BYTES : ATT_MAX_BYTES);
-export const maxFilesFor = (key: string) => (key === "rt" ? RT_MAX_FILES : ATT_MAX_FILES);
+/** "rt" = the rate book, "xd" = export documents: both keep big files. */
+export const bigKey = (key: string) => key === "rt" || key === "xd";
+export const maxBytesFor = (key: string) => (bigKey(key) ? RT_MAX_BYTES : ATT_MAX_BYTES);
+export const maxFilesFor = (key: string) => (bigKey(key) ? RT_MAX_FILES : ATT_MAX_FILES);
 
 export const ATT_TYPES: Record<string, string> = {
   pdf: "application/pdf",

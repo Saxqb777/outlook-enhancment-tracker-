@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { resetSandbox, setRates, setRole, viewAs, viewVendor } from "@/app/actions/admin";
+import { resetSandbox, setDocs, setRates, setRole, viewAs, viewVendor } from "@/app/actions/admin";
 import { nextStep, RFQ_STATUS, rqRef } from "@/lib/vendor-labels";
 import { listRfqs, listVendors } from "@/lib/vendors";
 import { Avatar, Icon } from "@/components/Icon";
@@ -20,6 +20,7 @@ type Person = {
   role: "lead" | "member";
   status: "invited" | "active" | "disabled";
   can_rates: boolean;
+  can_docs: boolean;
   last_login_at: Date | null;
   invite_expires: Date | null;
   open_points: number;
@@ -58,7 +59,7 @@ export default async function AdminPage() {
 
   const [people, reads, attempts, stats, openLinks] = await Promise.all([
     q<Person>(
-      `select u.id, u.name, u.email, u.role, u.status, u.can_rates, u.last_login_at, i.expires_at as invite_expires,
+      `select u.id, u.name, u.email, u.role, u.status, u.can_rates, u.can_docs, u.last_login_at, i.expires_at as invite_expires,
               (select count(*)::int from points p join cases c on c.id = p.case_id where (c.owner_id = u.id or exists (select 1 from case_members cm where cm.case_id = c.id and cm.user_id = u.id)) and p.status <> 'approved') as open_points,
               (select count(*)::int from points p join cases c on c.id = p.case_id
                 where (c.owner_id = u.id or exists (select 1 from case_members cm where cm.case_id = c.id and cm.user_id = u.id)) and p.status not in ('done', 'approved') and p.due < $1::date) as late_points,
@@ -197,6 +198,7 @@ export default async function AdminPage() {
                 </span>
                 <span className="t-act">
                   {p.status === "active" && (
+                    <>
                     <form action={setRates}>
                       <input type="hidden" name="userId" value={p.id} />
                       <input type="hidden" name="on" value={p.can_rates ? "0" : "1"} />
@@ -204,6 +206,14 @@ export default async function AdminPage() {
                         {p.can_rates ? "Runs Rates ✓" : "Give Rates"}
                       </button>
                     </form>
+                    {p.role !== "lead" && <form action={setDocs}>
+                      <input type="hidden" name="userId" value={p.id} />
+                      <input type="hidden" name="on" value={p.can_docs ? "0" : "1"} />
+                      <button className={`btn btn-sm${p.can_docs ? "" : " btn-ghost"}`} type="submit" title={p.can_docs ? "They keep the export documents and card expenses. Press to take it away." : "Lets this person add export documents and card expenses. Leads can already do this."}>
+                        {p.can_docs ? "Keeps Export Docs ✓" : "Give Export Docs"}
+                      </button>
+                    </form>}
+                    </>
                   )}
                   {p.status !== "disabled" && !(p.role === "lead" && leadCount < 2) && (
                     <form action={setRole}>

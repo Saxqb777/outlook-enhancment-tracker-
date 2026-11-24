@@ -8,7 +8,7 @@ export const pushPublicKey = () => process.env.VAPID_PUBLIC_KEY ?? "";
 export const pushConfigured = () => !!(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
 
 type Note = { user?: string; vendorUser?: string; title: string; body: string; url: string; tag: string };
-type State = { case_msg: string; approval_ev: string; rfq_msg: string; point_ev: string; feedback: string; vendor_join: Date };
+type State = { case_msg: string; approval_ev: string; rfq_msg: string; point_ev: string; feedback: string; card_alert: string; vendor_join: Date };
 const caseRef = (id: string) => `AE-${String(id).padStart(4, "0")}`;
 const clip = (s: string | null, n = 140) => {
   const t = String(s ?? "").replace(/\s+/g, " ").trim();
@@ -129,6 +129,15 @@ async function collect(s: State): Promise<{ notes: Note[]; next: Partial<Record<
     const admins = await q<{ id: string }>("select id::text as id from users where role = 'admin' and status = 'active'");
     for (const f of fb) for (const a of admins) notes.push({ user: a.id, title: `${f.who ?? "Someone"} left feedback on Rates`, body: clip(f.body), url: "/admin#feedback", tag: `fb-${f.id}` });
   }
+
+  // A card crossed its warning level: the Leads and whoever keeps the export documents, so Finance can be asked for a top-up.
+  const ca = await q<{ id: string; name: string; used: number; credit_limit: number }>("select a.id::text as id, c.name, a.used::float as used, a.credit_limit::float as credit_limit from xd_alerts a join xd_cards c on c.id = a.card_id where a.id > $1 order by a.id limit 20", [s.card_alert]);
+  top(ca, "card_alert");
+  if (ca.length) {
+    const who = await q<{ id: string }>("select id::text as id from users where status = 'active' and (role = 'lead' or (can_docs and role <> 'admin'))");
+    const n = (v: number) => Math.round(v).toLocaleString("en-US");
+    for (const a of ca) for (const u of who) notes.push({ user: u.id, title: `Card running low: ${a.name}`, body: `Used AED ${n(a.used)} of ${n(a.credit_limit)}. AED ${n(a.credit_limit - a.used)} left. Ask Finance for a top-up.`, url: "/docs/cards", tag: `card-${a.id}` });
+  }
   return { notes, next };
 }
 
@@ -181,12 +190,12 @@ export async function pushSweep(force = false): Promise<void> {
     const due = await one<{ due: boolean }>(
       `select (coalesce((select max(id) from case_messages), 0) > s.case_msg or coalesce((select max(id) from approval_events), 0) > s.approval_ev
             or coalesce((select max(id) from rfq_messages), 0) > s.rfq_msg or coalesce((select max(id) from point_events), 0) > s.point_ev
-            or coalesce((select max(id) from rate_feedback), 0) > s.feedback or exists (select 1 from vendor_users vu where vu.created_at > s.vendor_join)) as due
+            or coalesce((select max(id) from rate_feedback), 0) > s.feedback or coalesce((select max(id) from xd_alerts), 0) > s.card_alert or exists (select 1 from vendor_users vu where vu.created_at > s.vendor_join)) as due
          from push_state s where s.id = 1`,
     );
     if (!due?.due) return;
     const notes = await tx(async (c) => {
-      const s = (await c.query<State>("select case_msg::text as case_msg, approval_ev::text as approval_ev, rfq_msg::text as rfq_msg, point_ev::text as point_ev, feedback::text as feedback, vendor_join from push_state where id = 1 for update")).rows[0];
+      const s = (await c.query<State>("select case_msg::text as case_msg, approval_ev::text as approval_ev, rfq_msg::text as rfq_msg, point_ev::text as point_ev, feedback::text as feedback, card_alert::text as card_alert, vendor_join from push_state where id = 1 for update")).rows[0];
       if (!s) return [];
       const r = await collect(s);
       const sets = Object.keys(r.next);

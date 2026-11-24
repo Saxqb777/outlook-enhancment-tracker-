@@ -10,7 +10,7 @@ import type { Role } from "@/lib/auth";
 type Item = { href: string; label: string; icon: IconName; badge?: number; blue?: boolean };
 
 /** Phones have room for five: the four most used pages, and More for the rest. */
-export default function BottomNav({ role, viewOnly, badges, rates = false }: { role: Role; viewOnly: boolean; badges: Badges; rates?: boolean }) {
+export default function BottomNav({ role, viewOnly, badges, rates = false, docs = false }: { role: Role; viewOnly: boolean; badges: Badges; rates?: boolean; docs?: boolean }) {
   const pathname = usePathname();
   const [more, setMore] = useState(false);
   useEffect(() => setMore(false), [pathname]);
@@ -24,6 +24,7 @@ export default function BottomNav({ role, viewOnly, badges, rates = false }: { r
   const rest: Item[] = [{ href: "/board", label: "Board", icon: "board" }];
   if (!viewOnly) rest.push(approvals);
   if (rates) rest.push({ href: "/rates", label: "Rates", icon: "rates" });
+  if (docs) rest.push({ href: "/docs", label: "Export Docs", icon: "folder" });
   if (role !== "member") rest.push({ href: "/dashboard", label: "Dashboard", icon: "chart" }, { href: "/team", label: "Team", icon: "team" });
   if (role === "admin") rest.push({ href: "/admin", label: "Admin", icon: "shield" });
   const restBadge = rest.reduce((n, it) => n + (it.badge ?? 0), 0);

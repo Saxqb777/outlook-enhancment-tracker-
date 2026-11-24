@@ -39,6 +39,13 @@ const TABLES: [string, string[]][] = [
   ["rate_settings", []],
   ["rate_docs", []],
   ["rate_feedback", []],
+  ["xd_types", []],
+  ["xd_categories", []],
+  ["xd_cards", []],
+  ["xd_shipments", []],
+  ["xd_docs", []],
+  ["xd_txns", []],
+  ["xd_balances", []],
   ["activity_log", []],
 ];
 

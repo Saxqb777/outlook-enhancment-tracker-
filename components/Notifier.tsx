@@ -23,7 +23,7 @@ const rqRef = (id: string) => `RQ-${id.padStart(4, "0")}`;
 const apRef = (id: string) => `AP-${id.padStart(4, "0")}`;
 const isJoin = (n: { kind: string }) => n.kind === "vn_join";
 const isCard = (n: { kind: string }) => n.kind === "xd_alert";
-const head = (n: Note) => (isCard(n) ? "A card is running low" : isJoin(n) ? `${n.who ?? "Someone"} joined the vendor portal` : isRq(n) ? (n.kind === "rq_text" ? `${n.who ?? "Vendor"} wrote` : n.kind === "rq_internal" ? "Vendor award" : "Vendor update") : isAp(n) ? `${n.who ?? "Someone"} ${AP_SAY[n.kind] ?? "updated an approval"}` : `${n.kind === "ai" ? "AI" : (n.who ?? "Someone")} · ${caseRef(n.case_id)}`);
+const head = (n: Note) => (isCard(n) ? "The card limit is running low" : isJoin(n) ? `${n.who ?? "Someone"} joined the vendor portal` : isRq(n) ? (n.kind === "rq_text" ? `${n.who ?? "Vendor"} wrote` : n.kind === "rq_internal" ? "Vendor award" : "Vendor update") : isAp(n) ? `${n.who ?? "Someone"} ${AP_SAY[n.kind] ?? "updated an approval"}` : `${n.kind === "ai" ? "AI" : (n.who ?? "Someone")} · ${caseRef(n.case_id)}`);
 const href = (n: Note) => (isCard(n) ? "/docs/cards" : isJoin(n) ? `/vendors/v/${n.case_id}` : isRq(n) ? `/vendors/rfq/${n.case_id}${n.vendor_id ? `?v=${n.vendor_id}` : ""}` : isAp(n) ? `/approvals/${n.case_id}` : `/cases/${n.case_id}?tab=chat`);
 
 type Note = { id: string; case_id: string; subject: string; who: string | null; kind: string; body: string; vendor_id?: string };

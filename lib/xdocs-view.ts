@@ -1,11 +1,12 @@
 // Turns database rows into what the Export Docs screens show.
 import { isImage, sizeLabel } from "@/lib/attach-rules";
 import { fmtStamp } from "@/lib/time";
-import { daysToStatement, xdRef, type Card, type Doc, type Shipment, type Txn } from "@/lib/xdocs";
+import { daysToStatement, xdRef, type Budget, type Card, type Doc, type Shipment, type Txn } from "@/lib/xdocs";
 
 export const shipV = (s: Shipment) => ({ id: s.id, ref: xdRef(s.id), customer: s.customer, country: s.country, invoice_no: s.invoice_no, incoterm: s.incoterm, shipped_on: s.shipped_on, notes: s.notes, docs: s.docs, cost: s.cost, added: fmtStamp(s.created_at) });
 export const docV = (d: Doc) => ({ id: d.id, shipment_id: d.shipment_id, type_id: d.type_id, type: d.type, doc_number: d.doc_number, notes: d.notes, name: d.name, size: d.size ? sizeLabel(d.size) : "", view: !!d.mime && (d.mime === "application/pdf" || isImage(d.mime)), cost: d.cost, card_id: d.card_id, card: d.card, paid_on: d.paid_on, category_id: d.category_id, charge_customer: d.charge_customer });
-export const cardV = (c: Card, today: string) => ({ ...c, days: daysToStatement(today, c.statement_day) });
+export const cardV = (c: Card) => ({ ...c });
+export const budgetV = (b: Budget, today: string) => ({ ...b, days: daysToStatement(today, b.statement_day) });
 export const txnV = (t: Txn) => ({ ...t });
 
 /** The start and end of a report period. "cycle" = the card statement month ending on `day`. */

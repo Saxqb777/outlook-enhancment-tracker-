@@ -9,7 +9,7 @@ import { revalidatePath } from "next/cache";
 import { one, q, tx } from "@/lib/db";
 import { logActivity } from "@/lib/activity";
 
-/** Admin only: show the app the way this person sees it (view only). */
+/** Admin only: use the app as this person. The Admin then sees and can do what they can; each change is logged. */
 export async function viewAs(form: FormData): Promise<void> {
   const admin = await requireAdmin();
   const id = String(form.get("userId") ?? "");
@@ -17,7 +17,7 @@ export async function viewAs(form: FormData): Promise<void> {
     ? await one<{ id: string }>("select id from users where id = $1 and status = 'active' and role <> 'admin'", [id])
     : null;
   if (!target) redirect("/admin");
-  await logActivity({ userId: admin.id }, "view_as", `Looked at the app as ${(await one<{ name: string }>("select name from users where id = $1", [target.id]))?.name ?? "someone"}`);
+  await logActivity({ userId: admin.id }, "view_as", `Started acting as ${(await one<{ name: string }>("select name from users where id = $1", [target.id]))?.name ?? "someone"}`);
   (await cookies()).set(VIEW_AS_COOKIE, target.id, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -50,7 +50,7 @@ export async function setRole(form: FormData): Promise<void> {
   revalidatePath("/team");
 }
 
-/** Admin only: open a vendor's portal. Real vendors are view only; sandbox vendors can be used. */
+/** Admin only: open a vendor's portal and act as that vendor's first login. */
 export async function viewVendor(form: FormData): Promise<void> {
   const admin = await requireAdmin();
   const id = String(form.get("vendorId") ?? "");

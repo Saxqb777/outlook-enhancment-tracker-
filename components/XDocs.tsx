@@ -3,14 +3,15 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { addDocType, addExpenseCategory, removeDoc, removeShipment, removeTxn, saveBankBalance, saveCard, saveDoc, saveShipment, saveTxn, type CardInput, type DocInput, type ShipmentInput, type TxnInput } from "@/app/actions/xdocs";
+import { addDocType, addExpenseCategory, removeDoc, removeShipment, removeTxn, saveBankBalance, saveBudget, saveCard, saveDoc, saveShipment, saveTxn, type BudgetInput, type CardInput, type DocInput, type ShipmentInput, type TxnInput } from "@/app/actions/xdocs";
 import { Dialog, useAct } from "@/components/Approvals";
 import { AttachPicker, useAttach } from "@/components/Attach";
 import { Icon } from "@/components/Icon";
 import { toast } from "@/components/work";
 
 export type NamedV = { id: string; name: string; active: boolean };
-export type CardV = { id: string; name: string; credit_limit: number; alert_at: number; statement_day: number; opening_used: number; active: boolean; used: number; bank: number | null; bank_on: string | null; bank_used_then: number | null; days: number };
+export type CardV = { id: string; name: string; active: boolean; spent: number };
+export type BudgetV = { credit_limit: number; alert_at: number; statement_day: number; opening_used: number; used: number; bank: number | null; bank_on: string | null; bank_used_then: number | null; days: number };
 export type ShipV = { id: string; ref: string; customer: string; country: string; invoice_no: string; incoterm: string; shipped_on: string | null; notes: string; docs: number; cost: number; added: string };
 export type DocV = { id: string; shipment_id: string; type_id: string; type: string; doc_number: string; notes: string; name: string | null; size: string; view: boolean; cost: number | null; card_id: string | null; card: string | null; paid_on: string | null; category_id: string | null; charge_customer: boolean };
 export type TxnV = { id: string; card_id: string; card: string; kind: "spend" | "topup"; amount: number; on_date: string; category_id: string | null; category: string | null; description: string; shipment_id: string | null; doc_id: string | null; doc: string | null; charge_customer: boolean; customer: string; by: string | null };
@@ -589,28 +590,14 @@ function TxnDialog({ txn, topup, cardId, cards, cats, ships, today, fixedShip, o
 }
 
 function CardDialog({ card, onClose }: { card?: CardV; onClose: () => void }) {
-  const [v, setV] = useState<CardInput>({ name: card?.name ?? "", credit_limit: card?.credit_limit ?? 25000, alert_at: card?.alert_at ?? 20000, statement_day: card?.statement_day ?? 18, opening_used: card?.opening_used ?? 0, active: card?.active ?? true });
+  const [v, setV] = useState<CardInput>({ name: card?.name ?? "", active: card?.active ?? true });
   const { busy, act } = useAct();
-  const n = (k: keyof CardInput, label: string, hint?: string) => (
-    <div className="field">
-      <label>{label}</label>
-      <input className="inp" inputMode="decimal" value={String(v[k])} onChange={(e) => setV({ ...v, [k]: e.target.value })} autoComplete="off" />
-      {hint && <span className="hint">{hint}</span>}
-    </div>
-  );
   return (
     <Dialog title={card ? `Card: ${card.name}` : "Add a card"} onClose={onClose}>
+      <p className="hint">A card is only a name to pick on each expense, so you can see which card paid. The limit is shared by all the cards.</p>
       <div className="field">
         <label>Name</label>
         <input className="inp" value={v.name} onChange={(e) => setV({ ...v, name: e.target.value })} maxLength={80} placeholder="e.g. Ayoob's card" autoFocus />
-      </div>
-      <div className="fields-row">
-        {n("credit_limit", "Card limit, AED")}
-        {n("alert_at", "Warn when used reaches, AED", "Ayoob and the Leads get a notification to ask Finance for a top-up.")}
-      </div>
-      <div className="fields-row">
-        {n("statement_day", "Statement day of the month")}
-        {n("opening_used", "Already used when you started here, AED", "What was owed on the card before the first entry. Leave 0 if it was clear.")}
       </div>
       {card && (
         <label className="ap-check">
@@ -622,7 +609,7 @@ function CardDialog({ card, onClose }: { card?: CardV; onClose: () => void }) {
         <button type="button" className="btn btn-ghost" onClick={onClose}>
           Cancel
         </button>
-        <button type="button" className="btn btn-primary" disabled={busy} onClick={() => act(() => saveCard(card?.id ?? null, v), "Card saved.", onClose)}>
+        <button type="button" className="btn btn-primary" disabled={busy || v.name.trim().length < 2} onClick={() => act(() => saveCard(card?.id ?? null, v), "Card saved.", onClose)}>
           Save
         </button>
       </div>
@@ -630,14 +617,46 @@ function CardDialog({ card, onClose }: { card?: CardV; onClose: () => void }) {
   );
 }
 
-function BankDialog({ card, today, onClose }: { card: CardV; today: string; onClose: () => void }) {
+function BudgetDialog({ budget, onClose }: { budget: BudgetV; onClose: () => void }) {
+  const [v, setV] = useState<BudgetInput>({ credit_limit: budget.credit_limit, alert_at: budget.alert_at, statement_day: budget.statement_day, opening_used: budget.opening_used });
+  const { busy, act } = useAct();
+  const n = (k: keyof BudgetInput, label: string, hint?: string) => (
+    <div className="field">
+      <label>{label}</label>
+      <input className="inp" inputMode="decimal" value={String(v[k])} onChange={(e) => setV({ ...v, [k]: e.target.value })} autoComplete="off" />
+      {hint && <span className="hint">{hint}</span>}
+    </div>
+  );
+  return (
+    <Dialog title="Limit and warning" onClose={onClose}>
+      <p className="hint">One limit for all the cards together.</p>
+      <div className="fields-row">
+        {n("credit_limit", "Limit, AED")}
+        {n("alert_at", "Warn when used reaches, AED", "The Leads and the person who keeps the documents get a notification to ask Finance for a top-up.")}
+      </div>
+      <div className="fields-row">
+        {n("statement_day", "Statement day of the month")}
+        {n("opening_used", "Already used when you started here, AED", "What was owed before the first entry. Leave 0 if it was clear.")}
+      </div>
+      <div className="form-f">
+        <button type="button" className="btn btn-ghost" onClick={onClose}>
+          Cancel
+        </button>
+        <button type="button" className="btn btn-primary" disabled={busy} onClick={() => act(() => saveBudget(v), "Saved.", onClose)}>
+          Save
+        </button>
+      </div>
+    </Dialog>
+  );
+}
+
+function BankDialog({ budget, today, onClose }: { budget: BudgetV; today: string; onClose: () => void }) {
   const [bal, setBal] = useState("");
   const [on, setOn] = useState(today);
   const { busy, act } = useAct();
-  const ours = card.credit_limit - card.used;
   return (
-    <Dialog title={`Bank balance: ${card.name}`} onClose={onClose}>
-      <p className="hint">Type the available balance from the bank&apos;s message. The page then shows whether it matches what was entered here. By the entries, {aed(ours)} should be free today.</p>
+    <Dialog title="Bank balance" onClose={onClose}>
+      <p className="hint">Type the available balance from the bank&apos;s message. The page then shows whether it matches what was entered here. By the entries, {aed(budget.credit_limit - budget.used)} should be free today.</p>
       <div className="fields-row">
         <div className="field">
           <label htmlFor="xb-bal">Available balance, AED</label>
@@ -652,7 +671,7 @@ function BankDialog({ card, today, onClose }: { card: CardV; today: string; onCl
         <button type="button" className="btn btn-ghost" onClick={onClose}>
           Cancel
         </button>
-        <button type="button" className="btn btn-primary" disabled={busy || !bal.trim()} onClick={() => act(() => saveBankBalance(card.id, on, bal), "Balance saved.", onClose)}>
+        <button type="button" className="btn btn-primary" disabled={busy || !bal.trim()} onClick={() => act(() => saveBankBalance(on, bal), "Balance saved.", onClose)}>
           Save
         </button>
       </div>
@@ -660,67 +679,75 @@ function BankDialog({ card, today, onClose }: { card: CardV; today: string; onCl
   );
 }
 
-export function CardsView({ cards, txns, cats, ships, manage, today }: { cards: CardV[]; txns: TxnV[]; cats: NamedV[]; ships: ShipV[]; manage: boolean; today: string }) {
-  const [dlg, setDlg] = useState<null | { kind: "spend" | "topup"; card?: string; txn?: TxnV } | { card: CardV | null } | { bank: CardV }>(null);
+export function CardsView({ budget, cards, txns, cats, ships, manage, today }: { budget: BudgetV; cards: CardV[]; txns: TxnV[]; cats: NamedV[]; ships: ShipV[]; manage: boolean; today: string }) {
+  const [dlg, setDlg] = useState<null | { kind: "spend" | "topup"; card?: string; txn?: TxnV } | { card: CardV | null } | "bank" | "limit">(null);
   const [month, setMonth] = useState(today.slice(0, 7));
   const [card, setCard] = useState("");
   const [cat, setCat] = useState("");
   const shown = txns.filter((t) => (!month || t.on_date.startsWith(month)) && (!card || t.card_id === card) && (!cat || (cat === "topup" ? t.kind === "topup" : t.category_id === cat)));
   const spent = shown.filter((t) => t.kind === "spend").reduce((n, t) => n + t.amount, 0);
+  const left = budget.credit_limit - budget.used;
+  const pct = Math.max(0, Math.min(100, (budget.used / (budget.credit_limit || 1)) * 100));
+  const low = budget.used >= budget.alert_at;
+  const bankDiff = budget.bank != null && budget.bank_used_then != null ? budget.bank - (budget.credit_limit - budget.bank_used_then) : null;
+  const th = budget.statement_day === 1 ? "st" : budget.statement_day === 2 ? "nd" : budget.statement_day === 3 ? "rd" : "th";
+  const allSpent = cards.reduce((n, c) => n + c.spent, 0);
   return (
     <>
-      <div className="xd-cards" data-tour="xd-cards">
-        {cards.filter((c) => c.active).map((c) => {
-          const left = c.credit_limit - c.used;
-          const pct = Math.max(0, Math.min(100, (c.used / (c.credit_limit || 1)) * 100));
-          const low = c.used >= c.alert_at;
-          const bankDiff = c.bank != null && c.bank_used_then != null ? c.bank - (c.credit_limit - c.bank_used_then) : null;
-          return (
-            <section key={c.id} className={`panel xd-card${low ? " low" : ""}`} aria-label={c.name}>
-              <div className="panel-h">
-                <h2>{c.name}</h2>
-                {low ? <span className="ap-st rejected">Running low</span> : <span className="ap-st signed">OK</span>}
-              </div>
-              <p className="xd-left">
-                <b>{aed(left)}</b>
-                <span>left of {aed(c.credit_limit)}</span>
-              </p>
-              <span className="rt-bar xd-bar">
-                <i style={{ width: `${pct}%` }} className={low ? "" : "best"} />
-              </span>
-              <p className="small muted">
-                Used {aed(c.used)} · warns at {aed(c.alert_at)} · statement in {c.days} day{c.days === 1 ? "" : "s"} (the {c.statement_day}
-                {c.statement_day === 1 ? "st" : c.statement_day === 2 ? "nd" : c.statement_day === 3 ? "rd" : "th"})
-              </p>
-              {low && <p className="xd-warn">Ask Finance for a top-up. With {c.days} day{c.days === 1 ? "" : "s"} to the statement, {aed(Math.max(0, left))} may not be enough.</p>}
-              <p className={`small ${bankDiff == null ? "muted" : Math.abs(bankDiff) < 1 ? "xd-match" : "xd-off"}`}>
-                {bankDiff == null
-                  ? "No bank balance typed in yet."
-                  : Math.abs(bankDiff) < 1
-                    ? `Matches the bank: ${aed(c.bank!)} on ${day(c.bank_on)}.`
-                    : `Bank said ${aed(c.bank!)} on ${day(c.bank_on)}; the entries give ${aed(c.credit_limit - c.bank_used_then!)}. ${bankDiff < 0 ? `${aed(Math.abs(bankDiff))} of spending is not entered yet.` : `${aed(bankDiff)} more is entered than the bank shows.`}`}
-              </p>
-              {manage && (
-                <div className="xd-card-b">
-                  <button type="button" className="btn btn-sm btn-primary" onClick={() => setDlg({ kind: "spend", card: c.id })}>
-                    <Icon name="plus" size={13} />
-                    Expense
-                  </button>
-                  <button type="button" className="btn btn-sm" onClick={() => setDlg({ kind: "topup", card: c.id })}>
-                    Top-up
-                  </button>
-                  <button type="button" className="btn btn-sm" onClick={() => setDlg({ bank: c })}>
-                    Bank balance
-                  </button>
-                  <button type="button" className="btn btn-sm btn-ghost" onClick={() => setDlg({ card: c })}>
-                    Settings
-                  </button>
-                </div>
-              )}
-            </section>
-          );
-        })}
-      </div>
+      <section className={`panel xd-card xd-limit${low ? " low" : ""}`} aria-label="Card limit" data-tour="xd-cards">
+        <div className="panel-h">
+          <h2>Card limit, all cards together</h2>
+          {low ? <span className="ap-st rejected">Running low</span> : <span className="ap-st signed">OK</span>}
+        </div>
+        <p className="xd-left">
+          <b>{aed(left)}</b>
+          <span>left of {aed(budget.credit_limit)}</span>
+        </p>
+        <span className="rt-bar xd-bar">
+          <i style={{ width: `${pct}%` }} className={low ? "" : "best"} />
+        </span>
+        <p className="small muted">
+          Used {aed(budget.used)} · warns at {aed(budget.alert_at)} · statement in {budget.days} day{budget.days === 1 ? "" : "s"} (the {budget.statement_day}
+          {th})
+        </p>
+        {low && <p className="xd-warn">Ask Finance for a top-up. With {budget.days} day{budget.days === 1 ? "" : "s"} to the statement, {aed(Math.max(0, left))} may not be enough.</p>}
+        <p className={`small ${bankDiff == null ? "muted" : Math.abs(bankDiff) < 1 ? "xd-match" : "xd-off"}`}>
+          {bankDiff == null
+            ? "No bank balance typed in yet."
+            : Math.abs(bankDiff) < 1
+              ? `Matches the bank: ${aed(budget.bank!)} on ${day(budget.bank_on)}.`
+              : `Bank said ${aed(budget.bank!)} on ${day(budget.bank_on)}; the entries give ${aed(budget.credit_limit - budget.bank_used_then!)}. ${bankDiff < 0 ? `${aed(Math.abs(bankDiff))} of spending is not entered yet.` : `${aed(bankDiff)} more is entered than the bank shows.`}`}
+        </p>
+        <div className="xd-bycard" aria-label="Paid with each card">
+          {cards.filter((c) => c.active || c.spent > 0).map((c) => (
+            <button key={c.id} type="button" className="xd-bycard-i" onClick={() => manage && setDlg({ card: c })} disabled={!manage} title={manage ? "Rename or hide this card" : undefined}>
+              <span>{c.name}</span>
+              <b>{aed(c.spent)}</b>
+              <span className="small muted">{allSpent ? `${Math.round((c.spent / allSpent) * 100)}% of all spending` : "nothing paid with it yet"}</span>
+            </button>
+          ))}
+        </div>
+        {manage && (
+          <div className="xd-card-b">
+            <button type="button" className="btn btn-sm btn-primary" onClick={() => setDlg({ kind: "spend" })}>
+              <Icon name="plus" size={13} />
+              Expense
+            </button>
+            <button type="button" className="btn btn-sm" onClick={() => setDlg({ kind: "topup" })}>
+              Top-up
+            </button>
+            <button type="button" className="btn btn-sm" onClick={() => setDlg("bank")}>
+              Bank balance
+            </button>
+            <button type="button" className="btn btn-sm btn-ghost" onClick={() => setDlg("limit")}>
+              Limit and warning
+            </button>
+            <button type="button" className="btn btn-sm btn-ghost" onClick={() => setDlg({ card: null })}>
+              Add a card
+            </button>
+          </div>
+        )}
+      </section>
       <section className="panel" aria-label="Transactions">
         <div className="panel-h">
           <h2>
@@ -758,9 +785,6 @@ export function CardsView({ cards, txns, cats, ships, manage, today }: { cards: 
           <span className="sp" />
           {manage && (
             <>
-              <button type="button" className="btn btn-sm btn-ghost" onClick={() => setDlg({ card: null })}>
-                Add a card
-              </button>
               <button type="button" className="btn btn-sm btn-primary" data-key="n" onClick={() => setDlg({ kind: "spend" })}>
                 <Icon name="plus" size={14} />
                 Add an expense
@@ -771,9 +795,10 @@ export function CardsView({ cards, txns, cats, ships, manage, today }: { cards: 
         </div>
         {shown.length ? <TxnTable txns={shown} manage={manage} onEdit={(t) => setDlg({ kind: t.kind, txn: t })} /> : <p className="empty">{txns.length ? "Nothing in this view." : manage ? "Nothing entered yet. Every time a card is used, press Add an expense. Costs typed on a document appear here by themselves." : "Nothing entered yet."}</p>}
       </section>
-      {dlg && "kind" in dlg && <TxnDialog txn={dlg.txn} topup={dlg.kind === "topup"} cardId={dlg.card} cards={cards} cats={cats} ships={ships} today={today} onClose={() => setDlg(null)} />}
-      {dlg && "bank" in dlg && <BankDialog card={dlg.bank} today={today} onClose={() => setDlg(null)} />}
-      {dlg && "card" in dlg && !("kind" in dlg) && <CardDialog card={dlg.card ?? undefined} onClose={() => setDlg(null)} />}
+      {dlg && typeof dlg === "object" && "kind" in dlg && <TxnDialog txn={dlg.txn} topup={dlg.kind === "topup"} cardId={dlg.card} cards={cards} cats={cats} ships={ships} today={today} onClose={() => setDlg(null)} />}
+      {dlg === "bank" && <BankDialog budget={budget} today={today} onClose={() => setDlg(null)} />}
+      {dlg === "limit" && <BudgetDialog budget={budget} onClose={() => setDlg(null)} />}
+      {dlg && typeof dlg === "object" && "card" in dlg && !("kind" in dlg) && <CardDialog card={dlg.card ?? undefined} onClose={() => setDlg(null)} />}
     </>
   );
 }

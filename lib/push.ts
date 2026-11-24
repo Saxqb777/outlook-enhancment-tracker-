@@ -131,12 +131,12 @@ async function collect(s: State): Promise<{ notes: Note[]; next: Partial<Record<
   }
 
   // A card crossed its warning level: the Leads and whoever keeps the export documents, so Finance can be asked for a top-up.
-  const ca = await q<{ id: string; name: string; used: number; credit_limit: number }>("select a.id::text as id, c.name, a.used::float as used, a.credit_limit::float as credit_limit from xd_alerts a join xd_cards c on c.id = a.card_id where a.id > $1 order by a.id limit 20", [s.card_alert]);
+  const ca = await q<{ id: string; used: number; credit_limit: number }>("select a.id::text as id, a.used::float as used, a.credit_limit::float as credit_limit from xd_alerts a where a.id > $1 order by a.id limit 20", [s.card_alert]);
   top(ca, "card_alert");
   if (ca.length) {
     const who = await q<{ id: string }>("select id::text as id from users where status = 'active' and (role = 'lead' or (can_docs and role <> 'admin'))");
     const n = (v: number) => Math.round(v).toLocaleString("en-US");
-    for (const a of ca) for (const u of who) notes.push({ user: u.id, title: `Card running low: ${a.name}`, body: `Used AED ${n(a.used)} of ${n(a.credit_limit)}. AED ${n(a.credit_limit - a.used)} left. Ask Finance for a top-up.`, url: "/docs/cards", tag: `card-${a.id}` });
+    for (const a of ca) for (const u of who) notes.push({ user: u.id, title: "The card limit is running low", body: `Used AED ${n(a.used)} of ${n(a.credit_limit)}. AED ${n(a.credit_limit - a.used)} left. Ask Finance for a top-up.`, url: "/docs/cards", tag: `card-${a.id}` });
   }
   return { notes, next };
 }

@@ -101,13 +101,13 @@ export default function TopBar({ me, navRole, viewOnly, badges, rates = false, d
             <kbd className="kbd">N</kbd>
           </Link>
         )}
-        <UserMenu me={me} />
+        <UserMenu me={me} viewOnly={viewOnly} />
       </div>
     </header>
   );
 }
 
-function UserMenu({ me }: { me: Me }) {
+function UserMenu({ me, viewOnly }: { me: Me; viewOnly: boolean }) {
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
@@ -131,7 +131,7 @@ function UserMenu({ me }: { me: Me }) {
     };
   }, [open]);
 
-  const roleLabel = me.role === "lead" ? "Lead" : me.role === "admin" ? "Admin · view only" : "Member";
+  const roleLabel = me.role === "lead" ? "Lead" : me.role === "admin" ? (viewOnly ? "Admin · view only" : "Admin · acting as someone") : "Member";
   return (
     <div className="me-wrap" ref={wrap}>
       <button

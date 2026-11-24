@@ -46,7 +46,7 @@ export default async function PortalLayout({ children }: { children: React.React
         <div className="viewas" role="status">
           <Icon name="eye" size={16} />
           <span>
-            Viewing the portal as <b>{v.vendor}</b> · {v.viewOnly ? "view only" : "sandbox, you can try everything"}
+            Viewing the portal as <b>{v.vendor}</b> · {v.viewOnly ? "view only, nobody from this vendor has joined yet" : v.sandbox ? "sandbox, you can try everything" : `acting as ${v.name}: you can do everything they can, and it is real`}
           </span>
           <span className="sp" />
           <form action={stopViewVendor}>

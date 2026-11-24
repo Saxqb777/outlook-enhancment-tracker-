@@ -1,4 +1,4 @@
-import { getCurrentUser } from "@/lib/auth";
+import { getRealUser as getCurrentUser } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
 import { q } from "@/lib/db";
 import { todayISO } from "@/lib/time";
@@ -46,6 +46,7 @@ const TABLES: [string, string[]][] = [
   ["xd_docs", []],
   ["xd_txns", []],
   ["xd_balances", []],
+  ["xd_budget", []],
   ["activity_log", []],
 ];
 

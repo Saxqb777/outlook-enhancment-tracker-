@@ -53,9 +53,9 @@ export async function GET(req: Request) {
   // A card that has just crossed its warning level: the Leads and the person who keeps the export documents.
   const cardAlerts = after && (user.role === "lead" || user.can_docs)
     ? await q<{ id: string; case_id: string; subject: string; who: string | null; kind: string; body: string }>(
-        `select 'x' || a.id::text as id, c.id::text as case_id, c.name || ': used AED ' || to_char(a.used, 'FM999,999,990') || ' of ' || to_char(a.credit_limit, 'FM999,999,990') as subject,
+        `select 'x' || a.id::text as id, '0' as case_id, 'Used AED ' || to_char(a.used, 'FM999,999,990') || ' of ' || to_char(a.credit_limit, 'FM999,999,990') as subject,
                 null as who, 'xd_alert' as kind, 'Ask Finance for a top-up.' as body
-           from xd_alerts a join xd_cards c on c.id = a.card_id where a.created_at > $1::timestamptz order by a.id desc limit 3`,
+           from xd_alerts a where a.created_at > $1::timestamptz order by a.id desc limit 3`,
         [after],
       )
     : [];

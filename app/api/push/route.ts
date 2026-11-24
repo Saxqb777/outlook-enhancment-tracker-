@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { getCurrentUser, hashToken, SESSION_COOKIE } from "@/lib/auth";
+import { getRealUser as getCurrentUser, hashToken, SESSION_COOKIE } from "@/lib/auth";
 import { q } from "@/lib/db";
 import { pushConfigured, pushTest } from "@/lib/push";
 import { getVendorUser, VENDOR_COOKIE } from "@/lib/vendor-auth";

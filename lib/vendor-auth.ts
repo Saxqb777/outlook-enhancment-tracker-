@@ -3,7 +3,7 @@
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { getCurrentUser, hashToken, newToken } from "@/lib/auth";
+import { getCurrentUser, getRealUser, hashToken, newToken } from "@/lib/auth";
 import { one, q } from "@/lib/db";
 
 export const VENDOR_COOKIE = "ae_vendor";
@@ -54,7 +54,7 @@ export const getVendorUser = cache(async (): Promise<VendorUser | null> => {
   }
   const as = store.get(VIEW_VENDOR_COOKIE)?.value ?? "";
   if (!/^\d{1,12}$/.test(as)) return null;
-  const me = await getCurrentUser();
+  const me = await getRealUser();
   if (me?.role !== "admin") return null;
   const v = await one<{ vendor_id: string; vendor: string; test: boolean; id: string | null; name: string | null; email: string | null }>(
     `select v.id::text as vendor_id, v.name as vendor, v.test, u.id, u.name, u.email
@@ -62,8 +62,8 @@ export const getVendorUser = cache(async (): Promise<VendorUser | null> => {
     [as],
   );
   if (!v) return null;
-  // A sandbox vendor can be used for real by the Admin; a real vendor's portal can only be looked at.
-  const usable = v.test && !!v.id;
+  // The Admin can use any vendor's portal as that vendor's first login. With nobody joined yet, there is no one to act as.
+  const usable = !!v.id;
   return { id: v.id ?? "", name: v.name ?? "Nobody has joined yet", email: v.email ?? "", vendor_id: v.vendor_id, vendor: v.vendor, viewOnly: !usable, admin: true, sandbox: v.test };
 });
 

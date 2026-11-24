@@ -210,21 +210,29 @@ try {
   check((await get(memA, "/docs/export?kind=month")).status === 404 && (await get(memA, "/docs/file/1")).status === 404, "member without Export Docs: no reports, no files");
   const shp = await act(memB, "saveShipment", [null, shipIn]);
   check(shp.val?.ok === true, "keeper: can add a shipment", JSON.stringify(shp.val));
-  const card = (await sql("insert into xd_cards (name, credit_limit, alert_at) values ('AccessTest card', 1000, 800) returning id::text as id"))[0].id;
+  const card = (await sql("insert into xd_cards (name) values ('AccessTest card') returning id::text as id"))[0].id;
   const cat = (await sql("select id::text as id from xd_categories order by position limit 1"))[0].id;
+  // One limit for all the cards: set it just above what is used now, so the test spends cross the warning level.
+  const keep = (await sql("select credit_limit, alert_at, alerted, opening_used from xd_budget where id = 1"))[0];
+  const usedNow = Number((await sql("select (g.opening_used + coalesce((select sum(case when t.kind = 'spend' then t.amount else -t.amount end) from xd_txns t), 0))::float as u from xd_budget g where id = 1"))[0].u);
+  await sql("update xd_budget set credit_limit = $1, alert_at = $2, alerted = false where id = 1", [usedNow + 1000, usedNow + 800]);
+  const alerts = async () => (await sql("select count(*)::int as n from xd_alerts where created_at > now() - interval '10 minutes' and credit_limit = $1", [usedNow + 1000]))[0].n;
   const txn = { card_id: card, kind: "spend", amount: 500, on_date: "2026-01-05", category_id: cat, description: "AccessTest spend", shipment_id: "", charge_customer: false, customer: "" };
-  check(refused(await act(memA, "saveTxn", [null, txn])) && refused(await act(memA, "saveCard", [card, { name: "AccessTest card", credit_limit: 9, alert_at: 5, statement_day: 1, opening_used: 0, active: true }])), "member without Export Docs: can't touch cards or expenses");
+  check(refused(await act(memA, "saveTxn", [null, txn])) && refused(await act(memA, "saveCard", [card, { name: "AccessTest card", active: true }])) && refused(await act(memA, "saveBudget", [{ credit_limit: 9, alert_at: 5, statement_day: 1, opening_used: 0 }])), "member without Export Docs: can't touch cards, expenses or the limit");
   check((await act(lead, "saveTxn", [null, txn])).val?.ok === true, "lead: can add an expense");
-  check((await sql("select count(*)::int as n from xd_alerts where card_id = $1", [card]))[0].n === 0, "card alert: nothing below the warning level");
-  check((await act(memB, "saveTxn", [null, { ...txn, amount: 350 }])).val?.ok === true && (await sql("select count(*)::int as n from xd_alerts where card_id = $1", [card]))[0].n === 1, "card alert: raised once when the level is crossed");
+  check((await alerts()) === 0, "card alert: nothing below the warning level");
+  const other2 = (await sql("select id::text as id from xd_cards where id <> $1 order by id limit 1", [card]))[0]?.id ?? card;
+  check((await act(memB, "saveTxn", [null, { ...txn, card_id: other2, amount: 350 }])).val?.ok === true && (await alerts()) === 1, "card alert: raised once when all cards together cross the level");
   await act(memB, "saveTxn", [null, { ...txn, amount: 10 }]);
-  check((await sql("select count(*)::int as n from xd_alerts where card_id = $1", [card]))[0].n === 1, "card alert: not repeated while still above the level");
+  check((await alerts()) === 1, "card alert: not repeated while still above the level");
   await act(memB, "saveTxn", [null, { ...txn, kind: "topup", amount: 700 }]);
   await act(memB, "saveTxn", [null, { ...txn, amount: 650 }]);
-  check((await sql("select count(*)::int as n from xd_alerts where card_id = $1", [card]))[0].n === 2, "card alert: armed again after a top-up");
+  check((await alerts()) === 2, "card alert: armed again after a top-up");
   check((await get(lead, "/docs/reports")).status === 200 && (await get(lead, "/docs/export?kind=finance&from=2026-01-01&to=2026-01-31")).status === 200, "lead: sees the reports");
-  await sql("delete from xd_txns where card_id = $1", [card]);
+  await sql("delete from xd_txns where description = 'AccessTest spend'");
   await sql("delete from xd_cards where id = $1", [card]);
+  await sql("delete from xd_alerts where credit_limit = $1", [usedNow + 1000]);
+  await sql("update xd_budget set credit_limit = $1, alert_at = $2, alerted = $3, opening_used = $4 where id = 1", [keep.credit_limit, keep.alert_at, keep.alerted, keep.opening_used]);
   await sql("delete from xd_shipments where customer = 'AccessTest Customer'");
 
   console.log("\n— Notifications");
@@ -281,6 +289,22 @@ try {
     check(refused(await act(admin, "closeRfq", [rq.id, "cancelled"])), "admin: can't cancel a real request");
     check(refused(await act(admin, "setArchived", [c.id, true])), "admin: can't archive a case");
     check((await get(admin, "/admin/backup")).status === 200, "admin: can download the backup");
+
+    console.log("\n— Admin acting as someone (does what that person can, no more)");
+    const as = (u) => ({ extra: `ae_view_as=${u.id}` });
+    const owner = (await sql("select owner_id from cases where id = $1", [c.id]))[0].owner_id;
+    const other = owner === memA.id ? memB : memA;
+    const ownerP = owner === memA.id ? memA : memB;
+    const before = (await sql("select count(*)::int as n from activity_log where kind = 'acted_as' and user_id = $1", [admin.id]))[0].n;
+    const did = await act(admin, "setPointStatus", [pt.id, "progress"], as(ownerP));
+    check(did.val?.ok === true && (await sql("select status from points where id = $1", [pt.id]))[0].status === "progress", "acting as the case owner: the Admin can change a point", JSON.stringify(did.val));
+    check((await sql("select count(*)::int as n from activity_log where kind = 'acted_as' and user_id = $1", [admin.id]))[0].n > before, "acting: each change is written to the activity list under the Admin's name");
+    const shared = (await sql("select 1 from case_members where case_id = $1 and user_id = $2", [c.id, other.id])).length > 0;
+    if (!shared) check(refused(await act(admin, "setPointStatus", [pt.id, "todo"], as(other))), "acting as another member: still can't touch a case that isn't theirs");
+    check(/That page isn't here|Go to Home/.test((await get(admin, "/rates", `ae_view_as=${memA.id}`)).text) || (await get(admin, "/rates", `ae_view_as=${memA.id}`)).status === 404, "acting as a member without Rates: Rates is closed, like for them");
+    check((await get(admin, "/admin/backup", `ae_view_as=${memA.id}`)).status === 200 && (await get(admin, "/admin", `ae_view_as=${memA.id}`)).status === 200, "acting: the Admin page and backup still belong to the Admin");
+    check(refused(await act(admin, "setPointStatus", [pt.id, "done"], { extra: `ae_view_as=${admin.id}` })), "acting as an Admin is not possible");
+    check(!/Download a backup|Give Rates/.test((await get(lead, "/admin", `ae_view_as=${memA.id}`)).text) && (await get(lead, "/admin/backup", `ae_view_as=${memA.id}`)).status === 403, "a Lead with a forged 'act as' cookie gains nothing");
   }
 } catch (err) {
   fail++;

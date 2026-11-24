@@ -8,6 +8,7 @@ import {
   hashPassword,
   hashToken,
   leadExists,
+  requireRealUser,
   requireUser,
   safeEqual,
   verifyPassword,
@@ -246,7 +247,8 @@ export async function resetAdminPassword(_prev: FormState, form: FormData): Prom
 
 /** Anyone on the team can change their own password. Other devices are signed out. */
 export async function changePassword(_prev: FormState, form: FormData): Promise<FormState> {
-  const me = await requireUser();
+  // Always the person really signed in: the Admin acting as someone never changes that person's password here.
+  const me = await requireRealUser();
   const current = String(form.get("current") ?? "");
   const password = String(form.get("password") ?? "");
   const problem = passwordProblem(password, String(form.get("confirm") ?? ""));

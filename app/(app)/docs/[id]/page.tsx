@@ -46,7 +46,7 @@ export default async function ShipmentPage({ params }: { params: Promise<{ id: s
         </div>
       </header>
       <DocsTabs />
-      <ShipmentView ship={shipV(s)} docs={s.docList.map(docV)} other={s.other.map(txnV)} types={types} cards={cards.map((c) => cardV(c, today))} cats={cats} manage={access.manage && !viewOnly} today={today} />
+      <ShipmentView ship={shipV(s)} docs={s.docList.map(docV)} other={s.other.map(txnV)} types={types} cards={cards.map(cardV)} cats={cats} manage={access.manage && !viewOnly} today={today} />
     </div>
   );
 }

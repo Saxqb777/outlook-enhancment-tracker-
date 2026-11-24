@@ -17,7 +17,7 @@ Plain steps for whoever looks after the app. The project history and decisions a
 
 ## Tests
 - `npm run typecheck` checks the code.
-- `npm run test:access` runs the saved access-rule tests (vendors vs team, vendor vs vendor, Member vs Lead, Admin view only, signing and award safety rules). It needs a **local** database and a built, running copy; the header of `tests/access.mjs` has the exact commands. It refuses to run against anything that is not local.
+- `npm run test:access` runs the saved access-rule tests (vendors vs team, vendor vs vendor, Member vs Lead, Admin view only on their own view and acting as a person, signing and award safety rules). It needs a **local** database and a built, running copy; the header of `tests/access.mjs` has the exact commands. It refuses to run against anything that is not local.
 
 ## Backups
 - **In the app:** Admin page, Activity, **Download a backup**. One JSON file with every record except passwords, sessions, link tokens and the attached files themselves. Do this weekly and keep the file somewhere safe (not only on one laptop).
@@ -56,3 +56,10 @@ Once a day (on someone's sign-in) it removes expired sessions and links, sign-in
 
 - People who use Rates write notes with the "Something not right?" button. They are in the table `rate_feedback` and on the Admin page.
 - To act on them: tell Claude "check the Rates feedback". After fixing, the note's `status` is set to `done` with a `reply`, which the writer sees.
+
+## Admin: "Use as them"
+
+- On the Admin page, "Use as them" opens the app as that person. The Admin can then do everything that person can. "Back to Admin" in the dark bar ends it (it also ends by itself after 8 hours).
+- It is real work: saved under that person's name, seen by others, and it sends notifications.
+- Every change made this way is listed in Activity as "Admin, acting as ...".
+- Password change, phone notifications and the Admin page always stay the Admin's own.

@@ -83,7 +83,8 @@ export async function destroySession(): Promise<void> {
   store.delete("ae_view_vendor");
 }
 
-export const getCurrentUser = cache(async (): Promise<User | null> => {
+/** The person really signed in. The Admin stays the Admin here, also while acting as someone else. */
+export const getRealUser = cache(async (): Promise<User | null> => {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
   return one<User>(
@@ -92,6 +93,31 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
       where s.id = $1 and s.expires_at > now() and u.status = 'active'`,
     [hashToken(token)],
   );
+});
+
+/**
+ * Who this request acts as. For everyone it is themselves. The Admin can pick a person on the Admin page and
+ * then acts as them everywhere: sees what they see and can add, change and remove what they can. Each change
+ * made that way is written to the activity list under the Admin's own name.
+ */
+export const getCurrentUser = cache(async (): Promise<User | null> => {
+  const real = await getRealUser();
+  if (!real || real.role !== "admin") return real;
+  const id = (await cookies()).get(VIEW_AS_COOKIE)?.value ?? "";
+  if (!/^[0-9a-f-]{36}$/.test(id)) return real;
+  const target = await one<User>("select id, email, name, role, seen_news, can_rates, can_docs from users where id = $1 and status = 'active' and role <> 'admin'", [id]);
+  if (!target) return real;
+  const h = await headers();
+  if (h.get("next-action")) {
+    let where = "";
+    try {
+      where = new URL(h.get("referer") ?? "").pathname.slice(0, 80);
+    } catch {
+      /* no page to name */
+    }
+    await q("insert into activity_log (user_id, kind, detail) values ($1, 'acted_as', $2)", [real.id, `Admin, acting as ${target.name}, made a change${where ? ` on ${where}` : ""}`]).catch(() => {});
+  }
+  return target;
 });
 
 export async function requireUser(): Promise<User> {
@@ -106,31 +132,35 @@ export async function requireLead(): Promise<User> {
   return user;
 }
 
+/** The real person signed in, for things that are personal (password, own devices, the tour). */
+export async function requireRealUser(): Promise<User> {
+  const user = await getRealUser();
+  if (!user) redirect("/login");
+  return user;
+}
+
 export async function requireAdmin(): Promise<User> {
-  const user = await requireUser();
+  const user = await requireRealUser();
   if (user.role !== "admin") redirect("/");
   return user;
 }
 
 export type Viewer = {
-  /** Who the pages are shown for: the signed-in person, or the person the Admin is looking as. */
+  /** Who the pages are shown for: the signed-in person, or the person the Admin is acting as. */
   me: User;
   /** The signed-in person. */
   real: User;
-  /** True for the Admin: nothing can be changed. */
+  /** True for the Admin on their own view: nothing can be changed. Acting as someone, the Admin can do what they can. */
   viewOnly: boolean;
-  /** Set when the Admin is looking at someone else's view. */
+  /** Set when the Admin is acting as someone else. */
   viewingAs: User | null;
 };
 
 export const getViewer = cache(async (): Promise<Viewer> => {
-  const real = await requireUser();
-  if (real.role !== "admin") return { me: real, real, viewOnly: false, viewingAs: null };
-  const id = (await cookies()).get(VIEW_AS_COOKIE)?.value ?? "";
-  const target = /^[0-9a-f-]{36}$/.test(id)
-    ? await one<User>("select id, email, name, role, can_rates, can_docs from users where id = $1 and status = 'active' and role <> 'admin'", [id])
-    : null;
-  return { me: target ?? real, real, viewOnly: true, viewingAs: target };
+  const real = await requireRealUser();
+  const me = (await getCurrentUser()) ?? real;
+  const acting = me.id !== real.id;
+  return { me, real, viewOnly: real.role === "admin" && !acting, viewingAs: acting ? me : null };
 });
 
 /** Lead and Admin see everyone's work; Members see their own. */

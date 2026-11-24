@@ -42,7 +42,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="viewas" role="status">
           <Icon name="eye" size={16} />
           <span>
-            Viewing as <b>{viewingAs.name}</b> ({viewingAs.role === "lead" ? "Lead" : "Member"}) · view only
+            Acting as <b>{viewingAs.name}</b> ({viewingAs.role === "lead" ? "Lead" : "Member"}) · you can do everything they can, and it is real: others see it and get notified
           </span>
           <span className="sp" />
           <form action={stopViewAs}>

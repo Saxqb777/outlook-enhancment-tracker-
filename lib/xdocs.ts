@@ -13,17 +13,26 @@ export type Named = { id: string; name: string; active: boolean };
 export const listTypes = () => q<Named>("select id::text as id, name, active from xd_types order by position, lower(name)");
 export const listCategories = () => q<Named>("select id::text as id, name, active from xd_categories order by position, lower(name)");
 
-export type Card = { id: string; name: string; credit_limit: number; alert_at: number; statement_day: number; opening_used: number; active: boolean; used: number; bank: number | null; bank_on: string | null; bank_used_then: number | null };
-/** `used` = what is owed on the card now: the opening amount, plus everything spent, minus the top-ups. */
+export type Card = { id: string; name: string; active: boolean; spent: number };
+/** The cards are only names to pick from: which card paid. `spent` is everything paid with that card. */
 export const listCards = () =>
   q<Card>(
-    `select c.id::text as id, c.name, c.credit_limit::float as credit_limit, c.alert_at::float as alert_at, c.statement_day, c.opening_used::float as opening_used, c.active,
-            (c.opening_used + coalesce((select sum(case when t.kind = 'spend' then t.amount else -t.amount end) from xd_txns t where t.card_id = c.id), 0))::float as used,
-            b.balance::float as bank, b.on_date::text as bank_on,
-            (c.opening_used + coalesce((select sum(case when t.kind = 'spend' then t.amount else -t.amount end) from xd_txns t where t.card_id = c.id and t.on_date <= b.on_date), 0))::float as bank_used_then
-       from xd_cards c left join lateral (select balance, on_date from xd_balances x where x.card_id = c.id order by x.on_date desc, x.id desc limit 1) b on true
-      order by c.active desc, lower(c.name)`,
+    `select c.id::text as id, c.name, c.active, coalesce((select sum(t.amount) from xd_txns t where t.card_id = c.id and t.kind = 'spend'), 0)::float as spent
+       from xd_cards c order by c.active desc, lower(c.name)`,
   );
+
+export type Budget = { credit_limit: number; alert_at: number; statement_day: number; opening_used: number; used: number; bank: number | null; bank_on: string | null; bank_used_then: number | null };
+/** One limit for all the cards together. `used` = the opening amount, plus everything spent, minus the top-ups. */
+export async function getBudget(): Promise<Budget> {
+  const r = await one<Budget>(
+    `select g.credit_limit::float as credit_limit, g.alert_at::float as alert_at, g.statement_day, g.opening_used::float as opening_used,
+            (g.opening_used + coalesce((select sum(case when t.kind = 'spend' then t.amount else -t.amount end) from xd_txns t), 0))::float as used,
+            b.balance::float as bank, b.on_date::text as bank_on,
+            (g.opening_used + coalesce((select sum(case when t.kind = 'spend' then t.amount else -t.amount end) from xd_txns t where t.on_date <= b.on_date), 0))::float as bank_used_then
+       from xd_budget g left join lateral (select balance, on_date from xd_balances x order by x.on_date desc, x.id desc limit 1) b on true where g.id = 1`,
+  );
+  return r ?? { credit_limit: 25000, alert_at: 20000, statement_day: 18, opening_used: 0, used: 0, bank: null, bank_on: null, bank_used_then: null };
+}
 
 export type Shipment = { id: string; customer: string; country: string; invoice_no: string; incoterm: string; shipped_on: string | null; notes: string; created_at: Date; by: string | null; docs: number; cost: number };
 const SHIP = `s.id::text as id, s.customer, s.country, s.invoice_no, s.incoterm, s.shipped_on::text as shipped_on, s.notes, s.created_at, u.name as by,

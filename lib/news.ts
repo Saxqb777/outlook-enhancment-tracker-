@@ -33,8 +33,8 @@ const DOCS_TOUR = (manage: boolean): TourStep[] =>
         { target: '[data-tour="docs"]', title: "New: Export Docs", text: "One record for each export shipment, with all its documents in one place: Invoice, Packing List, COO, Health Certificate, Phytosanitary, BL, BOE. No more hunting through folders." },
         { title: "Add a shipment, then its documents", text: "Press New shipment: customer, country, invoice number, Incoterm. Then Add a document: choose which one, type its number, attach the file, and enter what it cost and which card paid." },
         { target: '[data-tour="xd-find"]', title: "Find any document by its number", text: "Type a document number, a customer, an invoice number or a country. The document opens straight from the result." },
-        { title: "Card expenses: every payment, typed once", text: "Under Card expenses, each card shows what is used and what is left. A cost typed on a document appears there by itself. Add food, visitors, duty exemption and anything else with Add an expense. Record a top-up when Finance pays the card." },
-        { title: "Low card warning", text: "When a card reaches its warning level, you and the Leads get a notification to ask Finance for a top-up. Type the bank's balance from its message now and then: the page shows if it matches." },
+        { title: "Card expenses: every payment, typed once", text: "Under Card expenses, one limit covers all the cards together: what is used and what is left. On each expense you only say which card paid. A cost typed on a document appears there by itself. Add food, visitors, duty exemption and anything else with Add an expense. Record a top-up when Finance pays the card." },
+        { title: "Low limit warning", text: "When the total reaches the warning level, you and the Leads get a notification to ask Finance for a top-up. Type the bank's balance from its message now and then: the page shows if it matches." },
         { title: "Monthly report for Finance", text: "Reports shows where the money went by category and by card, and the list of costs to charge to customers. Download it as Excel or print it to sign." },
       ]
     : [{ target: '[data-tour="docs"]', title: "New: Export Docs", text: "Every export shipment with all its documents, searchable by document number. Card expenses and the monthly report for Finance are under the same section." }];
@@ -162,10 +162,10 @@ export function helpFor(path: string, role: R): HelpPage {
     return {
       title: "Card expenses",
       items: [
-        ["Each card", "Shows what is left, what is used, the warning level and the days to the statement date."],
+        ["One limit", "All the cards share one limit. The top shows what is left, what is used, the warning level and the days to the statement date. Below it: how much was paid with each card."],
         ["Add an expense", "Every time a card is used: amount, date, card, what for. Link it to a shipment if it belongs to one."],
         ["Top-up", "When Finance pays the card, record it. It lowers what is used."],
-        ["Bank balance", "Type the available balance from the bank's message. The card shows whether it matches the entries, or how much is not entered yet."],
+        ["Bank balance", "Type the available balance from the bank's message. The page shows whether it matches the entries, or how much is not entered yet."],
         ["Running low", "At the warning level, the person who keeps the documents and the Leads get a notification."],
       ],
     };
@@ -265,7 +265,7 @@ export function helpFor(path: string, role: R): HelpPage {
   if (path === "/board") return { title: "Board", items: [["Cards", "Every point is a card, sorted by status."], ["Move a card", "Drag it to another column, or use the ⋯ menu. Moving to Done or Waiting lets you add a note and files."], ["Open", "Click a card to open its case."]] };
   if (path === "/add") return { title: "Add an email", items: [["Three ways", "Paste the email text, upload the file, or drag the email onto the page. Outlook .msg, .eml and PDF all work."], ["The AI reads it", "It finds the sender, deadlines and each thing being asked. This takes about 10 seconds."], ["You check it", "Change anything before saving. Under Working with, pick teammates to share the case."]] };
   if (path === "/team") return { title: "Team", items: [["Invite", "Create an invite link and send it. The person sets their own name, email and password."], ["Reset password", "If someone forgets their password, make a reset link for them."], ["Access", "Turn a member's access off or back on."]] };
-  if (path === "/admin") return { title: "Admin", items: [["Health", "Whether the database and AI are working."], ["See their view", "Shows the app exactly as that person sees it. You can't change anything."], ["Make Lead / Make Member", "Switch a person between Lead and Member at any time. The team always keeps at least one Lead."], ["See their portal", "Under Vendors: opens the vendor portal exactly as that vendor sees it, view only."], ["Activity", "Sensitive actions with who did them: role changes, reset links, access changes, awards, removals and view-as. Download a backup saves one file with all records."], ["Test area", "A sandbox with test vendors and a test request in every stage. Only you see it, and there you can quote, chat, award and confirm to try every screen. Reset puts it back."], ["Logs", "Every AI read and every sign-in attempt."]] };
+  if (path === "/admin") return { title: "Admin", items: [["Health", "Whether the database and AI are working."], ["Use as them", "Opens the app as that person. You can do everything they can, and it is real: others see it and get notified. Each change is noted in Activity."], ["Make Lead / Make Member", "Switch a person between Lead and Member at any time. The team always keeps at least one Lead."], ["See their portal", "Under Vendors: opens the vendor portal exactly as that vendor sees it, view only."], ["Activity", "Sensitive actions with who did them: role changes, reset links, access changes, awards, removals and view-as. Download a backup saves one file with all records."], ["Test area", "A sandbox with test vendors and a test request in every stage. Only you see it, and there you can quote, chat, award and confirm to try every screen. Reset puts it back."], ["Logs", "Every AI read and every sign-in attempt."]] };
   return {
     title: "Home",
     items: lead

@@ -32,22 +32,22 @@ function touch(shipmentId?: string | null) {
   if (shipmentId) revalidatePath(`/docs/${shipmentId}`);
 }
 
-/** After money moves on a card: raise the "running low" alert once when it crosses the line, and re-arm it after a top-up. */
-async function checkCard(c: PoolClient, cardId: string): Promise<boolean> {
+/** After money moves: raise the "running low" alert once when the total crosses the line, and re-arm it after a top-up. */
+async function checkCard(c: PoolClient, _cardId?: string): Promise<boolean> {
+  void _cardId;
   const r = (
     await c.query<{ used: number; alert_at: number; credit_limit: number; alerted: boolean }>(
-      `select (k.opening_used + coalesce((select sum(case when t.kind = 'spend' then t.amount else -t.amount end) from xd_txns t where t.card_id = k.id), 0))::float as used,
-              k.alert_at::float as alert_at, k.credit_limit::float as credit_limit, k.alerted from xd_cards k where k.id = $1 for update`,
-      [cardId],
+      `select (g.opening_used + coalesce((select sum(case when t.kind = 'spend' then t.amount else -t.amount end) from xd_txns t), 0))::float as used,
+              g.alert_at::float as alert_at, g.credit_limit::float as credit_limit, g.alerted from xd_budget g where g.id = 1 for update`,
     )
   ).rows[0];
   if (!r) return false;
   if (r.used >= r.alert_at && !r.alerted) {
-    await c.query("update xd_cards set alerted = true where id = $1", [cardId]);
-    await c.query("insert into xd_alerts (card_id, used, credit_limit) values ($1, $2, $3)", [cardId, r.used, r.credit_limit]);
+    await c.query("update xd_budget set alerted = true where id = 1");
+    await c.query("insert into xd_alerts (used, credit_limit) values ($1, $2)", [r.used, r.credit_limit]);
     return true;
   }
-  if (r.used < r.alert_at && r.alerted) await c.query("update xd_cards set alerted = false where id = $1", [cardId]);
+  if (r.used < r.alert_at && r.alerted) await c.query("update xd_budget set alerted = false where id = 1");
   return false;
 }
 const tell = (alert: boolean) => alert && after(() => pushSweep(true));
@@ -209,47 +209,55 @@ export async function removeTxn(id: string): Promise<Result> {
   return { ok: true };
 }
 
-/** The balance the bank reported by SMS: how much is still free on the card that day. */
-export async function saveBankBalance(cardId: string, onDate: string, balance: number | string): Promise<Result> {
+/** The balance the bank reported by SMS: how much of the limit is still free that day. */
+export async function saveBankBalance(onDate: string, balance: number | string): Promise<Result> {
   const me = await manager();
   if (!me) return NO;
-  if (!isId(cardId)) return GONE;
   const n = Number(String(balance ?? "").replace(/[, ]/g, ""));
   if (!Number.isFinite(n) || n < -1e8 || n > 1e8 || String(balance ?? "").trim() === "") return { ok: false, error: "Enter the balance from the bank's message." };
-  const r = await q("insert into xd_balances (card_id, on_date, balance, created_by) select id, $2, $3, $4 from xd_cards where id = $1 returning id", [cardId, isISODate(onDate) ? onDate : todayISO(), Math.round(n * 100) / 100, me.id]);
-  if (!r.length) return GONE;
+  await q("insert into xd_balances (on_date, balance, created_by) values ($1, $2, $3)", [isISODate(onDate) ? onDate : todayISO(), Math.round(n * 100) / 100, me.id]);
   touch();
   return { ok: true };
 }
 
-// ------------------------------------------------------------------ setup: cards and the two lists
+// ------------------------------------------------------------------ setup: the limit, the cards and the two lists
 
-export type CardInput = { name: string; credit_limit: number | string; alert_at: number | string; statement_day: number | string; opening_used: number | string; active: boolean };
+export type BudgetInput = { credit_limit: number | string; alert_at: number | string; statement_day: number | string; opening_used: number | string };
+/** The one limit that all the cards share, and when to warn. */
+export async function saveBudget(input: BudgetInput): Promise<Result> {
+  const me = await manager();
+  if (!me) return NO;
+  const limit = money(input?.credit_limit);
+  const alertAt = money(input?.alert_at);
+  if (!limit) return { ok: false, error: "Enter the limit." };
+  if (!alertAt || alertAt > limit) return { ok: false, error: "The warning level must be above 0 and not more than the limit." };
+  const day = Math.min(31, Math.max(1, Math.round(Number(input.statement_day)) || 18));
+  const opening = Math.max(0, Number(String(input.opening_used ?? "").replace(/[, ]/g, "")) || 0);
+  let alert = false;
+  await tx(async (c) => {
+    await c.query("update xd_budget set credit_limit = $1, alert_at = $2, statement_day = $3, opening_used = $4 where id = 1", [limit, alertAt, day, opening]);
+    alert = await checkCard(c);
+  });
+  await logActivity({ userId: me.id }, "xd_limit_saved", `Set the card limit to ${limit}, warning at ${alertAt}, statement day ${day}`);
+  tell(alert);
+  touch();
+  return { ok: true };
+}
+
+export type CardInput = { name: string; active: boolean };
+/** A card is only a name to pick on an expense: which card paid. */
 export async function saveCard(id: string | null, input: CardInput): Promise<Result> {
   const me = await manager();
   if (!me) return NO;
   const name = t(input?.name, 80);
   if (name.length < 2) return { ok: false, error: "Give the card a name, e.g. Ayoob's card." };
-  const limit = money(input.credit_limit);
-  const alertAt = money(input.alert_at);
-  if (!limit) return { ok: false, error: "Enter the card's limit." };
-  if (!alertAt || alertAt > limit) return { ok: false, error: "The alert level must be above 0 and not more than the limit." };
-  const day = Math.min(31, Math.max(1, Math.round(Number(input.statement_day)) || 18));
-  const opening = Math.max(0, Number(String(input.opening_used ?? "").replace(/[, ]/g, "")) || 0);
-  let alert = false;
   try {
-    await tx(async (c) => {
-      let cid = id;
-      if (id && isId(id)) await c.query("update xd_cards set name = $2, credit_limit = $3, alert_at = $4, statement_day = $5, opening_used = $6, active = $7 where id = $1", [id, name, limit, alertAt, day, opening, input.active !== false]);
-      else cid = (await c.query<{ id: string }>("insert into xd_cards (name, credit_limit, alert_at, statement_day, opening_used) values ($1, $2, $3, $4, $5) returning id::text as id", [name, limit, alertAt, day, opening])).rows[0].id;
-      alert = await checkCard(c, cid!);
-    });
+    if (id && isId(id)) await q("update xd_cards set name = $2, active = $3 where id = $1", [id, name, input.active !== false]);
+    else await q("insert into xd_cards (name) values ($1)", [name]);
   } catch (e) {
     if ((e as { code?: string }).code === "23505") return { ok: false, error: "There is already a card with that name." };
     throw e;
   }
-  await logActivity({ userId: me.id }, "xd_card_saved", `Saved the card "${name}": limit ${limit}, alert at ${alertAt}, statement day ${day}`);
-  tell(alert);
   touch();
   return { ok: true };
 }

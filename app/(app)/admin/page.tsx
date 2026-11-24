@@ -150,7 +150,7 @@ export default async function AdminPage() {
           <h2>
             People <span className="count">{people.length}</span>
           </h2>
-          <span className="hint">&ldquo;See their view&rdquo; shows the app exactly as they see it, view only. You can switch anyone between Lead and Member at any time.</span>
+          <span className="hint">&ldquo;Use as them&rdquo; opens the app as that person: you see what they see and can add, change and remove what they can. It is real work, others see it and get notified. Each change is noted in Activity. You can switch anyone between Lead and Member at any time.</span>
         </div>
         <div className="list">
           {people.map((p) => {
@@ -229,7 +229,7 @@ export default async function AdminPage() {
                       <input type="hidden" name="userId" value={p.id} />
                       <button className="btn btn-sm" type="submit">
                         <Icon name="eye" size={14} />
-                        See their view
+                        Use as them
                       </button>
                     </form>
                   )}
@@ -251,7 +251,7 @@ export default async function AdminPage() {
           <h2>
             Vendors <span className="count">{realVendors.length}</span>
           </h2>
-          <span className="hint">&ldquo;See their portal&rdquo; shows the vendor portal exactly as that vendor sees it, view only.</span>
+          <span className="hint">&ldquo;Use their portal&rdquo; opens the vendor portal as that vendor&apos;s first login: you can quote, chat and tick steps for them, and it is real. A vendor nobody has joined yet can only be looked at.</span>
         </div>
         <div className="list">
           {realVendors.map((v) => (
@@ -278,7 +278,7 @@ export default async function AdminPage() {
                   <input type="hidden" name="vendorId" value={v.id} />
                   <button className="btn btn-sm" type="submit">
                     <Icon name="eye" size={14} />
-                    See their portal
+                    Use their portal
                   </button>
                 </form>
               </span>

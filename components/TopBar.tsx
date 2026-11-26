@@ -144,7 +144,7 @@ export default function TopBar({ me, navRole, viewOnly, badges, rates = false, d
         </span>
         <span className="tab-links">
           {shown.map((it) => (
-            <Link key={it.href} href={it.href} aria-current={isActive(pathname, it.href) ? "page" : undefined} data-tour={it.href === "/" ? "home" : it.href.slice(1)} title={it.href === "/admin" || it.href === "/rates" || it.href === "/docs" ? undefined : `Shortcut: G then ${it.label[0]}`}>
+            <Link key={it.href} href={it.href === "/cases" && badges.unread > 0 ? "/cases?show=new" : it.href} aria-current={isActive(pathname, it.href) ? "page" : undefined} data-tour={it.href === "/" ? "home" : it.href.slice(1)} title={it.href === "/cases" && badges.unread > 0 ? `${badges.unread} new chat message${badges.unread === 1 ? "" : "s"}: press to see which cases` : it.href === "/admin" || it.href === "/rates" || it.href === "/docs" ? undefined : `Shortcut: G then ${it.label[0]}`}>
               {it.label}
               {badgeOf(it.href)}
             </Link>
@@ -159,7 +159,7 @@ export default function TopBar({ me, navRole, viewOnly, badges, rates = false, d
         {rest.length > 0 && more && (
           <span className="menu tab-more-menu tab-more-wrap" role="menu">
             {rest.map((it) => (
-              <Link key={it.href} role="menuitem" href={it.href} aria-current={isActive(pathname, it.href) ? "page" : undefined} onClick={() => setMore(false)}>
+              <Link key={it.href} role="menuitem" href={it.href === "/cases" && badges.unread > 0 ? "/cases?show=new" : it.href} aria-current={isActive(pathname, it.href) ? "page" : undefined} onClick={() => setMore(false)}>
                 {it.label}
                 {badgeOf(it.href)}
               </Link>

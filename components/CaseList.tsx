@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { bulkSetOwner } from "@/app/actions/manage";
 import { toast, useViewOnly } from "@/components/work";
 import { Avatar, Icon } from "@/components/Icon";
@@ -29,8 +29,9 @@ export type CaseItem = {
   unread?: number;
 };
 
-type Filter = "open" | "late" | "review" | "closed" | "all";
+type Filter = "new" | "open" | "late" | "review" | "closed" | "all";
 const LABELS: [Filter, string][] = [
+  ["new", "New messages"],
   ["open", "Open"],
   ["late", "Past due"],
   ["review", "Needs review"],
@@ -59,6 +60,10 @@ export default function CaseList({
   const viewOnly = useViewOnly();
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>(initialQ ? "all" : initial);
+  // The menu's blue number links here with "New messages" on, also when this page is already open.
+  useEffect(() => {
+    if (!initialQ) setFilter(initial);
+  }, [initial, initialQ]);
   const [owner, setOwner] = useState("all");
   const [q, setQ] = useState(initialQ);
   const [selecting, setSelecting] = useState(false);
@@ -91,6 +96,7 @@ export default function CaseList({
 
   const late = (p: CaseItem["points"][number]) => !closedStatus(p.status) && !!p.due && diffDays(p.due, today) < 0;
   const tests: Record<Filter, (c: CaseItem) => boolean> = {
+    new: (c) => !!c.unread,
     open: (c) => !caseClosed(c),
     late: (c) => c.points.some(late),
     review: (c) => c.points.some((p) => p.status === "done"),
@@ -113,6 +119,8 @@ export default function CaseList({
       .map((p) => p.due!)
       .sort()[0] ?? null;
   list = [...list].sort((a, b) => {
+    // Cases with chat messages you haven't read come first, so the number in the menu is easy to follow.
+    if (!!a.unread !== !!b.unread) return Number(!!b.unread) - Number(!!a.unread);
     const ca = caseClosed(a);
     const cb = caseClosed(b);
     if (ca !== cb) return Number(ca) - Number(cb);
@@ -126,8 +134,8 @@ export default function CaseList({
     <>
       <div className="filters">
         <div className="seg" role="group" aria-label="Show">
-          {LABELS.map(([k, l]) => (
-            <button key={k} type="button" aria-pressed={filter === k} onClick={() => setFilter(k)}>
+          {LABELS.filter(([k]) => k !== "new" || counts.new > 0 || filter === "new").map(([k, l]) => (
+            <button key={k} type="button" className={k === "new" ? "seg-new" : undefined} aria-pressed={filter === k} onClick={() => setFilter(k)}>
               {l}
               <span className="n">{counts[k]}</span>
             </button>
@@ -191,7 +199,11 @@ export default function CaseList({
                 </span>
                 <span className="c-main">
                   <span className="c-subj">
-                    {!!c.unread && <span className="unread-dot" title={`${c.unread} new in chat`} />}
+                    {!!c.unread && (
+                      <span className="unread-tag" title="Open the Chat tab on this case to read them">
+                        {c.unread} new message{c.unread === 1 ? "" : "s"}
+                      </span>
+                    )}
                     {c.subject}
                   </span>
                   <span className="c-from">
@@ -274,7 +286,7 @@ export default function CaseList({
           )}
           {!list.length && (
             <p className="empty">
-              {cases.length ? "No cases match. Try another filter." : lead ? "No cases yet. Add an email to create the first one." : "No cases yet. Add an email to start tracking your work."}
+              {filter === "new" && !needle ? "No new messages. You are up to date." : cases.length ? "No cases match. Try another filter." : lead ? "No cases yet. Add an email to create the first one." : "No cases yet. Add an email to start tracking your work."}
             </p>
           )}
         </div>

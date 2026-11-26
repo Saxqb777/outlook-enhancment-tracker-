@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import CaseList from "@/components/CaseList";
 import { Icon } from "@/components/Icon";
 import { getViewer } from "@/lib/auth";
@@ -9,7 +10,7 @@ import { assignees, listCases } from "@/lib/work";
 export const metadata: Metadata = { title: "Cases" };
 export const dynamic = "force-dynamic";
 
-const SHOW = ["open", "late", "review", "closed", "all"] as const;
+const SHOW = ["new", "open", "late", "review", "closed", "all"] as const;
 
 export default async function CasesPage({ searchParams }: { searchParams: Promise<{ show?: string; q?: string }> }) {
   const { me, viewOnly } = await getViewer();
@@ -18,6 +19,9 @@ export default async function CasesPage({ searchParams }: { searchParams: Promis
   const [rows, people] = await Promise.all([listCases(me, archived), me.role === "lead" ? assignees() : Promise.resolve([])]);
   const cases = rows.map((c) => ({ ...c, created_at: new Date(c.created_at).toISOString() }));
   const initial = SHOW.find((s) => s === show) ?? "open";
+  // Coming from the blue number in the menu with just one case to read: go straight to its chat.
+  const fresh = cases.filter((c) => !!c.unread);
+  if (show === "new" && fresh.length === 1) redirect(`/cases/${fresh[0].id}?tab=chat`);
 
   return (
     <div className="page-in">
